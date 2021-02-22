@@ -2774,6 +2774,83 @@ def asymmetric(ctx, interface_name, status):
     run_command("pfc config asymmetric {0} {1}".format(status, interface_name))
 
 #
+# 'tx_error_threshold' subgroup (config interface tx_error_threshold ...)
+#
+
+@interface.group()
+@click.pass_context
+def tx_error_threshold(ctx):
+    """Set or Remove threshold of tx error count"""
+    pass
+
+#
+# 'tx_error_threshold' subgroup - set command (config interface tx_error_threshold set <ifname> <count>)
+#
+@tx_error_threshold.command()
+@click.pass_context
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+@click.argument('interface_tx_err_threshold', metavar='<interface_tx_err_threshold>', required=True, type=int)
+def set(ctx, interface_name, interface_tx_err_threshold):
+    """Set threshold of for Tx error count"""
+    if interface_name is None:
+        ctx.fail("'interface_name' is None!")
+
+    config_db = ctx.obj['config_db']
+    if get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    if interface_name_is_valid(interface_name) is False:
+        ctx.fail("Interface name is invalid. Please enter a valid interface name!!")
+    
+    if interface_name.startswith("Ethernet"):
+        config_db.set_entry("TX_ERR_CFG", (interface_name), {"tx_error_threshold": interface_tx_err_threshold})
+    else:
+        ctx.fail("Only Ethernet interfaces are supported")    
+
+
+#
+# 'tx_error_threshold' subgroup - clear command (config interface tx_error_threshold clear <ifname>)
+#
+@tx_error_threshold.command()
+@click.pass_context
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+def clear(ctx, interface_name):
+    """Clear threshold for Tx Error Monitoring"""
+    if interface_name is None:
+        ctx.fail("'interface_name' is None!")
+
+    config_db = ctx.obj["config_db"]
+    if get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    if interface_name_is_valid(interface_name) is False:
+        ctx.fail("Interface name is invalid. Please enter a valid interface name!!")
+
+    if config_db.get_entry('TX_ERR_CFG', interface_name):
+        if interface_name.startswith("Ethernet"):
+            config_db.set_entry("TX_ERR_CFG", (interface_name), None)
+        else:
+            ctx.fail("Only Ethernet interfaces are supported")
+    else:
+        ctx.fail("Tx Error threshold hasn't been configured on the interface")
+
+
+#
+# 'tx_error_stat_poll_period' subcommand config tx_error_stat_poll_period <period in sec>'
+#
+@config.command()
+@click.argument('period', metavar='<period>', required=True, type=int)
+def tx_error_stat_poll_period(period):
+    """Polling period for Tx error statistics, Enter 0 to disable, xxx for default"""
+    config_db = ConfigDBConnector()
+    config_db.connect()
+    config_db.set_entry("TX_ERR_CFG", ("GLOBAL_PERIOD"), {"tx_error_check_period": period})
+
+#
 # 'platform' group ('config platform ...')
 #
 
