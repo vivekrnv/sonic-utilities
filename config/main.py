@@ -2794,14 +2794,14 @@ def set(ctx, interface_name, interface_tx_err_threshold):
     """Set threshold of for Tx error count"""
     if interface_name is None:
         ctx.fail("'interface_name' is None!")
-
+        
     config_db = ctx.obj['config_db']
     if get_interface_naming_mode() == "alias":
         interface_name = interface_alias_to_name(interface_name)
         if interface_name is None:
             ctx.fail("'interface_name' is None!")
 
-    if interface_name_is_valid(interface_name) is False:
+    if interface_name_is_valid(config_db, interface_name) is False:
         ctx.fail("Interface name is invalid. Please enter a valid interface name!!")
     
     if interface_name.startswith("Ethernet"):
@@ -2827,7 +2827,7 @@ def clear(ctx, interface_name):
         if interface_name is None:
             ctx.fail("'interface_name' is None!")
 
-    if interface_name_is_valid(interface_name) is False:
+    if interface_name_is_valid(config_db, interface_name) is False:
         ctx.fail("Interface name is invalid. Please enter a valid interface name!!")
 
     if config_db.get_entry('TX_ERR_CFG', interface_name):
@@ -2845,7 +2845,9 @@ def clear(ctx, interface_name):
 @config.command()
 @click.argument('period', metavar='<period>', required=True, type=int)
 def tx_error_stat_poll_period(period):
-    """Polling period for Tx error statistics, Enter 0 to disable, xxx for default"""
+    """Polling period for Tx error statistics, Enter 0 to disable, xxx for default
+    
+       After Resetting Polling period """
     config_db = ConfigDBConnector()
     config_db.connect()
     config_db.set_entry("TX_ERR_CFG", ("GLOBAL_PERIOD"), {"tx_error_check_period": period})

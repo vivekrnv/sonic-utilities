@@ -899,6 +899,62 @@ def portchannel(namespace,  display, verbose):
     
     run_command(cmd, display_cmd=verbose)
 
+# 'txerror' subcommand ("show interfaces txerror")
+@interfaces.command()
+@click.argument('interfacename', required=False)
+def txerror(interfacename):
+    """Show Interface TxError Information """
+    
+    db = SonicV2Connector(host='127.0.0.1')
+    db.connect(db.STATE_DB, False)   # Make one attempt only
+    
+    
+    TABLE_NAME_SEPARATOR = '|'
+    prefix_statedb = "TX_ERR_STATE|"
+    
+    _hash = '{}{}'.format(prefix_statedb, '*')
+    txerr_keys = db.keys(db.STATE_DB, _hash)
+    
+    table = []
+    
+    header = ['Port', 'Status', 'sai_port_id', 'Last Updated On', 'Tx Error Threshold']
+    
+    if txerr_keys is None:
+        txerr_keys = dict()
+        
+    for k in txerr_keys:
+        k = k.replace(prefix_statedb, "") 
+        r = []
+        r.append(k)
+        
+        entry = db.get_all(db.STATE_DB, prefix_statedb + k)
+        
+        if 'tx_error_stats' not in entry:
+            r.append("UnKnown")
+        else:
+            r.append(entry['tx_error_stats'])
+        
+        if 'tx_error_portid' not in entry:
+            r.append("")
+        else:
+            r.append(entry['tx_error_portid'])
+        
+        if 'tx_error_verified_latest_by' not in entry:
+            r.append("")
+        else:
+            r.append(entry['tx_error_verified_latest_by'])
+	
+	if 'tx_error_threshold' not in entry:
+            r.append("")
+        else:
+            r.append(entry['tx_error_threshold'])
+        
+        table.append(r)
+    
+    click.echo(tabulate(table, header))
+        
+    
+    
 #
 # 'subinterfaces' group ("show subinterfaces ...")
 #
