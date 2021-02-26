@@ -90,6 +90,7 @@ setup(
         'scripts/generate_dump',
         'scripts/intfutil',
         'scripts/intfstat',
+        'scripts/ipintutil',
         'scripts/lldpshow',
         'scripts/mellanox_buffer_migrator.py',
         'scripts/mmuconfig',

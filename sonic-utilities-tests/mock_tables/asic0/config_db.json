@@ -154,5 +154,16 @@
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled"
+    },
+    "BGP_NEIGHBOR|20.1.1.5": {
+        "rrclient": "0",
+        "name": "T2-Peer",
+        "local_addr": "20.1.1.1",
+        "nhopself": "0",
+        "admin_status": "up", 
+        "holdtime": "10", 
+        "asn": "65200", 
+        "keepalive": "3"
     }
+
 }
