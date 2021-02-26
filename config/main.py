@@ -2846,8 +2846,7 @@ def clear(ctx, interface_name):
 @click.argument('period', metavar='<period>', required=True, type=int)
 def tx_error_stat_poll_period(period):
     """Polling period for Tx error statistics, Enter 0 to disable, xxx for default
-    
-       After Resetting Polling period """
+       After Every Diable, any state information related to this feature is cleared out."""
     config_db = ConfigDBConnector()
     config_db.connect()
     config_db.set_entry("TX_ERR_CFG", ("GLOBAL_PERIOD"), {"tx_error_check_period": period})
