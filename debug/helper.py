@@ -1,3 +1,4 @@
+import click
 import subprocess
 
 def run_command(command, pager=False):

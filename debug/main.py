@@ -5,6 +5,7 @@ from . import bgp_frr
 from . import zebra_frr
 from . import bgp_quagga
 from . import zebra_quagga
+from . import dump_ports
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help', '-?'])
 
@@ -25,6 +26,7 @@ else:
     cli.add_command(bgp_quagga.bgp)
     cli.add_command(zebra_quagga.zebra)  
     
+cli.add_command(dump_ports.ports)
     
 if __name__ == '__main__':
     cli()
