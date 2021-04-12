@@ -1,7 +1,12 @@
+import os, sys
+
+sys.path.append(os.path.join(os.path.dirname(__file__), "../")) # Add dump to the path
+from redis_match import RedisMatchRequest, RedisMatchEngine
 
 from .executor import Executor
 
-trap_id_map = { "stp" : "SAI_HOSTIF_TRAP_TYPE_STP" ,
+trap_id_map = { 
+    "stp" : "SAI_HOSTIF_TRAP_TYPE_STP" ,
     "lacp" : "SAI_HOSTIF_TRAP_TYPE_LACP" ,
     "eapol" : "SAI_HOSTIF_TRAP_TYPE_EAPOL" ,
     "lldp" : "SAI_HOSTIF_TRAP_TYPE_LLDP" ,
@@ -45,10 +50,11 @@ trap_id_map = { "stp" : "SAI_HOSTIF_TRAP_TYPE_STP" ,
 class Copp(Executor):
     
     def __init__(self):
-        self.trap_map = {v: k for k, v in SONiC.trap_id_map.items()}
+        self.trap_map = {v: k for k, v in trap_id_map.items()}
         self.RMEngine = RedisMatchEngine()
    
     def __gen_conf_trap(self, trap_id):
+        req = RedisMatchRequest()
         pass 
     
     def __gen_conf_group(self, queue):

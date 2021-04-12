@@ -2,14 +2,16 @@ import re
 from swsscommon.swsscommon import SonicDBConfig, DBConnector, Table
 
 class RedisMatchRequest:
-    self.table = None
-    self.redis_key = None
-    self.key = None
-    self.value = None
-    self.is_list = False
-    self.return_keys = []
-    self.db = None
-    self.dump = True
+    
+    def __init__(self):
+        self.table = None
+        self.redis_key = None
+        self.key = None
+        self.value = None
+        self.is_list = False
+        self.return_keys = []
+        self.db = None
+        self.dump = True
 
 
 class RedisMatchEngine:
@@ -24,7 +26,7 @@ class RedisMatchEngine:
         err = self.__launch(request_json, dump)
         if not(err):
             return err
-        return self.__fill(dump)
+        return self.__fill(request_json, dump)
         
     
     def __launch(self, request_json, dump):
@@ -89,11 +91,16 @@ class RedisMatchEngine:
         
 
     
-    def __fill(self, dump):
+    def __fill(self, request_json, dump):
         ret_match = self.__return_template(False, request_json)
         if 'dump' in ret_match:
             ret_match['dump'] = dump
-        #TODO: FIl Return Params 
+        
+        for params in request_json.return_keys:
+            for redis_key in dump.keys():
+                if params in dump[redis_key]:
+                    ret_match['return_match'][params] = dump[redis_key][params]
+                         
         return ret_match
     
     def __arg_check(self, request_json):
