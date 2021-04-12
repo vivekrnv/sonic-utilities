@@ -1,9 +1,20 @@
 import os, sys
+from .executor import Executor
 
 sys.path.append(os.path.join(os.path.dirname(__file__), "../")) # Add dump to the path
 from redis_match import RedisMatchRequest, RedisMatchEngine
+from helper import display_template
 
-from .executor import Executor
+CFG_COPP_TRAP_TABLE_NAME       =              "COPP_TRAP"
+CFG_COPP_GROUP_TABLE_NAME      =              "COPP_GROUP"
+APP_COPP_TABLE_NAME            =              "COPP_TABLE"
+
+ASIC_DB_PREFIX                 =              "ASIC_STATE"
+
+ASIC_TRAP_OBJ                  =              ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF_TRAP"
+ASIC_TRAP_GROUP_OBJ            =              ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP"
+ASIC_POLICER_OBJ               =              ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_POLICER"
+ASIC_QUEUE_OBJ                 =              ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_QUEUE"
 
 trap_id_map = { 
     "stp" : "SAI_HOSTIF_TRAP_TYPE_STP" ,
@@ -52,11 +63,23 @@ class Copp(Executor):
     def __init__(self):
         self.trap_map = {v: k for k, v in trap_id_map.items()}
         self.RMEngine = RedisMatchEngine()
-   
+        
     def __gen_conf_trap(self, trap_id):
         req = RedisMatchRequest()
-        pass 
-    
+        req.table = CFG_COPP_TRAP_TABLE_NAME
+        req.redis_key = "*"
+        req.hash_key = "trap_ids"
+        req.value = trap_id
+        req.return_keys = ["trap_group"]
+        req.db = "CONFIG_DB"
+        ans = self.RMEngine.fetch(req)
+        if ans['status'] != 0 or ans['error'] != "":
+            self.template['error'] = ans['error']
+            return None
+        else:
+            self.template[req.db]['dump'].append(ans['dump'])
+            return ans['return_keys']
+        
     def __gen_conf_group(self, queue):
         pass 
     
@@ -76,7 +99,15 @@ class Copp(Executor):
         pass
     
     def execute(self, params_dict):
-        return None
+        self.template = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB"])
+        ret = self.__gen_conf_trap(params_dict['id'])
+        if not(ret):
+            return self.template
+        
+        
+        return self.template
+        
+
 
     
     

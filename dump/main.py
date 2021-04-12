@@ -5,12 +5,14 @@ sys.path.append(os.path.realpath(__file__))
 
 import plugins
 
+from .helper import print_dump
+
 @click.group()
-def cli():
+def dump():
     pass
 
 
-@cli.command()
+@dump.command()
 @click.argument('module', required=True, type=str)
 @click.argument('id', required=True, type=str)
 def state(module, id):
@@ -22,9 +24,12 @@ def state(module, id):
         click.echo("No Matching Plugin has been Implemented")
         return 
     
+    params = {"id" : id}
+    
     obj = plugins.dump_modules[module]() 
-    obj.execute(id)
+    final_dict = obj.execute(params)  
+    print_dump(final_dict)
 
 
 if __name__ == '__main__':
-    cli()
+    dump()
