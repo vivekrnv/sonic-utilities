@@ -5,7 +5,7 @@ sys.path.append(os.path.realpath(__file__))
 
 import plugins
 
-from .helper import print_dump
+from helper import print_dump
 
 @click.group()
 def dump():

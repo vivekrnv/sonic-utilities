@@ -5,7 +5,7 @@ class RedisMatchRequest:
     
     def __init__(self):
         self.table = None
-        self.redis_key = None
+        self.redis_key = "*"
         self.hash_key = None
         self.value = None
         self.is_list = False
@@ -19,19 +19,23 @@ class RedisMatchRequest:
         if not self.table:
             return "Should give a Table Name to match", False
         
-        if not dump or len(return_keys) == 0:
+        if not self.dump and len(return_keys) == 0:
             return "Either the dump or the return_keys has to be set", False
         
-        if hash_key and redis_key:
-            return "Only one of them should be set, match can only happen based on one of these", False
+        if self.hash_key and self.redis_key != "*":
+            return "When Hash Key is set, Redis Key can only be wildcard", False
         
-        if not(value):
+        if not(self.value):
             return "Should be given something in order to match against", False
         
-        if not(db):
-            return "DB can't be None"
-
-
+        if not(self.db):
+            return "DB can't be None", False
+        
+        if self.hash_key is None:
+            self.redis_key = "*"
+        
+        return None, True
+    
 class RedisMatchEngine:
     
     # Given a request obj, find its match in the redis
@@ -132,10 +136,10 @@ class RedisMatchEngine:
         
         err_str, valid = request_json.validate()
         if not(valid):
-            err_temp['error'] = "{}: Argument should be of type RedisMatchRequest".format(self.__class__.__name__)
+            err_temp['error'] = "{}: ".format(self.__class__.__name__) + err_str
             return err_temp
                  
-        if equest_json.db not in SonicDBConfig.getDbList():
+        if request_json.db not in SonicDBConfig.getDbList():
             err_temp['error'] = "{}: Should give a Valid Redis DB to match".format(self.__class__.__name__)
             return err_temp
         

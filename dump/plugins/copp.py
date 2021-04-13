@@ -58,54 +58,189 @@ trap_id_map = {
     "dest_nat_miss" : "SAI_HOSTIF_TRAP_TYPE_DNAT_MISS" 
 }
 
+
+
 class Copp(Executor):
     
     def __init__(self):
-        self.trap_map = {v: k for k, v in trap_id_map.items()}
         self.RMEngine = RedisMatchEngine()
         
-    def __gen_conf_trap(self, trap_id):
+        self.cf_trap_id = ""
+        self.cf_trap_group = ""
+        self.asic_trap_obj = ""
+        self.asic_group_obj = ""
+        self.asic_policer_obj = ""
+        self.asic_queue_obj = ""
+    
+    def execute(self, params_dict):
+        
+        self.template = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB"])
+        self.cf_trap_id = params_dict['id']
+        
+        if not self.__gen_conf_trap():
+            return self.template
+        
+        self.__gen_conf_group()
+
+        if not self.__gen_appl_trap():
+            return self.template
+        
+        if not self.__gen_asic_trap():
+            return self.template
+        
+        if not self.__gen_asic_group():
+            return self.template
+        
+        self.__gen_asic_policer()
+        self.__gen_asic_queue()
+        
+        return self.template
+       
+    def __gen_conf_trap(self):
+        
+        if not(self.cf_trap_id) or self.cf_trap_id not in trap_id_map:
+            self.template['error'][CFG_COPP_TRAP_TABLE_NAME] = "Trap id provided is not valid"
+            return False
+        
         req = RedisMatchRequest()
         req.table = CFG_COPP_TRAP_TABLE_NAME
-        req.redis_key = "*"
         req.hash_key = "trap_ids"
-        req.value = trap_id
+        req.value = self.cf_trap_id
         req.return_keys = ["trap_group"]
         req.db = "CONFIG_DB"
         ans = self.RMEngine.fetch(req)
+        
         if ans['status'] != 0 or ans['error'] != "":
-            self.template['error'] = ans['error']
-            return None
-        else:
-            self.template[req.db]['dump'].append(ans['dump'])
-            return ans['return_keys']
+            self.template['error'][CFG_COPP_TRAP_TABLE_NAME] = ans['error']
+            return False
         
-    def __gen_conf_group(self, queue):
-        pass 
-    
-    def __gen_appl_trap(self, queue):
-        pass 
-    
-    def __gen_asic_trap(self, sai_trap_id):
-        pass 
-    
-    def __gen_asic_group(self, group_oid):
-        pass
-    
-    def __gen_asic_policer(self, policer_oid):
-        pass
-    
-    def __gen_asic_queue(self, queue_oid):
-        pass
-    
-    def execute(self, params_dict):
-        self.template = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB"])
-        ret = self.__gen_conf_trap(params_dict['id'])
-        if not(ret):
-            return self.template
+        self.cf_trap_group = ans['return_keys']['trap_group']
+        self.template[req.db]['dump'].append(ans['dump'])
+        return True
         
+    def __gen_conf_group(self):
         
-        return self.template
+        if not(self.cf_trap_group):
+            self.template['error'][CFG_COPP_GROUP_TABLE_NAME]  = "Invalid Trap group !!!"
+            return False
+        
+        req = RedisMatchRequest()
+        req.table = CFG_COPP_GROUP_TABLE_NAME
+        req.value = self.cf_trap_group
+        req.db = "CONFIG_DB"
+        ans = self.RMEngine.fetch(req)
+        
+        if ans['status'] != 0 or ans['error'] != "":
+            self.template['error'][CFG_COPP_GROUP_TABLE_NAME] = ans['error']
+            return True
+        
+        self.template[req.db]['dump'].append(ans['dump'])
+        return True
+           
+    
+    def __gen_appl_trap(self):
+        
+        if not(self.cf_trap_group):
+            self.template['error'][APP_COPP_TABLE_NAME] = "Invalid Trap group !!!"
+            return False
+        
+        req = RedisMatchRequest()
+        req.table = APP_COPP_TABLE_NAME
+        req.value = self.cf_trap_group
+        req.db = "APPL_DB"
+        ans = self.RMEngine.fetch(req)
+        
+        if ans['status'] != 0 or ans['error'] != "":
+            self.template['error'][APP_COPP_TABLE_NAME] = ans['error']
+            return False
+        
+        self.template[req.db]['dump'].append(ans['dump'])
+        return True
+
+    
+    def __gen_asic_trap(self):
+        
+        self.asic_trap_obj = trap_id_map[self.cf_trap_id]
+        
+        req = RedisMatchRequest()
+        req.table = ASIC_TRAP_OBJ
+        req.hash_key = "SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE"
+        req.value = self.asic_trap_obj
+        req.db = "ASIC_DB"
+        req.return_keys = ["SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP"]
+        ans = self.RMEngine.fetch(req)
+        
+        if ans['status'] != 0 or ans['error'] != "":
+            self.template['error'][ASIC_TRAP_OBJ] = ans['error']
+            return False
+        
+        self.asic_group_obj = ans['return_keys']["SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP"]
+        self.template[req.db]['dump'].append(ans['dump'])
+        return True
+    
+    def __gen_asic_group(self):
+        
+        if not(self.asic_group_obj):
+            self.template['error'][ASIC_TRAP_GROUP_OBJ]  = " ASIC Group Obj Can't be empty !!!"
+            return False
+        
+        req = RedisMatchRequest()
+        req.table =  ASIC_TRAP_GROUP_OBJ
+        req.value = self.asic_group_obj
+        req.db = "ASIC_DB"
+        req.return_keys = ["SAI_HOSTIF_TRAP_GROUP_ATTR_QUEUE", "SAI_HOSTIF_TRAP_GROUP_ATTR_POLICER"]
+        ans = self.RMEngine.fetch(req)
+        
+        if ans['status'] != 0 or ans['error'] != "":
+            self.template['error'][ASIC_TRAP_GROUP_OBJ] = ans['error']
+            return False
+        
+        self.asic_policer_obj = ans['return_keys']["SAI_HOSTIF_TRAP_GROUP_ATTR_POLICER"]
+        self.asic_queue_obj = ans['return_keys']["SAI_HOSTIF_TRAP_GROUP_ATTR_QUEUE"]
+        
+        self.template[req.db]['dump'].append(ans['dump'])
+        return True
+    
+    def __gen_asic_policer(self):
+        
+        if not(self.asic_policer_obj):
+            self.template['error'][ASIC_POLICER_OBJ]  = "Invalid SAI Policer Object!!!"
+            return False
+        
+        req = RedisMatchRequest()
+        req.table = ASIC_POLICER_OBJ
+        req.value = self.asic_policer_obj
+        req.db = "ASIC_DB"
+        ans = self.RMEngine.fetch(req)
+        
+        if ans['status'] != 0 or ans['error'] != "":
+            self.template['error'][ASIC_POLICER_OBJ]  = ans['error']
+            return True
+        
+        self.template[req.db]['dump'].append(ans['dump'])
+        return True
+    
+    def __gen_asic_queue(self):
+        
+        if not(self.asic_queue_obj):
+            self.template['error'][ASIC_QUEUE_OBJ]  = "Invalid SAI Queue Object!!!"
+            return False
+        
+        req = RedisMatchRequest()
+        req.table = ASIC_QUEUE_OBJ
+        req.hash_key = "SAI_QUEUE_ATTR_INDEX"
+        req.value = self.asic_queue_obj
+        req.db = "ASIC_DB"
+        ans = self.RMEngine.fetch(req)
+        
+        if ans['status'] != 0 or ans['error'] != "":
+            self.template['error'][ASIC_QUEUE_OBJ]  = ans['error']
+            return True
+        
+        self.template[req.db]['dump'].append(ans['dump'])
+    
+        return True
+        
         
 
 

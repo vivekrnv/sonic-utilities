@@ -1,11 +1,12 @@
 import os
+import json
 import click 
 
 def display_template(dbs, tabular = False, indent = 4):
     description_map = {"CONFIG_DB" : "Config DB",
                     "APPL_DB"  : "Application DB",
                     "ASIC_DB"  : "ASIC DB"}
-    template = {"params" : {"tabular" : tabular, "indent" : indent}, "error" : ""}   
+    template = {"error" : dict()}   
     
     for db in dbs:
         template[db] = {}
