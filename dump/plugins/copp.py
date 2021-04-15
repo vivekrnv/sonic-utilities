@@ -72,10 +72,15 @@ class Copp(Executor):
         self.asic_policer_obj = ""
         self.asic_queue_obj = ""
     
-    def execute(self, params_dict):
+    def execute(self, vargs):
         
         self.template = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB"])
-        self.cf_trap_id = params_dict['id']
+        
+        if not vargs:
+            self.template['errror'] = "No Trap_id provided!!"
+            return self.template
+        
+        self.cf_trap_id = vargs[0]
         
         if not self.__gen_conf_trap():
             return self.template
