@@ -3,6 +3,7 @@
 import click
 import ipaddress
 import json
+import jsonpatch
 import netaddr
 import netifaces
 import os
@@ -11,14 +12,17 @@ import subprocess
 import sys
 import time
 
+from generic_config_updater.generic_updater import GenericUpdater, ConfigFormat
 from socket import AF_INET, AF_INET6
 from minigraph import parse_device_desc_xml
 from portconfig import get_child_ports
 from sonic_py_common import device_info, multi_asic
 from sonic_py_common.interface import get_interface_table_name, get_port_table_name
+from utilities_common import util_base
 from swsscommon.swsscommon import SonicV2Connector, ConfigDBConnector, SonicDBConfig
 from utilities_common.db import Db
 from utilities_common.intf_filter import parse_interface_in_filter
+from utilities_common import bgp_util
 import utilities_common.cli as clicommon
 from .utils import log
 
@@ -28,11 +32,11 @@ from . import console
 from . import feature
 from . import kdump
 from . import kube
-from . import mlnx
 from . import muxcable
 from . import nat
 from . import vlan
 from . import vxlan
+from . import plugins
 from .config_mgmt import ConfigMgmtDPB
 
 # mock masic APIs for unit test
@@ -669,8 +673,12 @@ def _get_disabled_services_list(config_db):
 
 
 def _stop_services():
-    click.echo("Disabling container monitoring ...")
-    clicommon.run_command("sudo monit unmonitor container_checker")
+    try:
+        subprocess.check_call("sudo monit status", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        click.echo("Disabling container monitoring ...")
+        clicommon.run_command("sudo monit unmonitor container_checker")
+    except subprocess.CalledProcessError as err:
+        pass
 
     click.echo("Stopping SONiC target ...")
     clicommon.run_command("sudo systemctl stop sonic.target")
@@ -691,12 +699,16 @@ def _restart_services():
     click.echo("Restarting SONiC target ...")
     clicommon.run_command("sudo systemctl restart sonic.target")
 
+    try:
+        subprocess.check_call("sudo monit status", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        click.echo("Enabling container monitoring ...")
+        clicommon.run_command("sudo monit monitor container_checker")
+    except subprocess.CalledProcessError as err:
+        pass
+
     # Reload Monit configuration to pick up new hostname in case it changed
     click.echo("Reloading Monit configuration ...")
     clicommon.run_command("sudo monit reload")
-
-    click.echo("Enabling container monitoring ...")
-    clicommon.run_command("sudo monit monitor container_checker")
 
 
 def interface_is_in_vlan(vlan_member_table, interface_name):
@@ -817,7 +829,7 @@ def cache_arp_entries():
         if filter_err:
             click.echo("Could not filter FDB entries prior to reloading")
             success = False
-    
+
     # If we are able to successfully cache ARP table info, signal SWSS to restore from our cache
     # by creating /host/config-reload/needs-restore
     if success:
@@ -841,9 +853,6 @@ def config(ctx):
     except (KeyError, TypeError):
         raise click.Abort()
 
-    if asic_type == 'mellanox':
-        platform.add_command(mlnx.mlnx)
-
     # Load the global config file database_global.json once.
     num_asic = multi_asic.get_num_asics()
     if num_asic > 1:
@@ -860,6 +869,7 @@ def config(ctx):
 # Add groups from other modules
 config.add_command(aaa.aaa)
 config.add_command(aaa.tacacs)
+config.add_command(aaa.radius)
 config.add_command(chassis_modules.chassis_modules)
 config.add_command(console.console)
 config.add_command(feature.feature)
@@ -980,6 +990,129 @@ def load(filename, yes):
         log.log_info("'load' executing...")
         clicommon.run_command(command, display_cmd=True)
 
+@config.command('apply-patch')
+@click.argument('patch-file-path', type=str, required=True)
+@click.option('-f', '--format', type=click.Choice([e.name for e in ConfigFormat]),
+               default=ConfigFormat.CONFIGDB.name,
+               help='format of config of the patch is either ConfigDb(ABNF) or SonicYang')
+@click.option('-d', '--dry-run', is_flag=True, default=False, help='test out the command without affecting config state')
+@click.option('-v', '--verbose', is_flag=True, default=False, help='print additional details of what the operation is doing')
+@click.pass_context
+def apply_patch(ctx, patch_file_path, format, dry_run, verbose):
+    """Apply given patch of updates to Config. A patch is a JsonPatch which follows rfc6902.
+       This command can be used do partial updates to the config with minimum disruption to running processes.
+       It allows addition as well as deletion of configs. The patch file represents a diff of ConfigDb(ABNF)
+       format or SonicYang format.
+
+       <patch-file-path>: Path to the patch file on the file-system."""
+    try:
+        with open(patch_file_path, 'r') as fh:
+            text = fh.read()
+            patch_as_json = json.loads(text)
+            patch = jsonpatch.JsonPatch(patch_as_json)
+
+        config_format = ConfigFormat[format.upper()]
+
+        GenericUpdater().apply_patch(patch, config_format, verbose, dry_run)
+
+        click.secho("Patch applied successfully.", fg="cyan", underline=True)
+    except Exception as ex:
+        click.secho("Failed to apply patch", fg="red", underline=True, err=True)
+        ctx.fail(ex)
+
+@config.command()
+@click.argument('target-file-path', type=str, required=True)
+@click.option('-f', '--format', type=click.Choice([e.name for e in ConfigFormat]),
+               default=ConfigFormat.CONFIGDB.name,
+               help='format of target config is either ConfigDb(ABNF) or SonicYang')
+@click.option('-d', '--dry-run', is_flag=True, default=False, help='test out the command without affecting config state')
+@click.option('-v', '--verbose', is_flag=True, default=False, help='print additional details of what the operation is doing')
+@click.pass_context
+def replace(ctx, target_file_path, format, dry_run, verbose):
+    """Replace the whole config with the specified config. The config is replaced with minimum disruption e.g.
+       if ACL config is different between current and target config only ACL config is updated, and other config/services
+       such as DHCP will not be affected.
+
+       **WARNING** The target config file should be the whole config, not just the part intended to be updated.
+
+       <target-file-path>: Path to the target file on the file-system."""
+    try:
+        with open(target_file_path, 'r') as fh:
+            target_config_as_text = fh.read()
+            target_config = json.loads(target_config_as_text)
+
+        config_format = ConfigFormat[format.upper()]
+
+        GenericUpdater().replace(target_config, config_format, verbose, dry_run)
+
+        click.secho("Config replaced successfully.", fg="cyan", underline=True)
+    except Exception as ex:
+        click.secho("Failed to replace config", fg="red", underline=True, err=True)
+        ctx.fail(ex)
+
+@config.command()
+@click.argument('checkpoint-name', type=str, required=True)
+@click.option('-d', '--dry-run', is_flag=True, default=False, help='test out the command without affecting config state')
+@click.option('-v', '--verbose', is_flag=True, default=False, help='print additional details of what the operation is doing')
+@click.pass_context
+def rollback(ctx, checkpoint_name, dry_run, verbose):
+    """Rollback the whole config to the specified checkpoint. The config is rolled back with minimum disruption e.g.
+       if ACL config is different between current and checkpoint config only ACL config is updated, and other config/services
+       such as DHCP will not be affected.
+
+       <checkpoint-name>: The checkpoint name, use `config list-checkpoints` command to see available checkpoints."""
+    try:
+        GenericUpdater().rollback(checkpoint_name, verbose, dry_run)
+
+        click.secho("Config rolled back successfully.", fg="cyan", underline=True)
+    except Exception as ex:
+        click.secho("Failed to rollback config", fg="red", underline=True, err=True)
+        ctx.fail(ex)
+
+@config.command()
+@click.argument('checkpoint-name', type=str, required=True)
+@click.option('-v', '--verbose', is_flag=True, default=False, help='print additional details of what the operation is doing')
+@click.pass_context
+def checkpoint(ctx, checkpoint_name, verbose):
+    """Take a checkpoint of the whole current config with the specified checkpoint name.
+
+       <checkpoint-name>: The checkpoint name, use `config list-checkpoints` command to see available checkpoints."""
+    try:
+        GenericUpdater().checkpoint(checkpoint_name, verbose)
+
+        click.secho("Checkpoint created successfully.", fg="cyan", underline=True)
+    except Exception as ex:
+        click.secho("Failed to create a config checkpoint", fg="red", underline=True, err=True)
+        ctx.fail(ex)
+
+@config.command('delete-checkpoint')
+@click.argument('checkpoint-name', type=str, required=True)
+@click.option('-v', '--verbose', is_flag=True, default=False, help='print additional details of what the operation is doing')
+@click.pass_context
+def delete_checkpoint(ctx, checkpoint_name, verbose):
+    """Delete a checkpoint with the specified checkpoint name.
+
+       <checkpoint-name>: The checkpoint name, use `config list-checkpoints` command to see available checkpoints."""
+    try:
+        GenericUpdater().delete_checkpoint(checkpoint_name, verbose)
+
+        click.secho("Checkpoint deleted successfully.", fg="cyan", underline=True)
+    except Exception as ex:
+        click.secho("Failed to delete config checkpoint", fg="red", underline=True, err=True)
+        ctx.fail(ex)
+
+@config.command('list-checkpoints')
+@click.option('-v', '--verbose', is_flag=True, default=False, help='print additional details of what the operation is doing')
+@click.pass_context
+def list_checkpoints(ctx, verbose):
+    """List the config checkpoints available."""
+    try:
+        checkpoints_list = GenericUpdater().list_checkpoints(verbose)
+        formatted_output = json.dumps(checkpoints_list, indent=4)
+        click.echo(formatted_output)
+    except Exception as ex:
+        click.secho("Failed to list config checkpoints", fg="red", underline=True, err=True)
+        ctx.fail(ex)
 
 @config.command()
 @click.option('-y', '--yes', is_flag=True)
@@ -1180,7 +1313,7 @@ def load_minigraph(db, no_service_restart):
 
     # get the device type
     device_type = _get_device_type()
-    if device_type != 'MgmtToRRouter':
+    if device_type != 'MgmtToRRouter' and device_type != 'EPMS':
         clicommon.run_command("pfcwd start_default", display_cmd=True)
 
     # Update SONiC environmnet file
@@ -2058,6 +2191,546 @@ def delete_snmptrap_server(ctx, ver):
     cmd="systemctl restart snmp"
     os.system (cmd)
 
+
+
+#
+# 'snmp' group ('config snmp ...')
+#
+@config.group(cls=clicommon.AbbreviationGroup, name='snmp')
+@clicommon.pass_db
+def snmp(db):
+    """SNMP configuration tasks"""
+
+
+@snmp.group(cls=clicommon.AbbreviationGroup)
+@clicommon.pass_db
+def community(db):
+    pass
+
+
+def is_valid_community_type(commstr_type):
+    commstr_types = ['RO', 'RW']
+    if commstr_type not in commstr_types:
+        click.echo("Invalid community type.  Must be either RO or RW")
+        return False
+    return True
+
+
+def is_valid_user_type(user_type):
+    convert_user_type = {'noauthnopriv': 'noAuthNoPriv', 'authnopriv': 'AuthNoPriv', 'priv': 'Priv'}
+    if user_type not in convert_user_type:
+        message = ("Invalid user type.  Must be one of these one of these three "
+                   "'noauthnopriv' or 'authnopriv' or 'priv'")
+        click.echo(message)
+        return False, message
+    return True, convert_user_type[user_type]
+
+
+def is_valid_auth_type(user_auth_type):
+    user_auth_types = ['MD5', 'SHA', 'HMAC-SHA-2']
+    if user_auth_type not in user_auth_types:
+        click.echo("Invalid user authentication type. Must be one of these 'MD5', 'SHA', or 'HMAC-SHA-2'")
+        return False
+    return True
+
+
+def is_valid_encrypt_type(encrypt_type):
+    encrypt_types = ['DES', 'AES']
+    if encrypt_type not in encrypt_types:
+        click.echo("Invalid user encryption type.  Must be one of these two 'DES' or 'AES'")
+        return False
+    return True
+
+
+def snmp_community_secret_check(snmp_secret):
+    excluded_special_symbols = ['@', ":"]
+    if len(snmp_secret) > 32:
+        click.echo("SNMP community string length should be not be greater than 32")
+        click.echo("SNMP community string should not have any of these special "
+                   "symbols {}".format(excluded_special_symbols))
+        click.echo("FAILED: SNMP community string length should be not be greater than 32")
+        return False
+    if any(char in excluded_special_symbols for char in snmp_secret):
+        click.echo("SNMP community string length should be not be greater than 32")
+        click.echo("SNMP community string should not have any of these special "
+                   "symbols {}".format(excluded_special_symbols))
+        click.echo("FAILED: SNMP community string should not have any of these "
+                   "special symbols {}".format(excluded_special_symbols))
+        return False
+    return True
+
+
+def snmp_username_check(snmp_username):
+    excluded_special_symbols = ['@', ":"]
+    if len(snmp_username) > 32:
+        click.echo("SNMP user {} length should be not be greater than 32 characters".format(snmp_username))
+        click.echo("SNMP community string should not have any of these special "
+                   "symbols {}".format(excluded_special_symbols))
+        click.echo("FAILED: SNMP user {} length should not be greater than 32 characters".format(snmp_username))
+        return False
+    if any(char in excluded_special_symbols for char in snmp_username):
+        click.echo("SNMP user {} length should be not be greater than 32 characters".format(snmp_username))
+        click.echo("SNMP community string should not have any of these special "
+                   "symbols {}".format(excluded_special_symbols))
+        click.echo("FAILED: SNMP user {} should not have any of these special "
+                   "symbols {}".format(snmp_username, excluded_special_symbols))
+        return False
+    return True
+
+
+def snmp_user_secret_check(snmp_secret):
+    excluded_special_symbols = ['@', ":"]
+    if len(snmp_secret) < 8:
+        click.echo("SNMP user password length should be at least 8 characters")
+        click.echo("SNMP user password length should be not be greater than 64")
+        click.echo("SNMP user password should not have any of these special "
+                   "symbols {}".format(excluded_special_symbols))
+        click.echo("FAILED: SNMP user password length should be at least 8 characters")
+        return False
+    if len(snmp_secret) > 64:
+        click.echo("SNMP user password length should be at least 8 characters")
+        click.echo("SNMP user password length should be not be greater than 64")
+        click.echo("SNMP user password should not have any of these special "
+                   "symbols {}".format(excluded_special_symbols))
+        click.echo("FAILED: SNMP user password length should be not be greater than 64")
+        return False
+    if any(char in excluded_special_symbols for char in snmp_secret):
+        click.echo("SNMP user password length should be at least 8 characters")
+        click.echo("SNMP user password length should be not be greater than 64")
+        click.echo("SNMP user password should not have any of these special "
+                   "symbols {}".format(excluded_special_symbols))
+        click.echo("FAILED: SNMP user password should not have any of these special "
+                   "symbols {}".format(excluded_special_symbols))
+        return False
+    return True
+
+
+@community.command('add')
+@click.argument('community', metavar='<snmp_community>', required=True)
+@click.argument('string_type', metavar='<RO|RW>', required=True)
+@clicommon.pass_db
+def add_community(db, community, string_type):
+    """ Add snmp community string"""
+    string_type = string_type.upper()
+    if not is_valid_community_type(string_type):
+        sys.exit(1)
+    if not snmp_community_secret_check(community):
+        sys.exit(2)
+    snmp_communities = db.cfgdb.get_table("SNMP_COMMUNITY")
+    if community in snmp_communities:
+        click.echo("SNMP community {} is already configured".format(community))
+        sys.exit(3)
+    db.cfgdb.set_entry('SNMP_COMMUNITY', community, {'TYPE': string_type})
+    click.echo("SNMP community {} added to configuration".format(community))
+    try:
+        click.echo("Restarting SNMP service...")
+        clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+        clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+    except SystemExit as e:
+        click.echo("Restart service snmp failed with error {}".format(e))
+        raise click.Abort()
+
+
+@community.command('del')
+@click.argument('community', metavar='<snmp_community>', required=True)
+@clicommon.pass_db
+def del_community(db, community):
+    """ Delete snmp community string"""
+    snmp_communities = db.cfgdb.get_table("SNMP_COMMUNITY")
+    if community not in snmp_communities:
+        click.echo("SNMP community {} is not configured".format(community))
+        sys.exit(1)
+    else:
+        db.cfgdb.set_entry('SNMP_COMMUNITY', community, None)
+        click.echo("SNMP community {} removed from configuration".format(community))
+        try:
+            click.echo("Restarting SNMP service...")
+            clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+            clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+        except SystemExit as e:
+            click.echo("Restart service snmp failed with error {}".format(e))
+            raise click.Abort()
+
+
+@community.command('replace')
+@click.argument('current_community', metavar='<current_community_string>', required=True)
+@click.argument('new_community', metavar='<new_community_string>', required=True)
+@clicommon.pass_db
+def replace_community(db, current_community, new_community):
+    """ Replace snmp community string"""
+    snmp_communities = db.cfgdb.get_table("SNMP_COMMUNITY")
+    if not current_community in snmp_communities:
+        click.echo("Current SNMP community {} is not configured".format(current_community))
+        sys.exit(1)
+    if not snmp_community_secret_check(new_community):
+        sys.exit(2)
+    elif new_community in snmp_communities:
+        click.echo("New SNMP community {} to replace current SNMP community {} already "
+                   "configured".format(new_community, current_community))
+        sys.exit(3)
+    else:
+        string_type = snmp_communities[current_community]['TYPE']
+        db.cfgdb.set_entry('SNMP_COMMUNITY', new_community, {'TYPE': string_type})
+        click.echo("SNMP community {} added to configuration".format(new_community))
+        db.cfgdb.set_entry('SNMP_COMMUNITY', current_community, None)
+        click.echo('SNMP community {} replace community {}'.format(new_community, current_community))
+        try:
+            click.echo("Restarting SNMP service...")
+            clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+            clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+        except SystemExit as e:
+            click.echo("Restart service snmp failed with error {}".format(e))
+            raise click.Abort()
+
+
+@snmp.group(cls=clicommon.AbbreviationGroup)
+@clicommon.pass_db
+def contact(db):
+    pass
+
+
+def is_valid_email(email):
+    return bool(re.search(r"^[\w\.\+\-]+\@[\w]+\.[a-z]{2,3}$", email))
+
+
+@contact.command('add')
+@click.argument('contact', metavar='<contact_name>', required=True)
+@click.argument('contact_email', metavar='<contact_email>', required=True)
+@clicommon.pass_db
+def add_contact(db, contact, contact_email):
+    """ Add snmp contact name and email """
+    snmp = db.cfgdb.get_table("SNMP")
+    try:
+        if snmp['CONTACT']:
+            click.echo("Contact already exists.  Use sudo config snmp contact modify instead")
+            sys.exit(1)
+        else:
+            db.cfgdb.set_entry('SNMP', 'CONTACT', {contact: contact_email})
+            click.echo("Contact name {} and contact email {} have been added to "
+                       "configuration".format(contact, contact_email))
+            try:
+                click.echo("Restarting SNMP service...")
+                clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+                clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+            except SystemExit as e:
+                click.echo("Restart service snmp failed with error {}".format(e))
+                raise click.Abort()
+    except KeyError:
+        if "CONTACT" not in snmp.keys():
+            if not is_valid_email(contact_email):
+                click.echo("Contact email {} is not valid".format(contact_email))
+                sys.exit(2)
+            db.cfgdb.set_entry('SNMP', 'CONTACT', {contact: contact_email})
+            click.echo("Contact name {} and contact email {} have been added to "
+                       "configuration".format(contact, contact_email))
+            try:
+                click.echo("Restarting SNMP service...")
+                clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+                clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+            except SystemExit as e:
+                click.echo("Restart service snmp failed with error {}".format(e))
+                raise click.Abort()
+
+
+@contact.command('del')
+@click.argument('contact', metavar='<contact_name>', required=True)
+@clicommon.pass_db
+def del_contact(db, contact):
+    """ Delete snmp contact name and email """
+    snmp = db.cfgdb.get_table("SNMP")
+    try:
+        if not contact in (list(snmp['CONTACT'].keys()))[0]:
+            click.echo("SNMP contact {} is not configured".format(contact))
+            sys.exit(1)
+        else:
+            db.cfgdb.set_entry('SNMP', 'CONTACT', None)
+            click.echo("SNMP contact {} removed from configuration".format(contact))
+            try:
+                click.echo("Restarting SNMP service...")
+                clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+                clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+            except SystemExit as e:
+                click.echo("Restart service snmp failed with error {}".format(e))
+                raise click.Abort()
+    except KeyError:
+        if "CONTACT" not in snmp.keys():
+            click.echo("Contact name {} is not configured".format(contact))
+            sys.exit(2)
+
+
+@contact.command('modify')
+@click.argument('contact', metavar='<contact>', required=True)
+@click.argument('contact_email', metavar='<contact email>', required=True)
+@clicommon.pass_db
+def modify_contact(db, contact, contact_email):
+    """ Modify snmp contact"""
+    snmp = db.cfgdb.get_table("SNMP")
+    try:
+        current_snmp_contact_name = (list(snmp['CONTACT'].keys()))[0]
+        if current_snmp_contact_name == contact:
+            current_snmp_contact_email = snmp['CONTACT'][contact]
+        else:
+            current_snmp_contact_email = ''
+        if contact == current_snmp_contact_name and contact_email == current_snmp_contact_email:
+            click.echo("SNMP contact {} {} already exists".format(contact, contact_email))
+            sys.exit(1)
+        elif contact == current_snmp_contact_name and contact_email != current_snmp_contact_email:
+            if not is_valid_email(contact_email):
+                click.echo("Contact email {} is not valid".format(contact_email))
+                sys.exit(2)
+            db.cfgdb.mod_entry('SNMP', 'CONTACT', {contact: contact_email})
+            click.echo("SNMP contact {} email updated to {}".format(contact, contact_email))
+            try:
+                click.echo("Restarting SNMP service...")
+                clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+                clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+            except SystemExit as e:
+                click.echo("Restart service snmp failed with error {}".format(e))
+                raise click.Abort()
+        else:
+            if not is_valid_email(contact_email):
+                click.echo("Contact email {} is not valid".format(contact_email))
+                sys.exit(2)
+            db.cfgdb.set_entry('SNMP', 'CONTACT', None)
+            db.cfgdb.set_entry('SNMP', 'CONTACT', {contact: contact_email})
+            click.echo("SNMP contact {} and contact email {} updated".format(contact, contact_email))
+            try:
+                click.echo("Restarting SNMP service...")
+                clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+                clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+            except SystemExit as e:
+                click.echo("Restart service snmp failed with error {}".format(e))
+                raise click.Abort()
+    except KeyError:
+        if "CONTACT" not in snmp.keys():
+            click.echo("Contact name {} is not configured".format(contact))
+            sys.exit(3)
+
+
+@snmp.group(cls=clicommon.AbbreviationGroup)
+@clicommon.pass_db
+def location(db):
+    pass
+
+
+@location.command('add')
+@click.argument('location', metavar='<location>', required=True, nargs=-1)
+@clicommon.pass_db
+def add_location(db, location):
+    """ Add snmp location"""
+    if isinstance(location, tuple):
+        location = " ".join(location)
+    elif isinstance(location, list):
+        location = " ".join(location)
+    snmp = db.cfgdb.get_table("SNMP")
+    try:
+        if snmp['LOCATION']:
+            click.echo("Location already exists")
+            sys.exit(1)
+    except KeyError:
+        if "LOCATION" not in snmp.keys():
+            db.cfgdb.set_entry('SNMP', 'LOCATION', {'Location': location})
+            click.echo("SNMP Location {} has been added to configuration".format(location))
+            try:
+                click.echo("Restarting SNMP service...")
+                clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+                clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+            except SystemExit as e:
+                click.echo("Restart service snmp failed with error {}".format(e))
+                raise click.Abort()
+
+
+@location.command('del')
+@click.argument('location', metavar='<location>', required=True, nargs=-1)
+@clicommon.pass_db
+def delete_location(db, location):
+    """ Delete snmp location"""
+    if isinstance(location, tuple):
+        location = " ".join(location)
+    elif isinstance(location, list):
+        location = " ".join(location)
+    snmp = db.cfgdb.get_table("SNMP")
+    try:
+        if location == snmp['LOCATION']['Location']:
+            db.cfgdb.set_entry('SNMP', 'LOCATION', None)
+            click.echo("SNMP Location {} removed from configuration".format(location))
+            try:
+                click.echo("Restarting SNMP service...")
+                clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+                clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+            except SystemExit as e:
+                click.echo("Restart service snmp failed with error {}".format(e))
+                raise click.Abort()
+        else:
+            click.echo("SNMP Location {} does not exist.  The location is {}".format(location, snmp['LOCATION']['Location']))
+            sys.exit(1)
+    except KeyError:
+        if "LOCATION" not in snmp.keys():
+            click.echo("SNMP Location {} is not configured".format(location))
+            sys.exit(2)
+
+
+@location.command('modify')
+@click.argument('location', metavar='<location>', required=True, nargs=-1)
+@clicommon.pass_db
+def modify_location(db, location):
+    """ Modify snmp location"""
+    if isinstance(location, tuple):
+        location = " ".join(location)
+    elif isinstance(location, list):
+        location = " ".join(location)
+    snmp = db.cfgdb.get_table("SNMP")
+    try:
+        snmp_location = snmp['LOCATION']['Location']
+        if location in snmp_location:
+            click.echo("SNMP location {} already exists".format(location))
+            sys.exit(1)
+        else:
+            db.cfgdb.mod_entry('SNMP', 'LOCATION', {'Location': location})
+            click.echo("SNMP location {} modified in configuration".format(location))
+            try:
+                click.echo("Restarting SNMP service...")
+                clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+                clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+            except SystemExit as e:
+                click.echo("Restart service snmp failed with error {}".format(e))
+                raise click.Abort()
+    except KeyError:
+        click.echo("Cannot modify SNMP Location.  You must use 'config snmp location add command <snmp_location>'")
+        sys.exit(2)
+
+
+from enum import IntEnum
+class SnmpUserError(IntEnum):
+    NameCheckFailure = 1
+    TypeNoAuthNoPrivOrAuthNoPrivOrPrivCheckFailure = 2
+    RoRwCheckFailure = 3
+    NoAuthNoPrivHasAuthType = 4
+    AuthTypeMd5OrShaOrHmacsha2IsMissing = 5
+    AuthTypeMd5OrShaOrHmacsha2Failure = 6
+    AuthPasswordMissing = 7
+    AuthPasswordFailsComplexityRequirements = 8
+    EncryptPasswordNotAllowedWithAuthNoPriv = 9
+    EncryptTypeDesOrAesIsMissing = 10
+    EncryptTypeFailsComplexityRequirements = 11
+    EncryptPasswordMissingFailure = 12
+    EncryptPasswordFailsComplexityRequirements = 13
+    UserAlreadyConfigured = 14
+
+
+@snmp.group(cls=clicommon.AbbreviationGroup)
+@clicommon.pass_db
+def user(db):
+    pass
+
+
+@user.command('add')
+@click.argument('user', metavar='<snmp_user>', required=True)
+@click.argument('user_type', metavar='<noAuthNoPriv|AuthNoPriv|Priv>', required=True)
+@click.argument('user_permission_type', metavar='<RO|RW>', required=True)
+@click.argument('user_auth_type', metavar='<MD5|SHA|HMAC-SHA-2>', required=False)
+@click.argument('user_auth_password', metavar='<auth_password>', required=False)
+@click.argument('user_encrypt_type', metavar='<DES|AES>', required=False)
+@click.argument('user_encrypt_password', metavar='<encrypt_password>', required=False)
+@clicommon.pass_db
+def add_user(db, user, user_type, user_permission_type, user_auth_type, user_auth_password, user_encrypt_type,
+             user_encrypt_password):
+    """ Add snmp user"""
+    if not snmp_username_check(user):
+        sys.exit(SnmpUserError.NameCheckFailure)
+    user_type = user_type.lower()
+    user_type_info = is_valid_user_type(user_type)
+    if not user_type_info[0]:
+        sys.exit(SnmpUserError.TypeNoAuthNoPrivOrAuthNoPrivOrPrivCheckFailure)
+    user_type = user_type_info[1]
+    user_permission_type = user_permission_type.upper()
+    if not is_valid_community_type(user_permission_type):
+        sys.exit(SnmpUserError.RoRwCheckFailure)
+    if user_type == "noAuthNoPriv":
+        if user_auth_type:
+            click.echo("User auth type not used with 'noAuthNoPriv'.  Please use 'AuthNoPriv' or 'Priv' instead")
+            sys.exit(SnmpUserError.NoAuthNoPrivHasAuthType)
+    else:
+        if not user_auth_type:
+            click.echo("User auth type is missing.  Must be MD5, SHA, or HMAC-SHA-2")
+            sys.exit(SnmpUserError.AuthTypeMd5OrShaOrHmacsha2IsMissing)
+        if user_auth_type:
+            user_auth_type = user_auth_type.upper()
+            if not is_valid_auth_type(user_auth_type):
+                sys.exit(SnmpUserError.AuthTypeMd5OrShaOrHmacsha2Failure)
+            elif not user_auth_password:
+                click.echo("User auth password is missing")
+                sys.exit(SnmpUserError.AuthPasswordMissing)
+            elif user_auth_password:
+                if not snmp_user_secret_check(user_auth_password):
+                    sys.exit(SnmpUserError.AuthPasswordFailsComplexityRequirements)
+        if user_type == "AuthNoPriv":
+            if user_encrypt_type:
+                click.echo("User encrypt type not used with 'AuthNoPriv'.  Please use 'Priv' instead")
+                sys.exit(SnmpUserError.EncryptPasswordNotAllowedWithAuthNoPriv)
+        elif user_type == "Priv":
+            if not user_encrypt_type:
+                click.echo("User encrypt type is missing.  Must be DES or AES")
+                sys.exit(SnmpUserError.EncryptTypeDesOrAesIsMissing)
+            if user_encrypt_type:
+                user_encrypt_type = user_encrypt_type.upper()
+                if not is_valid_encrypt_type(user_encrypt_type):
+                    sys.exit(SnmpUserError.EncryptTypeFailsComplexityRequirements)
+                elif not user_encrypt_password:
+                    click.echo("User encrypt password is missing")
+                    sys.exit(SnmpUserError.EncryptPasswordMissingFailure)
+                elif user_encrypt_password:
+                    if not snmp_user_secret_check(user_encrypt_password):
+                        sys.exit(SnmpUserError.EncryptPasswordFailsComplexityRequirements)
+    snmp_users = db.cfgdb.get_table("SNMP_USER")
+    if user in snmp_users.keys():
+        click.echo("SNMP user {} is already configured".format(user))
+        sys.exit(SnmpUserError.UserAlreadyConfigured)
+    else:
+        if not user_auth_type:
+            user_auth_type = ''
+        if not user_auth_password:
+            user_auth_password = ''
+        if not user_encrypt_type:
+            user_encrypt_type = ''
+        if not user_encrypt_password:
+            user_encrypt_password = ''
+        db.cfgdb.set_entry('SNMP_USER', user, {'SNMP_USER_TYPE': user_type,
+                                               'SNMP_USER_PERMISSION': user_permission_type,
+                                               'SNMP_USER_AUTH_TYPE': user_auth_type,
+                                               'SNMP_USER_AUTH_PASSWORD': user_auth_password,
+                                               'SNMP_USER_ENCRYPTION_TYPE': user_encrypt_type,
+                                               'SNMP_USER_ENCRYPTION_PASSWORD': user_encrypt_password})
+        click.echo("SNMP user {} added to configuration".format(user))
+        try:
+            click.echo("Restarting SNMP service...")
+            clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+            clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+        except SystemExit as e:
+            click.echo("Restart service snmp failed with error {}".format(e))
+            raise click.Abort()
+
+
+@user.command('del')
+@click.argument('user', metavar='<snmp_user>', required=True)
+@clicommon.pass_db
+def del_user(db, user):
+    """ Del snmp user"""
+    snmp_users = db.cfgdb.get_table("SNMP_USER")
+    if user not in snmp_users:
+        click.echo("SNMP user {} is not configured".format(user))
+        sys.exit(1)
+    else:
+        db.cfgdb.set_entry('SNMP_USER', user, None)
+        click.echo("SNMP user {} removed from configuration".format(user))
+        try:
+            click.echo("Restarting SNMP service...")
+            clicommon.run_command("systemctl reset-failed snmp.service", display_cmd=False)
+            clicommon.run_command("systemctl restart snmp.service", display_cmd=False)
+        except SystemExit as e:
+            click.echo("Restart service snmp failed with error {}".format(e))
+            raise click.Abort()
+
 #
 # 'bgp' group ('config bgp ...')
 #
@@ -2574,8 +3247,8 @@ def add(ctx, interface_name, ip_addr, gw):
         if interface_name is None:
             ctx.fail("'interface_name' is None!")
 
-    # Add a validation to check this interface is not a member in vlan before 
-    # changing it to a router port 
+    # Add a validation to check this interface is not a member in vlan before
+    # changing it to a router port
     vlan_member_table = config_db.get_table('VLAN_MEMBER')
     if (interface_is_in_vlan(vlan_member_table, interface_name)):
             click.echo("Interface {} is a member of vlan\nAborting!".format(interface_name))
@@ -2655,6 +3328,25 @@ def remove(ctx, interface_name, ip_addr):
         table_name = get_interface_table_name(interface_name)
         if table_name == "":
             ctx.fail("'interface_name' is not valid. Valid names [Ethernet/PortChannel/Vlan/Loopback]")
+        interface_dependent = interface_ipaddr_dependent_on_interface(config_db, interface_name)
+        # If we deleting the last IP entry of the interface, check whether a static route present for the RIF
+        # before deleting the entry and also the RIF.
+        if len(interface_dependent) == 1 and interface_dependent[0][1] == ip_addr:
+            # Check both IPv4 and IPv6 routes.
+            ip_versions = [ "ip", "ipv6"]
+            for ip_ver in ip_versions:
+                # Compete the command and ask Zebra to return the routes.
+                # Scopes of all VRFs will be checked.
+                cmd = "show {} route vrf all static".format(ip_ver)
+                if multi_asic.is_multi_asic():
+                    output = bgp_util.run_bgp_command(cmd, ctx.obj['namespace'])
+                else:
+                    output = bgp_util.run_bgp_command(cmd)
+                # If there is output data, check is there a static route,
+                # bound to the interface.
+                if output != "":
+                    if any(interface_name in output_line for output_line in output.splitlines()):
+                        ctx.fail("Cannot remove the last IP entry of interface {}. A static {} route is still bound to the RIF.".format(interface_name, ip_ver))
         config_db.set_entry(table_name, (interface_name, ip_addr), None)
         interface_dependent = interface_ipaddr_dependent_on_interface(config_db, interface_name)
         if len(interface_dependent) == 0 and is_interface_bind_to_vrf(config_db, interface_name) is False:
@@ -3333,7 +4025,7 @@ def parse_acl_table_info(table_name, table_type, description, ports, stage):
     if ports:
         for port in ports.split(","):
             port_list += expand_vlan_ports(port)
-        port_list = set(port_list)
+        port_list = list(set(port_list))  # convert to set first to remove duplicate ifaces
     else:
         port_list = valid_acl_ports
 
@@ -3341,7 +4033,7 @@ def parse_acl_table_info(table_name, table_type, description, ports, stage):
         if port not in valid_acl_ports:
             raise ValueError("Cannot bind ACL to specified port {}".format(port))
 
-    table_info["ports@"] = ",".join(port_list)
+    table_info["ports"] = port_list
 
     table_info["stage"] = stage
 
@@ -4406,6 +5098,13 @@ def delete(ctx):
 
     sflow_tbl['global'].pop('agent_id')
     config_db.set_entry('SFLOW', 'global', sflow_tbl['global'])
+
+
+# Load plugins and register them
+helper = util_base.UtilHelper()
+for plugin in helper.load_plugins(plugins):
+    helper.register_plugin(plugin, config)
+
 
 if __name__ == '__main__':
     config()

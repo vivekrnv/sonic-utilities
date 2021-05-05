@@ -60,6 +60,7 @@ class TestAclLoader(object):
         assert acl_loader.rules_info[("DATAACL", "RULE_2")]
         assert acl_loader.rules_info[("DATAACL", "RULE_2")] == {
             "VLAN_ID": 369,
+            "ETHER_TYPE": "2048",
             "IP_PROTOCOL": 6,
             "SRC_IP": "20.0.0.2/32",
             "DST_IP": "30.0.0.3/32",
@@ -82,6 +83,17 @@ class TestAclLoader(object):
             acl_loader.rules_info = {}
             acl_loader.load_rules_from_file(os.path.join(test_path, 'acl_input/illegal_vlan_nan.json'))
 
+    def test_ethertype_translation(self, acl_loader):
+        acl_loader.rules_info = {}
+        acl_loader.load_rules_from_file(os.path.join(test_path, 'acl_input/acl1.json'))
+        assert acl_loader.rules_info[("DATAACL", "RULE_3")]
+        assert acl_loader.rules_info[("DATAACL", "RULE_3")] == {
+            "VLAN_ID": 369,
+            "ETHER_TYPE": 35020,
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9997"
+        }
+
     def test_icmp_translation(self, acl_loader):
         acl_loader.rules_info = {}
         acl_loader.load_rules_from_file(os.path.join(test_path, 'acl_input/acl1.json'))
@@ -92,6 +104,7 @@ class TestAclLoader(object):
             "IP_PROTOCOL": 1,
             "SRC_IP": "20.0.0.2/32",
             "DST_IP": "30.0.0.3/32",
+            "ETHER_TYPE": "2048",
             "PACKET_ACTION": "FORWARD",
             "PRIORITY": "9999"
         }
@@ -106,6 +119,7 @@ class TestAclLoader(object):
             "IP_PROTOCOL": 58,
             "SRC_IPV6": "::1/128",
             "DST_IPV6": "::1/128",
+            "IP_TYPE": "IPV6ANY",
             "PACKET_ACTION": "FORWARD",
             "PRIORITY": "9999"
         }
@@ -114,9 +128,32 @@ class TestAclLoader(object):
             "IP_PROTOCOL": 58,
             "SRC_IPV6": "::1/128",
             "DST_IPV6": "::1/128",
+            "IP_TYPE": "IPV6ANY",
             "PACKET_ACTION": "FORWARD",
             "PRIORITY": "9900"
         }
+
+    def test_ingress_default_deny_rule(self, acl_loader):
+        acl_loader.rules_info = {}
+        acl_loader.load_rules_from_file(os.path.join(test_path, 'acl_input/acl1.json'))
+        print(acl_loader.rules_info)
+        assert acl_loader.rules_info[('DATAACL', 'DEFAULT_RULE')] == {
+            'PRIORITY': '1',
+            'PACKET_ACTION': 'DROP',
+            'ETHER_TYPE': '2048'
+        }
+        assert acl_loader.rules_info[('DATAACL_2', 'DEFAULT_RULE')] == {
+            'PRIORITY': '1',
+            'PACKET_ACTION': 'DROP',
+            'IP_TYPE': 'IPV6ANY'
+        }
+
+    def test_egress_no_default_deny_rule(self, acl_loader):
+        acl_loader.rules_info = {}
+        acl_loader.load_rules_from_file(os.path.join(test_path, 'acl_input/acl_egress.json'))
+        print(acl_loader.rules_info)
+        assert ('DATAACL_3', 'DEFAULT_RULE') not in acl_loader.rules_info
+        assert ('DATAACL_4', 'DEFAULT_RULE') not in acl_loader.rules_info
 
     def test_icmp_type_lower_bound(self, acl_loader):
         with pytest.raises(ValueError):
