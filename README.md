@@ -64,6 +64,12 @@ python3 setup.py bdist_wheel
 python3 setup.py test
 ```
 
+#### To pass additional pytest arguments
+
+```
+python3 setup.py test -a "-k 'TestAaa'"
+```
+
 
 ### sonic-utilities-data
 
