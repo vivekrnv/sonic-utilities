@@ -104,7 +104,7 @@ class TestInvalidRequest(unittest.TestCase):
 class TestMatchEngine(unittest.TestCase):
     
     def __init__(self, *args, **kwargs):
-        super(TestInvalidRequest, self).__init__(*args, **kwargs)
+        super(TestMatchEngine, self).__init__(*args, **kwargs)
         self.match_engine = MatchEngine()
     
     def test_key_regex_wildcard(self):
@@ -239,16 +239,3 @@ class TestMatchEngine(unittest.TestCase):
         assert ret["error"] == ""
         assert len(ret["keys"]) == 1
         assert "arp" in ret["keys"]      
-        
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
