@@ -1,49 +1,78 @@
-import re
-from swsscommon.swsscommon import SonicDBConfig, DBConnector, Table
+import re, json, os
+from swsscommon.swsscommon import SonicDBConfig, DBConnector, Table, SonicV2Connector
 
-class RedisMatchRequest:
-    
+error_dict  = {
+    "INV_REQ": "Argument should be of type MatchRequest",
+    "INV_DB": "DB provided is not valid",
+    "INV_JSON": "Not a properly formatted JSON file",
+    "INV_TABLE": "Table is not present in the Source (db or file) provided",
+    "NO_FILE": "JSON File not found",
+    "NO_SRC": "Either one of db or file in the request should be non-empty",
+    "NO_KEY": "'key_regex' cannot be empty",
+    "NO_TABLE": "No 'table' name provided",
+    "NO_VALUE" : "Field is provided, but no value is provided to compare with", 
+    "SRC_VAGUE": "Only one of db or file should be provided"
+}
+        
+
+class MatchRequest:
     def __init__(self):
         self.table = None
-        self.redis_key = "*"
-        self.hash_key = None
+        self.key_regex = ".*"
+        self.field = None
         self.value = None
-        self.is_list = False
-        self.return_keys = []
-        self.db = None
-        self.dump = True
+        self.return_fields = []
+        self.db = ""
+        self.file = ""
+        self.just_keys = True
     
-    # Static Checks
-    def validate(self):
-
-        if not self.table:
-            return "Should give a Table Name to match", False
-        
-        if not self.dump and len(return_keys) == 0:
-            return "Either the dump or the return_keys has to be set", False
-        
-        if self.hash_key and self.redis_key != "*":
-            return "When Hash Key is set, Redis Key can only be wildcard", False
-        
-        if not(self.value):
-            return "Should be given something in order to match against", False
-        
-        if not(self.db):
-            return "DB can't be None", False
-        
-        if self.hash_key is None:
-            self.redis_key = "*"
-        
-        return None, True
     
-class RedisMatchEngine:
+class MatchEngine:
+    
+    def __ret_template(self):
+        return {"error" : "", "keys" : [], "return_fields" : []}
+    
+     # Static Checks
+    def validate_request(self, req):
+        
+        if not isinstance(req, MatchRequest):
+            return error_dict["INV_REQ"]
+            
+        if not(req.db) and not(req.file):
+            return error_dict["NO_SRC"]
+        
+        if req.db and req.file:
+            return error_dict["SRC_VAGUE"]
+        
+        if not req.db and os.path.exists(req.file):
+            try:
+                with open(req.file) as f:
+                    json.loads(req.file)
+            except ValueError as e:
+                return error_dict["INV_JSON"]
+        elif not req.db:
+            return error_dict["NO_FILE"]
+        
+        if req.db not in SonicV2Connector().get_db_list():
+            return error_dict["INV_DB"]
+        
+        if not req.table:
+            return error_dict["NO_TABLE"]
+        
+        if not req.key_regex:
+            return error_dict["NO_KEY"]
+        
+        if req.field and not req.value:
+            return error_dict["NO_VALUE"]
+        
+        return ""
     
     # Given a request obj, find its match in the redis
     def fetch(self, request_json):
-    
-        err = self.__arg_check(request_json)
-        if err:
-            return err
+        template = self.__ret_template()
+        template['error']  = self.validate_request(request_json)
+        if template['error']:
+            return template
         
         err, dump = self.__launch(request_json)
         if err:
@@ -126,39 +155,9 @@ class RedisMatchEngine:
                     ret_match['return_keys'][params] = dump[redis_key][params]
                          
         return ret_match
+            
     
-    def __arg_check(self, request_json):
-        
-        err_temp = self.__return_template(True, None)        
-        if not isinstance(request_json, RedisMatchRequest):
-            err_temp['error'] = "{}: Argument should be of type RedisMatchRequest".format(self.__class__.__name__)
-            return err_temp
-        
-        err_str, valid = request_json.validate()
-        if not(valid):
-            err_temp['error'] = "{}: ".format(self.__class__.__name__) + err_str
-            return err_temp
-                 
-        if request_json.db not in SonicDBConfig.getDbList():
-            err_temp['error'] = "{}: Should give a Valid Redis DB to match".format(self.__class__.__name__)
-            return err_temp
-        
-        #TODO: Add remaining Checks
-        return None
-    
-    def __return_template(self, err=False, params=None):
-
-        template = dict()
-        template['status'] = 0
-        template['error'] = ""
-        if err:
-            template['error'] = -1
-            return template
-        if params.dump:
-            template['dump'] = dict()
-        template['return_keys'] = dict()
-        for val in params.return_keys:
-            template['return_keys'][val] = ""
+    def __return_template():
         
         return template
             
