@@ -31,6 +31,7 @@ setup(
         'crm',
         'debug',
         'generic_config_updater',
+        'dump',
         'pfcwd',
         'sfputil',
         'ssdutil',
