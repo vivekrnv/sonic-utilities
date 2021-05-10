@@ -1,5 +1,6 @@
 import re, json, os
-from swsscommon.swsscommon import SonicDBConfig, DBConnector, Table, SonicV2Connector
+from swsscommon.swsscommon import SonicV2Connector, SonicDBConfig
+from .helper import verbose_print
 
 error_dict  = {
     "INV_REQ": "Argument should be of type MatchRequest",
@@ -13,8 +14,54 @@ error_dict  = {
     "NO_VALUE" : "Field is provided, but no value is provided to compare with", 
     "SRC_VAGUE": "Only one of db or file should be provided"
 }
+
+class SourceAdapter:
+    def __init__(self, req):
+        self.req = req
+    
+    def initialize_table(self, tbl_name):
+        pass
+    
+    def getKeys(self):
+        pass
+    
+    def get(self, key):
+        pass
+    
+    def hget(self, key, field):
+        pass
         
 
+class RedisSource(SourceAdapter):
+    def __init__(self, req):
+        super().__init__(req)
+        self.db = SonicV2Connector(host="127.0.0.1") #DBConnector(self.src, 0)
+        self.db.connect(self.req.db)
+
+            
+    def getKeys(self):       
+        return self.db.keys(self.req.db, self.req.table + "|*")
+    
+#     def get(self, key):
+#         if self.tbl is None:
+#             verbose_print("RedisSource: Table Object is None, Run initialize_table first")
+#             return []
+#         tup = tbl.get(key) 
+#         return tup[0], dict(tup[1])
+#     
+#     def hget(self, key, field):
+#         if self.tbl is None:
+#             verbose_print("RedisSource: Table Object is None, Run initialize_table first")
+#             return []
+#         tup = tbl.hget(key, field)
+#         return tup[0], tup[1]
+
+class JsonSource(SourceAdapter):
+    def __init__(self, src):
+        super().__init__(src)
+        pass
+    
+                     
 class MatchRequest:
     def __init__(self):
         self.table = None
@@ -53,7 +100,7 @@ class MatchEngine:
         elif not req.db:
             return error_dict["NO_FILE"]
         
-        if req.db not in SonicV2Connector().get_db_list():
+        if req.db not in SonicDBConfig.getDbList():
             return error_dict["INV_DB"]
         
         if not req.table:
@@ -68,11 +115,24 @@ class MatchEngine:
         return ""
     
     # Given a request obj, find its match in the redis
-    def fetch(self, request_json):
+    def fetch(self, req):
         template = self.__ret_template()
-        template['error']  = self.validate_request(request_json)
+        template['error']  = self.validate_request(req)
         if template['error']:
             return template
+        
+        src = None
+        if req.db:
+            src = RedisSource(req)
+        else:
+            src = JsonSource(req)
+        
+        all_keys = src.getKeys()
+        
+        if not all_keys or len(all_keys) == 0:
+            template['error'] = error_dict["INV_TABLE"]
+        
+        print(all_keys)   
         
         err, dump = self.__launch(request_json)
         if err:
@@ -155,11 +215,6 @@ class MatchEngine:
                     ret_match['return_keys'][params] = dump[redis_key][params]
                          
         return ret_match
-            
-    
-    def __return_template():
-        
-        return template
             
             
 

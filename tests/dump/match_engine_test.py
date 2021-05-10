@@ -13,6 +13,7 @@ sys.path.append(test_path)
 #sys.path.append(modules_path)
 
 from mock_tables import dbconnector
+#from swsscommon.swsscommon import SonicDBConfig
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -26,6 +27,7 @@ def mock_setup():
     yield
     print("TEARDOWN")
     os.environ["UTILITIES_UNIT_TESTING"] = "0"
+
 
 class TestInvalidRequest(unittest.TestCase):
     

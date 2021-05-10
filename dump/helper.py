@@ -21,6 +21,9 @@ def display_template(dbs, tabular = False, indent = 4):
             
     return template
 
+def verbose_print(str):
+    print(str)
+
 def print_dump(final_dict, table, db):
     click.echo(json.dumps(final_dict, indent=4))
 
