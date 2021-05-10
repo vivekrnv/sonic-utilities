@@ -145,7 +145,6 @@ class MatchRequest:
      
 class MatchEngine:
     
-    # Given a request obj, find its match in the redis
     def fetch(self, req):
         verbose_print(str(req))
         template = self.__ret_template()

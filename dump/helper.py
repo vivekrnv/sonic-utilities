@@ -23,7 +23,7 @@ def display_template(dbs, tabular = False, indent = 4):
 
 
 def verbose_print(str):
-    if "VERBOSE" in os.environ and os.environ["VERBOSE"] == 1:
+    if "VERBOSE" in os.environ and os.environ["VERBOSE"] == "1":
         print(str)
 
 def print_dump(final_dict, table, db):

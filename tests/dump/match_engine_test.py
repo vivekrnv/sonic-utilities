@@ -284,5 +284,4 @@ class TestMatchEngine(unittest.TestCase):
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
         assert len(ret["keys"]) == 1
-        assert "queue4_group2" in ret["keys"]
-        
+        assert "queue4_group2" in ret["keys"] 
