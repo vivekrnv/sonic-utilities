@@ -42,7 +42,7 @@ class RedisSource(SourceAdapter):
     def connect(self):
         self.db = SonicV2Connector(host="127.0.0.1")
         try:
-            self.db.connect(self.req.db, False)
+            self.db.connect(self.req.db)
             self.sep = self.db.get_db_separator(self.req.db)
         except Exception as e:
             verbose_print("RedisSource: Connection Failed\n" + str(e))
@@ -55,7 +55,6 @@ class RedisSource(SourceAdapter):
         except Exception as e:
             verbose_print("RedisSource: {}|{}|{} Keys fetch Request Failed for DB {}\n".format(self.req.table, self.sep, self.req.key_pattern, self.req.db) + str(e))
             return []
-        print(self.req.table + self.sep + self.req.key_pattern)
         return keys
     
     def get(self, key):
@@ -93,7 +92,8 @@ class JsonSource(SourceAdapter):
         
         all_keys = self.db[self.req.table].keys()
         key_ptrn = self.req.key_pattern
-        key_ptrn = key_ptrn.replace("*", ".*")
+        key_ptrn = re.escape(key_ptrn)
+        key_ptrn = key_ptrn.replace("\\*", ".*")
         filtered_keys = []
         for key in all_keys:
             if re.match(key_ptrn, key):
@@ -124,29 +124,30 @@ class MatchRequest:
     def __str__(self):
         str = "MatchRequest: \n"
         if self.db:
-            str += "db : {},".format(self.db)
+            str += "db:{} , ".format(self.db)
         if self.file:
-            str += "file : {},".format(self.file) 
+            str += "file:{} , ".format(self.file) 
         if self.table:
-            str += "table : {},".format(self.table)
+            str += "table:{} , ".format(self.table)
         if self.key_pattern:
-            str += "key_regx : {},".format(self.key_pattern)
+            str += "key_regx:{} , ".format(self.key_pattern)
         if self.field:
-            str += "field : {},".format(self.field)
+            str += "field:{} , ".format(self.field)
         if self.value:
-            str += "value : {},".format(self.value)
+            str += "value:{} , ".format(self.value)
         if self.just_keys:
-            str += "just_keys: True "
+            str += "just_keys:True "
         else:
-            str += "just_keys: False "
+            str += "just_keys:False "
         if len(self.return_fields) > 0:
             str += "Return Fields: " + ",".join(self.return_fields)
         return str
      
 class MatchEngine:
     
+    # Given a request obj, find its match in the redis
     def fetch(self, req):
-        verbose_print(str(req))
+#         verbose_print(str(req))
         template = self.__ret_template()
         template['error']  = self.__validate_request(req)
         if template['error']:
@@ -163,7 +164,6 @@ class MatchEngine:
             return self.__return_error(template)
         
         all_matched_keys = src.getKeys()
-        verbose_print(all_matched_keys)
         if not all_matched_keys or len(all_matched_keys) == 0:
             template['error'] = error_dict["INV_PTTRN"]
             return self.__return_error(template)
@@ -173,6 +173,7 @@ class MatchEngine:
     
     def __ret_template(self):
         return {"error" : "", "keys" : [], "return_values" : {}}
+    
     
     def __return_error(self, template):
         verbose_print("MatchEngine: \n" + template['error'])
@@ -225,12 +226,11 @@ class MatchEngine:
         filtered_keys = []
         for key in all_matched_keys:
             f_values = src.hget(key, req.field)
-            if "," in f_values: # Fields Conatining Multile Values
+            if "," in f_values: # Fields Containing Multile Values
                 f_value = f_values.split(",")
             else:
                 f_value = [f_values]
-            verbose_print(str(f_value))
-            if req.value in f_value :
+            if req.value in f_value:
                 filtered_keys.append(key)
         return filtered_keys
         

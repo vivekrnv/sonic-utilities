@@ -5,22 +5,14 @@ import redis
 import re
 from swsscommon import swsscommon
 
-# Generate a Template whcih can be used by the print_dump 
-def display_template(dbs, tabular = False, indent = 4):
-    description_map = {"CONFIG_DB" : "Config DB",
-                    "APPL_DB"  : "Application DB",
-                    "ASIC_DB"  : "ASIC DB"}
-    template = {"error" : dict(), "vidtorid" : dict()}   
-    
+# Generate a Template which will be returned by Executor Classes
+def display_template(dbs):
+    template = {}
     for db in dbs:
         template[db] = {}
-        template[db]['dump'] = []
-        template[db]['description'] = ""
-        if db in description_map:
-            template[db]['description'] = description_map[db]
-            
+        template[db]['keys'] = []
+        template[db]['tables_not_found'] = []     
     return template
-
 
 def verbose_print(str):
     if "VERBOSE" in os.environ and os.environ["VERBOSE"] == "1":
