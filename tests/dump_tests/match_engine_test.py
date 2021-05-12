@@ -6,19 +6,12 @@ from dump.redis_match import MatchEngine, error_dict, MatchRequest
 from deepdiff import DeepDiff
 
 test_path = os.path.join(os.path.abspath(__file__),"../")
-mock_db_path = os.path.join(test_path,"mock_tables")
 
 sys.path.append(test_path)
-
-from mock_tables import dbconnector
 
 @pytest.fixture(scope="module", autouse=True)
 def mock_setup():
     print("SETUP")
-    dbconnector.dedicated_dbs['CONFIG_DB'] = os.path.join(mock_db_path, "config_db.json") 
-    dbconnector.dedicated_dbs['APPL_DB'] = os.path.join(mock_db_path, "appl_db.json") 
-    dbconnector.dedicated_dbs['ASIC_DB'] = os.path.join(mock_db_path, "asic_db.json")
-    dbconnector.dedicated_dbs['STATE_DB'] = os.path.join(mock_db_path, "state_db.json")
     os.environ["VERBOSE"] = "1"
     yield
     print("TEARDOWN")
@@ -50,7 +43,7 @@ class TestInvalidRequest(unittest.TestCase):
     
     def test_no_file(self):  
         req = MatchRequest()
-        req.file = os.path.join(mock_db_path, "random_db.json")
+        req.file = os.path.join(test_path, "random_db.json")
         ret = self.match_engine.fetch(req)
         assert ret["error"] == error_dict["NO_FILE"]
 
