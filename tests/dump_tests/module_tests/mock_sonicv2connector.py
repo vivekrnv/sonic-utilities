@@ -35,11 +35,8 @@ class MockSonicV2Connector():
         filtered_keys = []
         all_keys = self.db.keys()
         for key in all_keys:
-            print(re.match(pattern, key))
             if re.match(pattern, key):
-                print(pattern, key)
                 filtered_keys.append(key)
-        
         return filtered_keys
     
     def get_all(self, db_name, key):
