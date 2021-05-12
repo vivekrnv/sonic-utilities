@@ -1,6 +1,5 @@
 
 import json, re, os
-from swsscommon.swsscommon import SonicDBConfig
 
 class MockSonicV2Connector():
     def __init__(self, dedicated_dbs):
