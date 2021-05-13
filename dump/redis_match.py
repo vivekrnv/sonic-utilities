@@ -1,6 +1,6 @@
-import re, json, os
+import re, json, os, sys
+from dump.helper import verbose_print
 from swsscommon.swsscommon import SonicV2Connector, SonicDBConfig
-from .helper import verbose_print
 
 error_dict  = {
     "INV_REQ": "Argument should be of type MatchRequest",
@@ -18,98 +18,6 @@ error_dict  = {
     "BAD_FORMAT_RE_FIELDS": "Return Fields should be of list type"
 }
 
-class SourceAdapter:
-    def __init__(self, req):
-        self.req = req
-    
-    def connect(self):
-        return False
-    
-    def getKeys(self):
-        return []
-    
-    def get(self, key):
-        return {}
-    
-    def hget(self, key, field):
-        return ""
-        
-class RedisSource(SourceAdapter):
-    def __init__(self, req):
-        super().__init__(req)
-        self.sep = "None"
-        
-    def connect(self):
-        self.db = SonicV2Connector(host="127.0.0.1")
-        try:
-            self.db.connect(self.req.db)
-            self.sep = self.db.get_db_separator(self.req.db)
-        except Exception as e:
-            verbose_print("RedisSource: Connection Failed\n" + str(e))
-            return False
-        return True
-        
-    def getKeys(self):       
-        try:
-            keys = self.db.keys(self.req.db, self.req.table + self.sep + self.req.key_pattern)
-        except Exception as e:
-            verbose_print("RedisSource: {}|{}|{} Keys fetch Request Failed for DB {}\n".format(self.req.table, self.sep, self.req.key_pattern, self.req.db) + str(e))
-            return []
-        return keys
-    
-    def get(self, key):
-        try:
-            fv_pairs = self.db.get_all(self.req.db, key)
-        except Exception as e:
-            verbose_print("RedisSource: hgetall {} request failed for DB {}\n".format(key, self.db) + str(e))
-            return {}
-        return fv_pairs
-     
-    def hget(self, key, field):
-        try:
-            value = self.db.get(self.req.db, key, field)
-        except Exception as e:
-            verbose_print("RedisSource: hget {} {} request failed for DB {}\n".format(key, field) + str(e))
-            return ""
-        return value
-
-class JsonSource(SourceAdapter):
-    def __init__(self, req):
-        super().__init__(req)
-    
-    def connect(self):
-        try:
-            with open(self.req.file) as f:
-                self.db = json.load(f)
-        except Exception as e:
-            verbose_print("JsonSource: Loading the JSON file failed" + str(e))
-            return False
-        return True
-    
-    def getKeys(self):
-        if self.req.table not in self.db:
-            return []
-        
-        all_keys = self.db[self.req.table].keys()
-        key_ptrn = self.req.key_pattern
-        key_ptrn = re.escape(key_ptrn)
-        key_ptrn = key_ptrn.replace("\\*", ".*")
-        filtered_keys = []
-        for key in all_keys:
-            if re.match(key_ptrn, key):
-                filtered_keys.append(key)
-        return filtered_keys
-    
-    def get(self, key):
-        if self.req.table in self.db and key in self.db[self.req.table]:
-            return self.db[self.req.table][key]
-        return {}
-            
-    def hget(self, key, field):
-        if self.req.table in self.db and key in self.db[self.req.table] and field in self.db[self.req.table][key]:
-            return self.db[self.req.table][key][field]
-        return ""
-                         
 class MatchRequest:
     def __init__(self):
         self.table = None
@@ -142,12 +50,123 @@ class MatchRequest:
         if len(self.return_fields) > 0:
             str += "Return Fields: " + ",".join(self.return_fields)
         return str
+    
+class SourceAdapter:
+    def __init__(self):
+        pass
+    
+    def connect(self, db):
+        return False
+    
+    def getKeys(self, db, table, key_pattern):
+        return []
+    
+    def get(self, db, key):
+        return {}
+    
+    def hget(self, db, key, field):
+        return ""
+    
+    def sep(self, db):
+        return ""
+        
+class RedisSource(SourceAdapter):
+    def __init__(self):
+        self.db_driver = None 
+        
+    def connect(self, db):
+        self.db_driver = SonicV2Connector(host="127.0.0.1")
+        try:
+            self.db_driver.connect(db)
+        except Exception as e:
+            verbose_print("RedisSource: Connection Failed\n" + str(e))
+            return False
+        return True
+    
+    def sep(self, db):
+        return self.db_driver.get_db_separator(db)
+       
+    def getKeys(self, db, table, key_pattern):       
+        try:
+            keys = self.db_driver.keys(db, table + self.sep(db) + key_pattern)
+        except Exception as e:
+            verbose_print("RedisSource: {}|{}|{} Keys fetch Request Failed for DB {}\n".format(table, self.sep(db), key_pattern, db) + str(e))
+            return []
+        return keys
+    
+    def get(self, db, key):
+        try:
+            fv_pairs = self.db_driver.get_all(db, key)
+        except Exception as e:
+            verbose_print("RedisSource: hgetall {} request failed for DB {}\n".format(key, db) + str(e))
+            return {}
+        return fv_pairs
      
+    def hget(self, db, key, field):
+        try:
+            value = self.db_driver.get(db, key, field)
+        except Exception as e:
+            verbose_print("RedisSource: hget {} {} request failed for DB {}\n".format(key, field) + str(e))
+            return ""
+        return value
+
+class JsonSource(SourceAdapter):
+    
+    def __init__(self):
+        self.db_driver = None
+    
+    def connect(self, db):
+        try:
+            with open(db) as f:
+                self.db_driver = json.load(f)
+        except Exception as e:
+            verbose_print("JsonSource: Loading the JSON file failed" + str(e))
+            return False
+        return True
+    
+    def sep(self, db):
+        return SonicDBConfig.getSeparator("CONFIG_DB")
+    
+    def getKeys(self, db, table, key_pattern):
+        if table not in self.db_driver:
+            return []
+        
+        all_keys = self.db_driver[table].keys()
+        key_ptrn = key_pattern
+        key_ptrn = re.escape(key_ptrn)
+        key_ptrn = key_ptrn.replace("\\*", ".*")
+        filtered_keys = []
+        for key in all_keys:
+            if re.match(key_ptrn, key):
+                filtered_keys.append(table+self.sep(db)+key)
+        return filtered_keys
+    
+    def get(self, db, key):
+        sp = self.sep(db)
+        tokens = key.split(sp)
+        key_ptrn = tokens[-1]
+        tokens.pop()
+        table = sp.join(tokens)
+        if table in self.db_driver and key_ptrn in self.db_driver[table]:
+            return self.db_driver[table][key_ptrn]
+        return {}
+            
+    def hget(self, db, key, field):
+        sp = self.sep(db)
+        tokens = key.split(sp)
+        key_ptrn = tokens[-1]
+        tokens.pop()
+        table = sp.join(tokens)
+        print(table, key_ptrn)
+        if table in self.db_driver and key_ptrn in self.db_driver[table] and field in self.db_driver[table][key_ptrn]:
+            return self.db_driver[table][key_ptrn][field]
+        return ""
+                        
 class MatchEngine:
     
     # Given a request obj, find its match in the redis
     def fetch(self, req):
-#         verbose_print(str(req))
+        verbose_print(str(req))
         template = self.__ret_template()
         template['error']  = self.__validate_request(req)
         if template['error']:
@@ -155,20 +174,23 @@ class MatchEngine:
         
         src = None
         if req.db:
-            src = RedisSource(req)
+            src = RedisSource()
         else:
-            src = JsonSource(req)
+            req.db = req.file
+            src = JsonSource()
         
-        if not src.connect():
+        if not src.connect(req.db):
             template['error']  = error_dict["CONN_ERR"]
             return self.__return_error(template)
-        
-        all_matched_keys = src.getKeys()
+        verbose_print("MatchRequest Checks Passed")
+        all_matched_keys = src.getKeys(req.db, req.table, req.key_pattern)
         if not all_matched_keys or len(all_matched_keys) == 0:
             template['error'] = error_dict["INV_PTTRN"]
             return self.__return_error(template)
+        verbose_print("Keys Matched before Filtering:" + str(all_matched_keys))
         
         filtered_keys = self.__filter_out_keys(src, req, all_matched_keys)
+        verbose_print("Filtered Keys:" + str(filtered_keys))
         return self.__fill(src, req, filtered_keys)
     
     def __ret_template(self):
@@ -225,7 +247,7 @@ class MatchEngine:
         
         filtered_keys = []
         for key in all_matched_keys:
-            f_values = src.hget(key, req.field)
+            f_values = src.hget(req.db, key, req.field)
             if "," in f_values: # Fields Containing Multile Values
                 f_value = f_values.split(",")
             else:
@@ -240,13 +262,13 @@ class MatchEngine:
         for key in filtered_keys:
             temp = {}
             if not req.just_keys:
-                temp[key] = src.get(key)
+                temp[key] = src.get(req.db, key)
                 template["keys"].append(temp)
             elif len(req.return_fields) > 0:
                 template["keys"].append(key)
                 template["return_values"][key] = {}
                 for field in req.return_fields: 
-                    template["return_values"][key][field] = src.hget(key, field)
+                    template["return_values"][key][field] = src.hget(req.db, key, field)
             else:
                 template["keys"].append(key)
         return template

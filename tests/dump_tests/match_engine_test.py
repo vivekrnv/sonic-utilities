@@ -255,7 +255,6 @@ class TestMatchEngine(unittest.TestCase):
         ddiff = DeepDiff(exp_dict, recv_dict)
         assert not ddiff, ddiff
     
-        
     def test_file_source(self):
         req = MatchRequest()
         req.file = os.path.join(os.path.dirname(__file__),"files/copp_cfg.json")
@@ -265,7 +264,7 @@ class TestMatchEngine(unittest.TestCase):
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
         assert len(ret["keys"]) == 1
-        assert "arp" in ret["keys"] 
+        assert "COPP_TRAP|arp" in ret["keys"] 
         
     def test_file_source_with_key_ptrn(self):
         req = MatchRequest()
@@ -277,5 +276,22 @@ class TestMatchEngine(unittest.TestCase):
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
         assert len(ret["keys"]) == 1
-        assert "queue4_group2" in ret["keys"]
+        assert "COPP_GROUP|queue4_group2" in ret["keys"]
+    
+    def test_file_source_with_not_only_return_keys(self):
+        req = MatchRequest()
+        req.file = os.path.join(os.path.dirname(__file__),"files/copp_cfg.json")
+        req.table = "COPP_GROUP"
+        req.key_pattern = "queue4*"
+        req.field = "red_action"
+        req.value = "drop"
+        req.just_keys = False
+        ret = self.match_engine.fetch(req)
+        assert ret["error"] == ""
+        assert len(ret["keys"]) == 1
+        recv_dict = ret["keys"][0]
+        exp_dict =  {"COPP_GROUP|queue4_group2": {"trap_action": "copy", "trap_priority": "4", "queue": "4", "meter_type": "packets", "mode": "sr_tcm", "cir": "600", "cbs": "600", "red_action": "drop"}}
+        ddiff = DeepDiff(exp_dict, recv_dict)
+        assert not ddiff, ddiff
+        
         
