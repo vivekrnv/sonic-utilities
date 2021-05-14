@@ -55,8 +55,8 @@ def state(ctx, module, identifier, db, table, key_map, verbose):
     if identifier == "all":
         ids = obj.get_all_args()
     else:
-        ids = [identifier]
-    
+        ids = identifier.split(",")
+        
     params = {}
     collected_info = {}
     for arg in ids: 
@@ -72,10 +72,10 @@ def state(ctx, module, identifier, db, table, key_map, verbose):
         collected_info = populate_fv(collected_info, module)
     
     for id in vidtorid.keys():
-        if  vidtorid[id]:
-            collected_info[id]["vidtorid"] = vidtorid[id]
+        if  vidtorid[id] and vidtorid:
+            collected_info[id]["ASIC_DB"]["vidtorid"] = vidtorid[id]
          
-    print_dump(collected_info, table, key_map)
+    print_dump(collected_info, table, module, identifier, key_map)
     
     return 
 
@@ -107,15 +107,69 @@ def populate_fv(info, module):
                  
     return final_info
 
+def get_dict_str(key_obj):
+    table = []
+    for pair in key_obj.items():
+        table.append(list(pair))
+    return tabulate(table, headers=["field", "value"], tablefmt="psql")
+
+def get_keys(dump):
+    keys = []
+    for key_ in dump:
+        if isinstance(key_, dict) and key_:
+            keys.append(list(key_.keys())[0])
+        else:
+            keys.append(key_)
+    return keys
+
+def get_rid(redis_key, vidtorid):
+    matches = re.findall(r"oid:0x\w{1,14}", redis_key)
+    if matches:
+       vid = matches[0]
+       if vid in vidtorid:
+           return vidtorid[vid]   
+    return "Not Found"
+ 
 # print dump
-def print_dump(collected_info, table, module, identifier):
+def print_dump(collected_info, table, module, identifier, key_map):
     if not table:
-        click.echo(json.dumps(single_dict, indent=4))
-        return 
-    
+        click.echo(json.dumps(collected_info, indent=4))
+        return
+
+    top_header = [plugins.dump_modules[module].ARG_NAME, "DB_NAME", "DUMP"]
+    final_collection = []
     for ids in collected_info.keys():
-        click.echo("{}:{}".format(plugins.dump_modules[module].ARG_NAME, identifier)
-    return 
+        for db in collected_info[ids].keys():
+            total_info = ""
+
+            if collected_info[ids][db]["tables_not_found"]:
+                total_info += tabulate(collected_info[ids][db]["tables_not_found"], ["Tables Not Found"])
+                total_info += ""
+    
+            if not key_map:
+                values = []
+                hdrs = ["Keys", "field-value pairs"]
+                for key_obj in collected_info[ids][db]["keys"]:
+                    if isinstance(key_obj, dict) and key_obj:
+                        key = list(key_obj.keys())[0]
+                        values.append([key, get_dict_str(key_obj[key])])
+                total_info += str(tabulate(values, hdrs, tablefmt="pretty"))
+            else:
+                temp = []
+                for key_ in collected_info[ids][db]["keys"]:
+                    temp.append([key_])
+                total_info += str(tabulate(temp, headers=["Keys Collected"], tablefmt="pretty"))
+
+            total_info += "\n"
+            if "vidtorid" in collected_info[ids][db]:
+                table = []
+                for pair in collected_info[ids][db]["vidtorid"].items():
+                    table.append(list(pair))
+                total_info +=str(tabulate(table, headers=["vid", "rid"], tablefmt="pretty"))
+            final_collection.append([ids, db, total_info])
+
+    click.echo(tabulate(final_collection, top_header, tablefmt="grid"))
+    return
 
 if __name__ == '__main__':
     dump()
