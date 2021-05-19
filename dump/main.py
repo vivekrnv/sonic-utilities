@@ -4,8 +4,8 @@ from tabulate import tabulate
 
 sys.path.append(os.path.dirname(__file__))
 import plugins
-from dump.helper import extract_rid, filter_out_dbs
 from dump.redis_match import RedisSource, JsonSource
+from swsscommon.swsscommon import SonicV2Connector
 
 # Autocompletion Helper
 def get_available_modules(ctx, args, incomplete):
@@ -78,6 +78,44 @@ def state(ctx, module, identifier, db, table, key_map, verbose):
     print_dump(collected_info, table, module, identifier, key_map)
     
     return 
+
+def extract_rid(info):
+    r = SonicV2Connector(host="127.0.0.1")
+    r.connect("ASIC_DB")
+    vidtorid = {}
+    for arg in info.keys():
+        vidtorid[arg] = get_v_r_map(r, info[arg])
+    return vidtorid
+
+def get_v_r_map(r, single_dict):
+    v_r_map = {}
+    asic_obj_ptrn = "ASIC_STATE:.*:oid:0x\w{1,14}"
+    
+    if "ASIC_DB" in single_dict and 'keys' in single_dict["ASIC_DB"]:
+        for redis_key in single_dict["ASIC_DB"]['keys']:
+            if re.match(asic_obj_ptrn, redis_key):
+                matches = re.findall(r"oid:0x\w{1,14}", redis_key)
+                if matches:
+                   vid = matches[0]
+                   v_r_map[vid] =  vid_to_rid(vid, r)
+    return v_r_map
+
+# Get a vid:rid for the input vid
+def vid_to_rid(vid, r):
+    rid = r.get("ASIC_DB", "VIDTORID", vid)
+    if not rid:
+        rid = "Real ID Not Found" 
+    return rid  
+
+# Filter dbs which are not required
+def filter_out_dbs(db_list, collected_info):
+    args_ = list(collected_info.keys())
+    for arg in args_:
+        dbs = list(collected_info[arg].keys())
+        for db in dbs:
+            if db not in db_list:
+                del collected_info[arg][db]
+    return collected_info
 
 def populate_fv(info, module):
 
@@ -153,19 +191,19 @@ def print_dump(collected_info, table, module, identifier, key_map):
                     if isinstance(key_obj, dict) and key_obj:
                         key = list(key_obj.keys())[0]
                         values.append([key, get_dict_str(key_obj[key])])
-                total_info += str(tabulate(values, hdrs, tablefmt="pretty"))
+                total_info += str(tabulate(values, hdrs, tablefmt="grid"))
             else:
                 temp = []
                 for key_ in collected_info[ids][db]["keys"]:
                     temp.append([key_])
-                total_info += str(tabulate(temp, headers=["Keys Collected"], tablefmt="pretty"))
+                total_info += str(tabulate(temp, headers=["Keys Collected"], tablefmt="grid"))
 
             total_info += "\n"
             if "vidtorid" in collected_info[ids][db]:
                 table = []
                 for pair in collected_info[ids][db]["vidtorid"].items():
                     table.append(list(pair))
-                total_info +=str(tabulate(table, headers=["vid", "rid"], tablefmt="pretty"))
+                total_info +=str(tabulate(table, headers=["vid", "rid"], tablefmt="grid"))
             final_collection.append([ids, db, total_info])
 
     click.echo(tabulate(final_collection, top_header, tablefmt="grid"))

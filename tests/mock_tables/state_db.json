@@ -705,5 +705,8 @@
         "non_fatal|Undefined": "0",
         "non_fatal|UnsupReq": "0",
         "non_fatal|UnxCmplt": "0"
+    },
+    "PORT_TABLE|Ethernet0":{
+    	"state" : "ok"
     }
 }
