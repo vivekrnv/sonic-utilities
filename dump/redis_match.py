@@ -28,6 +28,7 @@ class MatchRequest:
         self.db = ""
         self.file = ""
         self.just_keys = True
+        self.ns = ''
     
     def __str__(self):
         str = "MatchRequest: \n"
@@ -49,13 +50,15 @@ class MatchRequest:
             str += "just_keys:False "
         if len(self.return_fields) > 0:
             str += "Return Fields: " + ",".join(self.return_fields)
+        if self.ns:
+            str += "Namespace: " + self.ns 
         return str
     
 class SourceAdapter:
     def __init__(self):
         pass
     
-    def connect(self, db):
+    def connect(self, db, ns):
         return False
     
     def getKeys(self, db, table, key_pattern):
@@ -74,9 +77,9 @@ class RedisSource(SourceAdapter):
     def __init__(self):
         self.db_driver = None 
         
-    def connect(self, db):
-        self.db_driver = SonicV2Connector(host="127.0.0.1")
+    def connect(self, db, ns):
         try:
+            self.db_driver = SonicV2Connector(namespace=ns, host="127.0.0.1")
             self.db_driver.connect(db)
         except Exception as e:
             verbose_print("RedisSource: Connection Failed\n" + str(e))
@@ -115,7 +118,7 @@ class JsonSource(SourceAdapter):
     def __init__(self):
         self.db_driver = None
     
-    def connect(self, db):
+    def connect(self, db, ns):
         try:
             with open(db) as f:
                 self.db_driver = json.load(f)
@@ -173,13 +176,15 @@ class MatchEngine:
             return self.__return_error(template)
         
         src = None
+        d_src = ""
         if req.db:
+            d_src = req.db
             src = RedisSource()
         else:
-            req.db = req.file
+            d_src = req.file
             src = JsonSource()
         
-        if not src.connect(req.db):
+        if not src.connect(d_src, req.ns):
             template['error']  = error_dict["CONN_ERR"]
             return self.__return_error(template)
         verbose_print("MatchRequest Checks Passed")
@@ -187,7 +192,6 @@ class MatchEngine:
         if not all_matched_keys or len(all_matched_keys) == 0:
             template['error'] = error_dict["INV_PTTRN"]
             return self.__return_error(template)
-        verbose_print("Keys Matched before Filtering:" + str(all_matched_keys))
         
         filtered_keys = self.__filter_out_keys(src, req, all_matched_keys)
         verbose_print("Filtered Keys:" + str(filtered_keys))
