@@ -97,9 +97,6 @@ class TestDumpState(object):
         '''"SAI_HOSTIF_ATTR_TYPE":"SAI_HOSTIF_TYPE_NETDEV","SAI_HOSTIF_ATTR_VLAN_TAG":"SAI_HOSTIF_VLAN_TAG_STRIP"}},''' +
         '''{"ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:0x10000000004a4":{"NULL":"NULL","SAI_PORT_ATTR_ADMIN_STATE":"true","SAI_PORT_ATTR_MTU":"9122","SAI_PORT_ATTR_SPEED":"100000"}}],"tables_not_found":[],"vidtorid":{"oid:0xd00000000056d":"oid:0xd","oid:0x10000000004a4":"oid:0x1690000000001"}},''' +
         '''"STATE_DB":{"keys":[{"PORT_TABLE|Ethernet0":{"state":"ok"}}],"tables_not_found":[]}}}''')
-#         exc_type, exc_value, exc_tb = result.exc_info
-#         tb = traceback.TracebackException(exc_type, exc_value, exc_tb)
-#         print(''.join(tb.format_exception_only()))
         assert result.exit_code == 0, "exit code: {}, Exception: {}, Traceback: {}".format(result.exit_code, result.exception, result.exc_info)
         ddiff = compare_json_output(expected, result.output)
         assert not ddiff, ddiff
@@ -239,7 +236,4 @@ class TestDumpStateMultiAsic(object):
     def teardown_class(cls):
         print("TEARDOWN")
         os.environ["UTILITIES_UNIT_TESTING"] = "0"
-        os.environ["UTILITIES_UNIT_TESTING_TOPOLOGY"] = ""
-    
-    
-    
+        os.environ["UTILITIES_UNIT_TESTING_TOPOLOGY"] = "" 
