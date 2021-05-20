@@ -7,9 +7,10 @@ class Executor(ABC):
     CONFIG_FILE = "" # Path to config file, if any
     
     @abstractmethod
-    def execute(self):
+    def execute(self, params):
         pass
     
     @abstractmethod
-    def get_all_args(self):
+    def get_all_args(self, ns):
         pass
+    

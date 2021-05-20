@@ -1,8 +1,11 @@
 
 import json, re, os
+from utilities_common.constants import DEFAULT_NAMESPACE
 
 class MockSonicV2Connector():
-    def __init__(self, dedicated_dbs):
+    def __init__(self, dedicated_dbs, namespace):
+        if namespace != DEFAULT_NAMESPACE:
+            raise "This Mock doesn't support multi-asic configuration"
         self.db = None
         self.db_name_connect_to = None
         self.dedicated_dbs = dedicated_dbs
@@ -55,3 +58,13 @@ class MockSonicV2Connector():
         if key not in self.db or field not in self.db[key]:
             return ""
         return self.db[key][field]
+    
+    def hexists(self, db_name, key, field):
+        if not self.db:
+            raise "MockDB Not Connected"
+        if self.db_name_connect_to != db_name:
+            raise "Failed to find {} in the MockDB".format(db_name)
+        if key not in self.db or field not in self.db[key]:
+            return False
+        else:
+            return True
