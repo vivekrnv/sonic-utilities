@@ -140,6 +140,7 @@ setup(
             'counterpoll = counterpoll.main:cli',
             'crm = crm.main:cli',
             'debug = debug.main:cli',
+            'dump = dump.main:dump',
             'filter_fdb_entries = fdbutil.filter_fdb_entries:main',
             'pfcwd = pfcwd.main:cli',
             'sfputil = sfputil.main:cli',
