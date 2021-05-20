@@ -21,8 +21,8 @@ dedicated_dbs['APPL_DB'] = os.path.join(port_files_path, "appl_db.json")
 dedicated_dbs['ASIC_DB'] = os.path.join(port_files_path, "asic_db.json")
 dedicated_dbs['STATE_DB'] = os.path.join(port_files_path, "state_db.json")
 
-def mock_connector(host):
-    return MockSonicV2Connector(dedicated_dbs)
+def mock_connector(host, namespace):
+    return MockSonicV2Connector(dedicated_dbs, namespace)
 
 @pytest.fixture(scope="module", autouse=True)
 def verbosity_setup():
@@ -45,6 +45,7 @@ class TestPortModule(unittest.TestCase):
     def test_working_state(self):
         params = {}
         params[Port.ARG_NAME] = "Ethernet176"
+        params["namespace"] = ""
         m_port = Port()
         returned = m_port.execute(params)
         expect = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -59,6 +60,7 @@ class TestPortModule(unittest.TestCase):
     def test_missing_asic_port(self):
         params = {}
         params[Port.ARG_NAME] = "Ethernet160"
+        params["namespace"] = ""
         m_port = Port()
         returned = m_port.execute(params)
         expect = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -73,6 +75,7 @@ class TestPortModule(unittest.TestCase):
     def test_missing_asic_hostif(self):
         params = {}
         params[Port.ARG_NAME] = "Ethernet164"
+        params["namespace"] = ""
         m_port = Port()
         returned = m_port.execute(params)
         expect = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -87,6 +90,7 @@ class TestPortModule(unittest.TestCase):
     def test_missing_state_and_appl(self):
         params = {}
         params[Port.ARG_NAME] = "Ethernet156"
+        params["namespace"] = ""
         m_port = Port()
         returned = m_port.execute(params)
         expect = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -101,6 +105,7 @@ class TestPortModule(unittest.TestCase):
     def test_no_port(self):
         params = {}
         params[Port.ARG_NAME] = "Ethernet152"
+        params["namespace"] = ""
         m_port = Port()
         returned = m_port.execute(params)
         expect = display_template(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -115,9 +120,9 @@ class TestPortModule(unittest.TestCase):
     def test_all_args(self):
         params = {}
         m_port = Port()
-        returned = m_port.get_all_args()
+        returned = m_port.get_all_args("")
         expect = ["Ethernet156", "Ethernet160", "Ethernet164", "Ethernet176"]
-        ddiff = DeepDiff(set(expect), set(expect))
+        ddiff = DeepDiff(set(expect), set(returned))
         assert not ddiff, ddiff
         
         

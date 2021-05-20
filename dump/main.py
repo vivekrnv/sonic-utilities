@@ -6,6 +6,8 @@ sys.path.append(os.path.dirname(__file__))
 import plugins
 from dump.redis_match import RedisSource, JsonSource
 from swsscommon.swsscommon import SonicV2Connector
+from utilities_common.multi_asic import multi_asic_ns_choices
+from utilities_common.constants import DEFAULT_NAMESPACE
 
 # Autocompletion Helper
 def get_available_modules(ctx, args, incomplete):
@@ -35,11 +37,12 @@ def dump():
 @click.option('--table', '-t', is_flag=True, default=False, help='Print in tabular format', show_default=True)
 @click.option('--key-map', '-k', is_flag=True, default=False, help="Only fetch the keys matched, don't extract field-value dumps", show_default=True)
 @click.option('--verbose', '-v', is_flag=True, default=False, help="Prints any intermediate output to stdout useful for dev & troubleshooting", show_default=True)
-def state(ctx, module, identifier, db, table, key_map, verbose):
+@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=click.Choice(multi_asic_ns_choices()), show_default=True, help='Dump the redis-state for this namespace.')  
+def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     """
     Dump the redis-state of the identifier for the module specified
     """
-
+        
     if module not in plugins.dump_modules:
         click.echo("No Matching Plugin has been Implemented")
         ctx.exit()
@@ -53,12 +56,13 @@ def state(ctx, module, identifier, db, table, key_map, verbose):
     obj = plugins.dump_modules[module]()
     
     if identifier == "all":
-        ids = obj.get_all_args()
+        ids = obj.get_all_args(namespace)
     else:
         ids = identifier.split(",")
         
     params = {}
     collected_info = {}
+    params['namespace'] = namespace
     for arg in ids: 
         params[plugins.dump_modules[module].ARG_NAME] = arg 
         collected_info[arg] = obj.execute(params)
@@ -66,10 +70,10 @@ def state(ctx, module, identifier, db, table, key_map, verbose):
     if len(db) > 0:
         collected_info = filter_out_dbs(db, collected_info)
     
-    vidtorid = extract_rid(collected_info)
+    vidtorid = extract_rid(collected_info, namespace)
     
     if not key_map:
-        collected_info = populate_fv(collected_info, module)
+        collected_info = populate_fv(collected_info, module, namespace)
     
     for id in vidtorid.keys():
         if  vidtorid[id] and vidtorid:
@@ -79,8 +83,8 @@ def state(ctx, module, identifier, db, table, key_map, verbose):
     
     return 
 
-def extract_rid(info):
-    r = SonicV2Connector(host="127.0.0.1")
+def extract_rid(info, ns):
+    r = SonicV2Connector(namespace=ns, host="127.0.0.1")
     r.connect("ASIC_DB")
     vidtorid = {}
     for arg in info.keys():
@@ -117,7 +121,7 @@ def filter_out_dbs(db_list, collected_info):
                 del collected_info[arg][db]
     return collected_info
 
-def populate_fv(info, module):
+def populate_fv(info, module, namespace):
 
     all_dbs = set()
     for id in info.keys():
@@ -128,10 +132,10 @@ def populate_fv(info, module):
     for db_name in all_dbs:
         if db_name is "CONFIG_FILE":
             db_dict[db_name] = JsonSource()
-            db_dict[db_name].connect(plugins.dump_modules[module].CONFIG_FILE)
+            db_dict[db_name].connect(plugins.dump_modules[module].CONFIG_FILE, namespace)
         else:
             db_dict[db_name] = RedisSource()
-            db_dict[db_name].connect(db_name)
+            db_dict[db_name].connect(db_name, namespace)
             
     final_info = {}
     for id in info.keys():
