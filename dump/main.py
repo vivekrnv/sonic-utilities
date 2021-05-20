@@ -6,7 +6,7 @@ sys.path.append(os.path.dirname(__file__))
 import plugins
 from dump.redis_match import RedisSource, JsonSource
 from swsscommon.swsscommon import SonicV2Connector
-from utilities_common.multi_asic import multi_asic_ns_choices
+from utilities_common.multi_asic import multi_asic_ns_choices, multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
 
 # Autocompletion Helper
@@ -37,12 +37,19 @@ def dump():
 @click.option('--table', '-t', is_flag=True, default=False, help='Print in tabular format', show_default=True)
 @click.option('--key-map', '-k', is_flag=True, default=False, help="Only fetch the keys matched, don't extract field-value dumps", show_default=True)
 @click.option('--verbose', '-v', is_flag=True, default=False, help="Prints any intermediate output to stdout useful for dev & troubleshooting", show_default=True)
-@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=click.Choice(multi_asic_ns_choices()), show_default=True, help='Dump the redis-state for this namespace.')  
+@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=str, show_default=True, help='Dump the redis-state for this namespace.')  
 def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     """
     Dump the redis-state of the identifier for the module specified
     """
-        
+    if not multi_asic.is_multi_asic() and namespace != DEFAULT_NAMESPACE:
+        click.echo("Namespace option is not valid for a single-ASIC device")
+        ctx.exit()
+    
+    if multi_asic.is_multi_asic() and (namespace != DEFAULT_NAMESPACE and namespace not in multi_asic_ns_choices()):
+        click.echo("Namespace option is not valid. Choose one of {}".format(multi_asic_ns_choices()))
+        ctx.exit()
+    
     if module not in plugins.dump_modules:
         click.echo("No Matching Plugin has been Implemented")
         ctx.exit()

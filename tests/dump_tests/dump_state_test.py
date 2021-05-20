@@ -169,6 +169,11 @@ class TestDumpState(object):
         ddiff = DeepDiff(set(expected_entries), set(rec_json.keys()))
         assert not ddiff, "Expected Entries were not recieved when passing all keyword"
     
+    def test_namespace_single_asic(self):
+        runner = CliRunner()
+        result = runner.invoke(dump.state, ["port", "Ethernet0", "--table", "--key-map", "--namespace", "asic0"])
+        assert result.output == "Namespace option is not valid for a single-ASIC device\n"
+    
     @classmethod
     def teardown(cls):
         print("TEARDOWN")
@@ -202,22 +207,24 @@ class TestDumpStateMultiAsic(object):
         runner = CliRunner()
         db = Db()
         result = runner.invoke(dump.state, ["port", "Ethernet0", "--namespace", "asic0"], obj=db)
-        expected = ('''{"Ethernet0":{"CONFIG_DB":{"keys":["PORT|Ethernet0"],"tables_not_found":[]},"APPL_DB":{"keys":["PORT_TABLE:Ethernet0"],"tables_not_found":[]},'''+
-        '''"ASIC_DB":{"keys":["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF:oid:0xd00000000056d","ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:0x10000000004a4"],'''+
-        '''"tables_not_found":[],"vidtorid":{"oid:0xd00000000056d":"oid:0xd","oid:0x10000000004a4":"oid:0x1690000000001"}},'''+
-        '''"STATE_DB":{"keys":["PORT_TABLE|Ethernet0"],"tables_not_found":[]}}}''')
+        expected = ('''{"Ethernet0":{"CONFIG_DB":{"keys":[{"PORT|Ethernet0":{"admin_status":"up","alias":"Ethernet1/1","asic_port_name":'''+
+        '''"Eth0-ASIC0","description":"ARISTA01T2:Ethernet3/1/1","lanes":"33,34,35,36","mtu":"9100","pfc_asym":"off","role":"Ext","speed":"40000"}}],'''+
+        '''"tables_not_found":[]},"APPL_DB":{"keys":[{"PORT_TABLE:Ethernet0":{"lanes":"33,34,35,36","description":"ARISTA01T2:Ethernet3/1/1","pfc_asym":"off",'''+
+        '''"mtu":"9100","alias":"Ethernet1/1","oper_status":"up","admin_status":"up","role":"Ext","speed":"40000","asic_port_name":"Eth0-ASIC0"}}],"tables_not_found":[]},"ASIC_DB":'''+
+        '''{"keys":[],"tables_not_found":["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF","ASIC_STATE:SAI_OBJECT_TYPE_PORT"]},"STATE_DB":{"keys":[],"tables_not_found":["PORT_TABLE"]}}}''')
         assert result.exit_code == 0, "exit code: {}, Exception: {}, Output: {}".format(result.exit_code, result.exception, result.output)
         ddiff = compare_json_output(expected, result.output)
         assert not ddiff, ddiff
+
     
     def test_namespace_asic1(self):
         runner = CliRunner()
         db = Db()
-        result = runner.invoke(dump.state, ["port", "Ethernet0", "--namespace", "asic0"], obj=db)
-        expected = ('''{"Ethernet0":{"CONFIG_DB":{"keys":["PORT|Ethernet0"],"tables_not_found":[]},"APPL_DB":{"keys":["PORT_TABLE:Ethernet0"],"tables_not_found":[]},'''+
-        '''"ASIC_DB":{"keys":["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF:oid:0xd00000000056d","ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:0x10000000004a4"],'''+
-        '''"tables_not_found":[],"vidtorid":{"oid:0xd00000000056d":"oid:0xd","oid:0x10000000004a4":"oid:0x1690000000001"}},'''+
-        '''"STATE_DB":{"keys":["PORT_TABLE|Ethernet0"],"tables_not_found":[]}}}''')
+        result = runner.invoke(dump.state, ["port", "Ethernet-BP256", "--namespace", "asic1"], obj=db)
+        expected = ('''{"Ethernet-BP256":{"CONFIG_DB":{"keys":[{"PORT|Ethernet-BP256":{"admin_status":"up","alias":"Ethernet-BP256","asic_port_name":"Eth0-ASIC1","description":"ASIC0:Eth16-ASIC0",'''+
+        '''"lanes":"61,62,63,64","mtu":"9100","pfc_asym":"off","role":"Int","speed":"40000"}}],"tables_not_found":[]},"APPL_DB":{"keys":[{"PORT_TABLE:Ethernet-BP256":{"oper_status":"up",'''+
+        '''"lanes":"61,62,63,64","description":"ASIC0:Eth16-ASIC0","pfc_asym":"off","mtu":"9100","alias":"Ethernet-BP256","admin_status":"up","speed":"40000","asic_port_name":"Eth0-ASIC1"}}],'''+
+        '''"tables_not_found":[]},"ASIC_DB":{"keys":[],"tables_not_found":["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF","ASIC_STATE:SAI_OBJECT_TYPE_PORT"]},"STATE_DB":{"keys":[],"tables_not_found":["PORT_TABLE"]}}}''')
         assert result.exit_code == 0, "exit code: {}, Exception: {}, Output: {}".format(result.exit_code, result.exception, result.output)
         ddiff = compare_json_output(expected, result.output)
         assert not ddiff, ddiff
@@ -226,14 +233,9 @@ class TestDumpStateMultiAsic(object):
         runner = CliRunner()
         db = Db()
         result = runner.invoke(dump.state, ["port", "Ethernet0", "--namespace", "asic3"], obj=db)
-        print(result.output)
-        assert result.exit_code == 0, "exit code: {}, Exception: {}, Output: {}".format(result.exit_code, result.exception, result.output)
-        expected = ""
-        ddiff = compare_json_output(expected, result.output)
-        assert not ddiff, ddiff
+        assert result.output == "Namespace option is not valid. Choose one of ['asic0', 'asic1']\n"
     
 
-    
     def teardown_class(cls):
         print("TEARDOWN")
         os.environ["UTILITIES_UNIT_TESTING"] = "0"
