@@ -23,7 +23,15 @@ def show_modules(ctx, param, value):
         display.append((mod, plugins.dump_modules[mod].ARG_NAME))
     click.echo(tabulate(display, header))
     ctx.exit()
-              
+
+# Display Modules Callback
+def all_modules(ctx, param, value):
+    if not value or ctx.resilient_parsing:
+        return
+    keys = list(plugins.dump_modules.keys())
+    print(";".join(keys))
+    ctx.exit()
+             
 @click.group()
 def dump():
     pass
@@ -33,6 +41,7 @@ def dump():
 @click.argument('module', required=True, type=str, autocompletion=get_available_modules)
 @click.argument('identifier', required=True, type=str) 
 @click.option('--show', '-s', is_flag=True, default=False, help='Display Modules Available', is_eager=True, expose_value=False, callback=show_modules)
+@click.option('--all-modules', '-a', is_flag=True, default=False, help='Print modules in a techsupport-friendly format', is_eager=True, expose_value=False, callback=all_modules)
 @click.option('--db', '-d', multiple=True, help='Only dump from these Databases')
 @click.option('--table', '-t', is_flag=True, default=False, help='Print in tabular format', show_default=True)
 @click.option('--key-map', '-k', is_flag=True, default=False, help="Only fetch the keys matched, don't extract field-value dumps", show_default=True)
