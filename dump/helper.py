@@ -12,15 +12,3 @@ def display_template(dbs):
 def verbose_print(str):
     if "VERBOSE" in os.environ and os.environ["VERBOSE"] == "1":
         print(str)
-
-
-    
-    
-    
-
-
-
-
-
-        
-    
