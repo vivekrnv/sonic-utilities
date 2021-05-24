@@ -3,7 +3,10 @@ import json, re, os
 from utilities_common.constants import DEFAULT_NAMESPACE
 
 class MockSonicV2Connector():
-    def __init__(self, dedicated_dbs, namespace):
+    def __init__(self, dedicated_dbs, namespace=DEFAULT_NAMESPACE):
+        # TODO: Add Support for 
+        # 1) Different namespace, i.e. asic0, asic1 etc
+        # 2) In the case when user-provider dedicated_dbs is empty, Read from mock_tables/*_db.json
         if namespace != DEFAULT_NAMESPACE:
             raise "This Mock doesn't support multi-asic configuration"
         self.db = None
