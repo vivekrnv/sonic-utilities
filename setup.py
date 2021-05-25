@@ -32,6 +32,7 @@ setup(
         'debug',
         'generic_config_updater',
         'dump',
+        'dump.plugins',
         'pfcwd',
         'sfputil',
         'ssdutil',
