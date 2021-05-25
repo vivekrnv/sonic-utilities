@@ -1006,6 +1006,31 @@ save_counter_snapshot() {
 }
 
 ###############################################################################
+# save the debug dump output
+###############################################################################
+save_dump_state_all_ns() {
+    IFS=';'
+    read -ra MODULES <<< "$(dump state -a)"
+    local UVDUMP="unified_view_dump"
+
+    $MKDIR $V -p $LOGDIR/$UVDUMP
+
+    for addr in "${MODULES[@]}";
+    do
+            save_cmd_all_ns "dump state $addr all --key-map" "$UVDUMP/$addr"
+            if [[ ( "$NUM_ASICS" > 1 ) ]] ; then
+                for (( i=0; i<$NUM_ASICS; i++ ))
+                do
+                        local cmd="dump state $addr all --key-map --namespace asic$i"
+                        local file="$UVDUMP/$addr.$i"
+                        save_cmd "$cmd" "$file"
+                done
+            fi
+    done
+}
+
+
+###############################################################################
 # Main generate_dump routine
 # Globals:
 #  All of them.
@@ -1116,7 +1141,8 @@ main() {
     save_nat_info
     save_bfd_info
     save_redis_info
-
+    save_dump_state_all_ns
+    
     save_cmd "docker ps -a" "docker.ps"
     save_cmd "docker top pmon" "docker.pmon"
 
