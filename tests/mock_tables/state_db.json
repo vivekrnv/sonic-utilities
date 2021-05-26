@@ -716,8 +716,5 @@
         "linkmgrd_switch_standby_end": "2021-May-13 10:01:15.696728",
         "xcvrd_switch_standby_end": "2021-May-13 10:01:15.696051",
         "xcvrd_switch_standby_start": "2021-May-13 10:01:15.690835"
-    },
-    "PORT_TABLE|Ethernet0":{
-        "state" : "ok"
     }
 }
