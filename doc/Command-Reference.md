@@ -115,9 +115,13 @@
 * [sFlow](#sflow)
   * [sFlow Show commands](#sflow-show-commands)
   * [sFlow Config commands](#sflow-config-commands)
+* [SNMP](#snmp)
+  * [SNMP Show commands](#snmp-show-commands)
+  * [SNMP Config commands](#snmp-config-commands)
 * [Startup & Running Configuration](#startup--running-configuration)
   * [Startup Configuration](#startup-configuration)
   * [Running Configuration](#running-configuration)
+* [Static routing](#static-routing)
 * [Syslog](#syslog)
   * [Syslog config commands](#syslog-config-commands)
 * [System State](#system-state)
@@ -156,6 +160,7 @@
 
 | Version | Modification Date | Details |
 | --- | --- | --- |
+| v6 | May-06-2021 | Add SNMP show and config commands |
 | v5 | Nov-05-2020 | Add document for console commands |
 | v4 | Oct-17-2019 | Unify usage statements and other formatting; Replace tabs with spaces; Modify heading sizes; Fix spelling, grammar and other errors; Fix organization of new commands |
 | v3 | Jun-26-2019 | Update based on 201904 (build#19) release, "config interface" command changes related to interfacename order, FRR/Quagga show command changes, platform specific changes, ACL show changes and few formatting changes |
@@ -770,10 +775,9 @@ This command displays the status of the device's power supply units
 - Example:
   ```
   admin@sonic:~$ show platform psustatus
-  PSU    Status
-  -----  --------
-  PSU 1  OK
-  PSU 2  OK
+  PSU    Model          Serial        HW Rev      Voltage (V)    Current (A)    Power (W)  Status    LED
+  -----  -------------  ------------  --------  -------------  -------------  -----------  --------  -----
+  PSU 1  MTEF-PSF-AC-A  MT1621X15246  A3                11.97           4.56        54.56  OK        green
   ```
 
 **show platform fan**
@@ -3064,6 +3068,7 @@ Subsequent pages explain each of these commands in detail.
     -?, -h, --help  Show this message and exit.
 
   Commands:
+  autoneg      Show interface autoneg information
   breakout     Show Breakout Mode information by interfaces
   counters     Show interface counters
   description  Show interface status, protocol and...
@@ -3072,6 +3077,30 @@ Subsequent pages explain each of these commands in detail.
   portchannel  Show PortChannel information
   status       Show Interface status information
   transceiver  Show SFP Transceiver information
+  ```
+
+**show interfaces autoneg**
+
+This show command displays the port auto negotiation status for all interfaces i.e. interface name, auto negotiation mode, speed, advertised speeds, interface type, advertised interface types, operational status, admin status. For a single interface, provide the interface name with the sub-command.
+
+- Usage:
+  ```
+  show interfaces autoneg status
+  show interfaces autoneg status <interface_name>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show interfaces autoneg status
+    Interface    Auto-Neg Mode    Speed    Adv Speeds    Type    Adv Types    Oper    Admin
+  -----------  ---------------  -------  ------------  ------  -----------  ------  -------
+    Ethernet0          enabled      25G       10G,25G      CR       CR,CR4      up       up
+    Ethernet4         disabled     100G           all     CR4          all      up       up
+
+  admin@sonic:~$ show interfaces autoneg status Ethernet8
+    Interface    Auto-Neg Mode    Speed    Adv Speeds    Type    Adv Types    Oper    Admin
+  -----------  ---------------  -------  ------------  ------  -----------  ------  -------
+    Ethernet8         disabled     100G           N/A     CR4          N/A      up       up
   ```
 
 **show interfaces breakout**
@@ -3173,7 +3202,7 @@ The "errors" subcommand is used to display the interface errors.
 
 The "rates" subcommand is used to disply only the interface rates. 
 
-- Exmaple: 
+- Example: 
   ```
   admin@str-s6000-acs-11:/usr/bin$ show int counters rates
       IFACE    STATE    RX_OK    RX_BPS    RX_PPS    RX_UTIL    TX_OK    TX_BPS    TX_PPS    TX_UTIL
@@ -3380,6 +3409,10 @@ This sub-section explains the following list of configuration on the interfaces.
 4) speed - to set the interface speed
 5) startup - to bring up the administratively shutdown interface
 6) breakout - to set interface breakout mode
+7) autoneg - to set interface auto negotiation mode
+8) advertised-speeds - to set interface advertised speeds
+9) advertised-types - to set interface advertised types
+10) type - to set interface type
 
 From 201904 release onwards, the “config interface” command syntax is changed and the format is as follows:
 
@@ -3710,6 +3743,104 @@ kindly use, double tab i.e. <tab><tab> to see the available breakout option cust
   1x100G[40G]  2x50G        4x25G[10G]
 
   admin@sonic:~$ sudo config interface breakout  Ethernet0 4x25G[10G] -f -l -v -y
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#interfaces)
+
+**config interface autoneg <interface_name> (Versions >= 202106)**
+
+This command is used to set port auto negotiation mode.
+
+- Usage:
+  ```
+  sudo config interface autoneg --help
+  Usage: config interface autoneg [OPTIONS] <interface_name> <mode>
+
+    Set interface auto negotiation mode
+
+  Options:
+    -v, --verbose   Enable verbose output
+    -h, -?, --help  Show this message and exit.
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config interface autoneg Ethernet0 enabled
+
+  admin@sonic:~$ sudo config interface autoneg Ethernet0 disabled
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#interfaces)
+
+**config interface advertised-speeds <interface_name> (Versions >= 202106)**
+
+This command is used to set port advertised speed.
+
+- Usage:
+  ```
+  sudo config interface advertised-speeds --help
+  Usage: config interface advertised-speeds [OPTIONS] <interface_name> <speed_list>
+
+    Set interface advertised speeds
+
+  Options:
+    -v, --verbose   Enable verbose output
+    -h, -?, --help  Show this message and exit.
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config interface advertised-speeds Ethernet0 all
+
+  admin@sonic:~$ sudo config interface advertised-speeds Ethernet0 50000,100000
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#interfaces)
+
+**config interface advertised-types <interface_name> (Versions >= 202106)**
+
+This command is used to set port advertised interface types.
+
+- Usage:
+  ```
+  sudo config interface advertised-types --help
+  Usage: config interface advertised-types [OPTIONS] <interface_name> <interface_type_list>
+
+    Set interface advertised types
+
+  Options:
+    -v, --verbose   Enable verbose output
+    -h, -?, --help  Show this message and exit.
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config interface advertised-types Ethernet0 all
+
+  admin@sonic:~$ sudo config interface advertised-types Ethernet0 CR,CR4
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#interfaces)
+
+**config interface type <interface_name> (Versions >= 202106)**
+
+This command is used to set port interface type.
+
+- Usage:
+  ```
+  sudo config interface type --help
+  Usage: config interface type [OPTIONS] <interface_name> <interface_type_value>
+
+    Set interface type
+
+  Options:
+    -v, --verbose   Enable verbose output
+    -h, -?, --help  Show this message and exit.
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config interface type Ethernet0 CR4
   ```
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#interfaces)
@@ -6564,6 +6695,312 @@ This command is used to set the counter polling interval. Default is 20 seconds.
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#sflow)
 
+## SNMP
+
+### SNMP Show commands
+
+**show runningconfiguration snmp**
+
+This command displays the global SNMP configuration that includes the location, contact, community, and user settings.
+
+- Usage:
+  ```
+  show runningconfiguration snmp
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp 
+  Location
+  ------------
+  Emerald City
+
+
+  SNMP_CONTACT    SNMP_CONTACT_EMAIL
+  --------------  --------------------
+  joe             joe@contoso.com
+
+
+  Community String    Community Type
+  ------------------  ----------------
+  Jack                RW
+
+
+  User    Permission Type    Type    Auth Type    Auth Password    Encryption Type    Encryption Password
+  ------  -----------------  ------  -----------  ---------------  -----------------  ---------------------
+  Travis  RO                 Priv    SHA          TravisAuthPass   AES                TravisEncryptPass
+  ```
+
+**show runningconfiguration snmp location**
+
+This command displays the SNMP location setting.
+
+- Usage:
+  ```
+  show runningconfiguration snmp location
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp location
+  Location
+  ------------
+  Emerald City
+  ```
+
+- Usage:
+  ```
+  show runningconfiguration snmp location --json
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp location --json
+  {'Location': 'Emerald City'}
+  ```
+
+**show runningconfiguration snmp contact**
+
+This command displays the SNMP contact setting.
+
+- Usage:
+  ```
+  show runningconfiguration snmp contact
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp contact
+  Contact    Contact Email
+  ---------  ---------------
+  joe        joe@contoso.com
+  ```
+
+- Usage:
+  ```
+  show runningconfiguration snmp contact --json
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp contact --json
+  {'joe': 'joe@contoso.com'}
+  ```
+
+**show runningconfiguration snmp community**
+
+This command display the SNMP community settings.
+
+- Usage:
+  ```
+  show runningconfiguration snmp community
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp community
+  Community String    Community Type
+  ------------------  ----------------
+  Jack                RW
+  ```
+
+- Usage:
+  ```
+  show runningconfiguration snmp community --json
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp community --json
+  {'Jack': {'TYPE': 'RW'}}
+  ```
+
+**show runningconfiguration snmp user**
+
+This command display the SNMP user settings.
+
+- Usage:
+  ```
+  show runningconfiguration snmp user
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp user
+  User    Permission Type    Type    Auth Type    Auth Password    Encryption Type    Encryption Password
+  ------  -----------------  ------  -----------  ---------------  -----------------  ---------------------
+  Travis  RO                 Priv    SHA          TravisAuthPass   AES                TravisEncryptPass
+  ```
+
+- Usage:
+  ```
+  show runningconfiguration snmp user --json
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show runningconfiguration snmp user --json
+  {'Travis': {'SNMP_USER_TYPE': 'Priv', 'SNMP_USER_PERMISSION': 'RO', 'SNMP_USER_AUTH_TYPE': 'SHA', 'SNMP_USER_AUTH_PASSWORD': 'TravisAuthPass', 'SNMP_USER_ENCRYPTION_TYPE': 'AES', 'SNMP_USER_ENCRYPTION_PASSWORD': 'TravisEncryptPass'}}
+  ```
+
+
+### SNMP Config commands
+
+This sub-section explains how to configure SNMP.
+
+**config snmp location add/del/modify**
+
+This command is used to add, delete, or modify the SNMP location.
+
+- Usage:
+  ```
+  config snmp location (add | del | modify) <location>
+  ```
+
+- Example (Add new SNMP location "Emerald City" if it does not already exist):
+  ```
+  admin@sonic:~$ sudo config snmp location add Emerald City
+  SNMP Location Emerald City has been added to configuration
+  Restarting SNMP service...
+  ```
+
+- Example (Delete SNMP location "Emerald City" if it already exists):
+  ```
+  admin@sonic:~$ sudo config snmp location del Emerald City
+  SNMP Location Emerald City removed from configuration
+  Restarting SNMP service...
+  ```
+
+- Example (Modify SNMP location "Emerald City" to "Redmond"):
+  ```
+  admin@sonic:~$ sudo config snmp location modify Redmond
+  SNMP location Redmond modified in configuration
+  Restarting SNMP service...
+  ```
+
+**config snmp contact add/del/modify**
+
+This command is used to add, delete, or modify the SNMP contact.
+
+- Usage:
+  ```
+  config snmp contact add <contact> <contact_email>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp contact add joe joe@contoso.com
+  Contact name joe and contact email joe@contoso.com have been added to configuration
+  Restarting SNMP service...
+  ```
+
+- Usage:
+  ```
+  config snmp contact del <contact>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp contact del joe
+  SNMP contact joe removed from configuration
+  Restarting SNMP service...
+  ```
+
+- Usage:
+  ```
+  config snmp contact modify <contact> <contact_email>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp contact modify test test@contoso.com
+  SNMP contact test and contact email test@contoso.com updated
+  Restarting SNMP service...
+  ```
+
+**config snmp community add/del/replace**
+
+This command is used to add, delete, or replace the SNMP community.
+
+- Usage:
+  ```
+  config snmp community add <community> (RO | RW)
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp community add testcomm ro
+  SNMP community testcomm added to configuration
+  Restarting SNMP service...
+  ```
+
+- Usage:
+  ```
+  config snmp community del <community>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp community del testcomm 
+  SNMP community testcomm removed from configuration
+  Restarting SNMP service...
+  ```
+
+- Usage:
+  ```
+  config snmp community replace <community> <new_community>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp community replace testcomm newtestcomm
+  SNMP community newtestcomm added to configuration
+  SNMP community newtestcomm replace community testcomm
+  Restarting SNMP service...
+  ```
+
+**config snmp user add/del**
+
+This command is used to add or delete the SNMP user for SNMPv3.
+
+- Usage:
+  ```
+  config snmp user add <user> (noAuthNoPriv | AuthNoPriv | Priv) (RO | RW) [[(MD5 | SHA | MMAC-SHA-2) <auth_password>] [(DES |AES) <encrypt_password>]]
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp user add testuser1 noauthnopriv ro
+  SNMP user testuser1 added to configuration
+  Restarting SNMP service...
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp user add testuser2 authnopriv ro sha testuser2_auth_pass
+  SNMP user testuser2 added to configuration
+  Restarting SNMP service...
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp user add testuser3 priv rw md5 testuser3_auth_pass aes testuser3_encrypt_pass
+  SNMP user testuser3 added to configuration
+  Restarting SNMP service...
+  ```
+
+- Usage:
+  ```
+  config snmp user del <user>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config snmp user del testuser1
+  SNMP user testuser1 removed from configuration
+  Restarting SNMP service...
+  ```
+
 ## Startup & Running Configuration
 
 ### Startup Configuration
@@ -6745,6 +7182,83 @@ This command displays the running configuration of the snmp module.
   ```
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#Startup--Running-Configuration)
+
+
+## Static routing
+
+### Static routing Config Commands
+
+This sub-section explains of commands is used to add or remove the static route.
+
+**config route add**
+
+This command is used to add a static route. Note that prefix /nexthop vrf`s and interface name are optional. 
+
+- Usage:
+
+  ```
+  config route add prefix [vrf <vrf>] <A.B.C.D/M> nexthop [vrf <vrf>] <A.B.C.D> dev <interface name>
+  ```
+
+- Example:
+
+  ```
+  admin@sonic:~$ config route add prefix 2.2.3.4/32 nexthop 30.0.0.9
+  ```
+
+It also supports ECMP, and adding a new nexthop to the existing prefix will complement it and not overwrite them.
+
+- Example:
+
+  ```
+  admin@sonic:~$ sudo config route add prefix 2.2.3.4/32 nexthop vrf Vrf-RED 30.0.0.9
+  admin@sonic:~$ sudo config route add prefix 2.2.3.4/32 nexthop vrf Vrf-BLUE 30.0.0.10
+  ```
+
+**config route del**
+
+This command is used to remove a static route. Note that prefix /nexthop vrf`s and interface name are optional.
+
+- Usage:
+
+  ```
+  config route del prefix [vrf <vrf>] <A.B.C.D/M> nexthop [vrf <vrf>] <A.B.C.D> dev <interface name>
+  ```
+
+- Example:
+
+  ```
+  admin@sonic:~$ sudo config route del prefix 2.2.3.4/32 nexthop vrf Vrf-RED 30.0.0.9
+  admin@sonic:~$ sudo config route del prefix 2.2.3.4/32 nexthop vrf Vrf-BLUE 30.0.0.10
+  ```
+
+This sub-section explains of command is used to show current routes.
+
+**show ip route**
+
+- Usage:
+
+  ```
+  show ip route
+  ```
+
+- Example:
+
+  ```
+  admin@sonic:~$ show ip route
+  Codes: K - kernel route, C - connected, S - static, R - RIP,
+         O - OSPF, I - IS-IS, B - BGP, E - EIGRP, N - NHRP,
+         T - Table, v - VNC, V - VNC-Direct, A - Babel, D - SHARP,
+         F - PBR, f - OpenFabric,
+         > - selected route, * - FIB route, q - queued, r - rejected, b - backup
+  
+  S>* 0.0.0.0/0 [200/0] via 192.168.111.3, eth0, weight 1, 3d03h58m
+  S>  1.2.3.4/32 [1/0] via 30.0.0.7, weight 1, 00:00:06
+  C>* 10.0.0.18/31 is directly connected, Ethernet36, 3d03h57m
+  C>* 10.0.0.20/31 is directly connected, Ethernet40, 3d03h57m
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#static-routing)
 
 
 ## Syslog

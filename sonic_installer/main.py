@@ -12,6 +12,7 @@ from sonic_py_common import logger
 from swsscommon.swsscommon import SonicV2Connector
 
 from .bootloader import get_bootloader
+from .bootloader.aboot import AbootBootloader
 from .common import (
     run_command, run_command_or_raise,
     IMAGE_PREFIX,
@@ -23,7 +24,7 @@ from .common import (
 from .exception import SonicRuntimeException
 
 SYSLOG_IDENTIFIER = "sonic-installer"
-LOG_ERR = logger.Logger.LOG_PRIORITY_ERROR 
+LOG_ERR = logger.Logger.LOG_PRIORITY_ERROR
 LOG_NOTICE = logger.Logger.LOG_PRIORITY_NOTICE
 
 # Global Config object
@@ -140,7 +141,7 @@ def echo_and_log(msg, priority=LOG_NOTICE, fg=None):
     else:
         click.secho(msg, fg=fg)
     log.log(priority, msg, False)
-        
+
 
 # Function which validates whether a given URL specifies an existent file
 # on a reachable remote machine. Will abort the current operation if not
@@ -232,7 +233,7 @@ def mount_squash_fs(squashfs_path, mount_point):
     run_command_or_raise(["mount", "-t", "squashfs", squashfs_path, mount_point])
 
 
-def umount(mount_point, read_only=True, recursive=False, force=True, remove_dir=True):
+def umount(mount_point, read_only=True, recursive=False, force=True, remove_dir=True, raise_exception=True):
     flags = []
     if read_only:
         flags.append("-r")
@@ -240,9 +241,9 @@ def umount(mount_point, read_only=True, recursive=False, force=True, remove_dir=
         flags.append("-f")
     if recursive:
         flags.append("-R")
-    run_command_or_raise(["umount", *flags, mount_point])
+    run_command_or_raise(["umount", *flags, mount_point], raise_exception=raise_exception)
     if remove_dir:
-        run_command_or_raise(["rm", "-rf", mount_point])
+        run_command_or_raise(["rm", "-rf", mount_point], raise_exception=raise_exception)
 
 
 def mount_overlay_fs(lowerdir, upperdir, workdir, mount_point):
@@ -323,7 +324,7 @@ def migrate_sonic_packages(bootloader, binary_image_version):
 
     with contextlib.ExitStack() as stack:
         def get_path(path):
-            """ Closure to get path by entering 
+            """ Closure to get path by entering
             a context manager of bootloader.get_path_in_image """
 
             return stack.enter_context(bootloader.get_path_in_image(new_image_dir, path))
@@ -350,14 +351,18 @@ def migrate_sonic_packages(bootloader, binary_image_version):
             run_command_or_raise(["mount", "--bind",
                                 os.path.join(VAR_RUN_PATH, DOCKERD_SOCK),
                                 os.path.join(new_image_mount, "tmp", DOCKERD_SOCK)])
+            run_command_or_raise(["chroot", new_image_mount, "sh", "-c", "command -v {}".format(SONIC_PACKAGE_MANAGER)])
+        except SonicRuntimeException as err:
+            echo_and_log("Warning: SONiC Application Extension is not supported in this image: {}".format(err), LOG_ERR, fg="red")
+        else:
             run_command_or_raise(["chroot", new_image_mount, SONIC_PACKAGE_MANAGER, "migrate",
                                 os.path.join("/", tmp_dir, packages_file),
                                 "--dockerd-socket", os.path.join("/", tmp_dir, DOCKERD_SOCK),
                                 "-y"])
         finally:
-            run_command("chroot {} {} stop".format(new_image_mount, DOCKER_CTL_SCRIPT))
-            umount(new_image_mount, recursive=True, read_only=False, remove_dir=False)
-            umount(new_image_mount)
+            run_command_or_raise(["chroot", new_image_mount, DOCKER_CTL_SCRIPT, "stop"], raise_exception=False)
+            umount(new_image_mount, recursive=True, read_only=False, remove_dir=False, raise_exception=False)
+            umount(new_image_mount, raise_exception=False)
 
 
 # Main entrypoint
@@ -428,6 +433,10 @@ def install(url, force, skip_migration=False, skip_package_migration=False):
             run_command('config-setup backup')
 
         update_sonic_environment(bootloader, binary_image_version)
+
+        if isinstance(bootloader, AbootBootloader) and not skip_package_migration:
+            echo_and_log("Warning: SONiC package migration is not supported currenty on aboot platform due to https://github.com/Azure/sonic-buildimage/issues/7566.", LOG_ERR, fg="red")
+            skip_package_migration = True
 
         if not skip_package_migration:
             migrate_sonic_packages(bootloader, binary_image_version)

@@ -11,11 +11,14 @@ import re
 import subprocess
 import sys
 import time
+import itertools
 
+from collections import OrderedDict
 from generic_config_updater.generic_updater import GenericUpdater, ConfigFormat
-from socket import AF_INET, AF_INET6
 from minigraph import parse_device_desc_xml
+from natsort import natsorted
 from portconfig import get_child_ports
+from socket import AF_INET, AF_INET6
 from sonic_py_common import device_info, multi_asic
 from sonic_py_common.interface import get_interface_table_name, get_port_table_name
 from utilities_common import util_base
@@ -85,11 +88,24 @@ PORT_SPEED = "speed"
 asic_type = None
 
 #
-# Breakout Mode Helper functions
+# Helper functions
 #
 
+# Sort nested dict
+def sort_dict(data):
+    """ Sort of 1st level and 2nd level dict of data naturally by its key
+        data: data to be sorted
+    """
+    if type(data) is not dict:
+        return data
+
+    for table in data:
+        if type(data[table]) is dict:
+            data[table] = OrderedDict(natsorted(data[table].items()))
+    return OrderedDict(natsorted(data.items()))
+
 # Read given JSON file
-def readJsonFile(fileName):
+def read_json_file(fileName):
     try:
         with open(fileName) as f:
             result = json.load(f)
@@ -107,42 +123,16 @@ def _get_breakout_options(ctx, args, incomplete):
     if not os.path.isfile(breakout_cfg_file) or not breakout_cfg_file.endswith('.json'):
         return []
     else:
-        breakout_file_input = readJsonFile(breakout_cfg_file)
+        breakout_file_input = read_json_file(breakout_cfg_file)
         if interface_name in breakout_file_input[INTF_KEY]:
             breakout_mode_options = [mode for i, v in breakout_file_input[INTF_KEY].items() if i == interface_name \
                                           for mode in v["breakout_modes"].keys()]
             all_mode_options = [str(c) for c in breakout_mode_options if incomplete in c]
         return all_mode_options
 
-def shutdown_interfaces(ctx, del_intf_dict):
-    """ shut down all the interfaces before deletion """
-    for intf in del_intf_dict:
-        config_db = ctx.obj['config_db']
-        if clicommon.get_interface_naming_mode() == "alias":
-            interface_name = interface_alias_to_name(config_db, intf)
-            if interface_name is None:
-                click.echo("[ERROR] interface name is None!")
-                return False
-
-        if interface_name_is_valid(config_db, intf) is False:
-            click.echo("[ERROR] Interface name is invalid. Please enter a valid interface name!!")
-            return False
-
-        port_dict = config_db.get_table('PORT')
-        if not port_dict:
-            click.echo("port_dict is None!")
-            return False
-
-        if intf in port_dict:
-            config_db.mod_entry("PORT", intf, {"admin_status": "down"})
-        else:
-            click.secho("[ERROR] Could not get the correct interface name, exiting", fg='red')
-            return False
-    return True
-
 def _validate_interface_mode(ctx, breakout_cfg_file, interface_name, target_brkout_mode, cur_brkout_mode):
     """ Validate Parent interface and user selected mode before starting deletion or addition process """
-    breakout_file_input = readJsonFile(breakout_cfg_file)["interfaces"]
+    breakout_file_input = read_json_file(breakout_cfg_file)["interfaces"]
 
     if interface_name not in breakout_file_input:
         click.secho("[ERROR] {} is not a Parent port. So, Breakout Mode is not available on this port".format(interface_name), fg='red')
@@ -787,6 +777,66 @@ def validate_mirror_session_config(config_db, session_name, dst_port, src_port, 
 
     return True
 
+def cli_sroute_to_config(ctx, command_str, strict_nh = True):
+    if len(command_str) < 2 or len(command_str) > 9:
+        ctx.fail("argument is not in pattern prefix [vrf <vrf_name>] <A.B.C.D/M> nexthop <[vrf <vrf_name>] <A.B.C.D>>|<dev <dev_name>>!")
+    if "prefix" not in command_str:
+        ctx.fail("argument is incomplete, prefix not found!")
+    if "nexthop" not in command_str and strict_nh:
+        ctx.fail("argument is incomplete, nexthop not found!")
+
+    nexthop_str = None
+    config_entry = {}
+    vrf_name = ""
+
+    if "nexthop" in command_str:
+        idx = command_str.index("nexthop")
+        prefix_str = command_str[:idx]
+        nexthop_str = command_str[idx:]
+    else:
+        prefix_str = command_str[:]
+
+    if prefix_str:
+        if 'prefix' in prefix_str and 'vrf' in prefix_str:
+            # prefix_str: ['prefix', 'vrf', Vrf-name, ip]
+            vrf_name = prefix_str[2]
+            ip_prefix = prefix_str[3]
+        elif 'prefix' in prefix_str:
+            # prefix_str: ['prefix', ip]
+            ip_prefix = prefix_str[1]
+        else:
+            ctx.fail("prefix is not in pattern!")
+
+    if nexthop_str:
+        if 'nexthop' in nexthop_str and 'vrf' in nexthop_str:
+            # nexthop_str: ['nexthop', 'vrf', Vrf-name, ip]
+            config_entry["nexthop"] = nexthop_str[3]
+            config_entry["nexthop-vrf"] = nexthop_str[2]
+        elif 'nexthop' in nexthop_str and 'dev' in nexthop_str:
+            # nexthop_str: ['nexthop', 'dev', ifname]
+            config_entry["ifname"] = nexthop_str[2]
+        elif 'nexthop' in nexthop_str:
+            # nexthop_str: ['nexthop', ip]
+            config_entry["nexthop"] = nexthop_str[1]
+        else:
+            ctx.fail("nexthop is not in pattern!")
+
+    try:
+        ipaddress.ip_network(ip_prefix)
+        if 'nexthop' in config_entry:
+            nh = config_entry['nexthop'].split(',')
+            for ip in nh:
+                ipaddress.ip_address(ip)
+    except ValueError:
+        ctx.fail("ip address is not valid.")
+
+    if not vrf_name == "":
+        key = vrf_name + "|" + ip_prefix
+    else:
+        key = ip_prefix
+
+    return key, config_entry
+
 def update_sonic_environment():
     """Prepare sonic environment variable using SONiC environment template file.
     """
@@ -928,6 +978,10 @@ def save(filename):
 
         log.log_info("'save' executing...")
         clicommon.run_command(command, display_cmd=True)
+
+        config_db = sort_dict(read_json_file(file))
+        with open(file, 'w') as config_db_file:
+            json.dump(config_db, config_db_file, indent=4)
 
 @config.command()
 @click.option('-y', '--yes', is_flag=True)
@@ -3015,6 +3069,126 @@ def speed(ctx, interface_name, interface_speed, verbose):
     clicommon.run_command(command, display_cmd=verbose)
 
 #
+# 'autoneg' subcommand
+#
+
+@interface.command()
+@click.pass_context
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+@click.argument('mode', metavar='<mode>', required=True, type=click.Choice(["enabled", "disabled"]))
+@click.option('-v', '--verbose', is_flag=True, help="Enable verbose output")
+def autoneg(ctx, interface_name, mode, verbose):
+    """Set interface auto negotiation mode"""
+    # Get the config_db connector
+    config_db = ctx.obj['config_db']
+
+    if clicommon.get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(config_db, interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    log.log_info("'interface autoneg {} {}' executing...".format(interface_name, mode))
+
+    if ctx.obj['namespace'] is DEFAULT_NAMESPACE:
+        command = "portconfig -p {} -an {}".format(interface_name, mode)
+    else:
+        command = "portconfig -p {} -an {} -n {}".format(interface_name, mode, ctx.obj['namespace'])
+
+    if verbose:
+        command += " -vv"
+    clicommon.run_command(command, display_cmd=verbose)
+
+#
+# 'adv-speeds' subcommand
+#
+
+@interface.command()
+@click.pass_context
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+@click.argument('speed_list', metavar='<speed_list>', required=True)
+@click.option('-v', '--verbose', is_flag=True, help="Enable verbose output")
+def advertised_speeds(ctx, interface_name, speed_list, verbose):
+    """Set interface advertised speeds"""
+    # Get the config_db connector
+    config_db = ctx.obj['config_db']
+
+    if clicommon.get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(config_db, interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    log.log_info("'interface advertised_speeds {} {}' executing...".format(interface_name, speed_list))
+
+    if ctx.obj['namespace'] is DEFAULT_NAMESPACE:
+        command = "portconfig -p {} -S {}".format(interface_name, speed_list)
+    else:
+        command = "portconfig -p {} -S {} -n {}".format(interface_name, speed_list, ctx.obj['namespace'])
+
+    if verbose:
+        command += " -vv"
+    clicommon.run_command(command, display_cmd=verbose)
+
+#
+# 'interface-type' subcommand
+#
+
+@interface.command(name='type')
+@click.pass_context
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+@click.argument('interface_type_value', metavar='<interface_type_value>', required=True)
+@click.option('-v', '--verbose', is_flag=True, help="Enable verbose output")
+def interface_type(ctx, interface_name, interface_type_value, verbose):
+    """Set interface type"""
+    # Get the config_db connector
+    config_db = ctx.obj['config_db']
+
+    if clicommon.get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(config_db, interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    log.log_info("'interface interface_type {} {}' executing...".format(interface_name, interface_type_value))
+
+    if ctx.obj['namespace'] is DEFAULT_NAMESPACE:
+        command = "portconfig -p {} -t {}".format(interface_name, interface_type_value)
+    else:
+        command = "portconfig -p {} -t {} -n {}".format(interface_name, interface_type_value, ctx.obj['namespace'])
+
+    if verbose:
+        command += " -vv"
+    clicommon.run_command(command, display_cmd=verbose)
+
+#
+# 'advertised-interface-types' subcommand
+#
+
+@interface.command()
+@click.pass_context
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+@click.argument('interface_type_list', metavar='<interface_type_list>', required=True)
+@click.option('-v', '--verbose', is_flag=True, help="Enable verbose output")
+def advertised_types(ctx, interface_name, interface_type_list, verbose):
+    """Set interface advertised types"""
+    # Get the config_db connector
+    config_db = ctx.obj['config_db']
+
+    if clicommon.get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(config_db, interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    log.log_info("'interface advertised_interface_types {} {}' executing...".format(interface_name, interface_type_list))
+
+    if ctx.obj['namespace'] is DEFAULT_NAMESPACE:
+        command = "portconfig -p {} -T {}".format(interface_name, interface_type_list)
+    else:
+        command = "portconfig -p {} -T {} -n {}".format(interface_name, interface_type_list, ctx.obj['namespace'])
+
+    if verbose:
+        command += " -vv"
+    clicommon.run_command(command, display_cmd=verbose)
+
+#
 # 'breakout' subcommand
 #
 
@@ -3061,12 +3235,7 @@ def breakout(ctx, interface_name, mode, verbose, force_remove_dependencies, load
     del_intf_dict = {intf: del_ports[intf]["speed"] for intf in del_ports}
 
     if del_intf_dict:
-        """ shut down all the interface before deletion """
-        ret = shutdown_interfaces(ctx, del_intf_dict)
-        if not ret:
-            raise click.Abort()
         click.echo("\nPorts to be deleted : \n {}".format(json.dumps(del_intf_dict, indent=4)))
-
     else:
         click.secho("[ERROR] del_intf_dict is None! No interfaces are there to be deleted", fg='red')
         raise click.Abort()
@@ -3092,6 +3261,12 @@ def breakout(ctx, interface_name, mode, verbose, force_remove_dependencies, load
     for item in matched_items:
         del_intf_dict.pop(item)
         add_intf_dict.pop(item)
+
+    # validate all del_ports before calling breakOutPort
+    for intf in del_intf_dict.keys():
+        if not interface_name_is_valid(config_db, intf):
+            click.secho("[ERROR] Interface name {} is invalid".format(intf))
+            raise click.Abort()
 
     click.secho("\nFinal list of ports to be deleted : \n {} \nFinal list of ports to be added :  \n {}".format(json.dumps(del_intf_dict, indent=4), json.dumps(add_intf_dict, indent=4), fg='green', blink=True))
     if not add_intf_dict:
@@ -3837,111 +4012,160 @@ def del_vrf_vni_map(ctx, vrfname):
 @click.pass_context
 def route(ctx):
     """route-related configuration tasks"""
-    pass
+    config_db = ConfigDBConnector()
+    config_db.connect()
+    ctx.obj = {}
+    ctx.obj['config_db'] = config_db
 
 @route.command('add', context_settings={"ignore_unknown_options":True})
 @click.argument('command_str', metavar='prefix [vrf <vrf_name>] <A.B.C.D/M> nexthop <[vrf <vrf_name>] <A.B.C.D>>|<dev <dev_name>>', nargs=-1, type=click.Path())
 @click.pass_context
 def add_route(ctx, command_str):
     """Add route command"""
-    if len(command_str) < 4 or len(command_str) > 9:
-        ctx.fail("argument is not in pattern prefix [vrf <vrf_name>] <A.B.C.D/M> nexthop <[vrf <vrf_name>] <A.B.C.D>>|<dev <dev_name>>!")
-    if "prefix" not in command_str:
-        ctx.fail("argument is incomplete, prefix not found!")
-    if "nexthop" not in command_str:
-        ctx.fail("argument is incomplete, nexthop not found!")
-    for i in range(0, len(command_str)):
-        if "nexthop" == command_str[i]:
-            prefix_str = command_str[:i]
-            nexthop_str = command_str[i:]
-    vrf_name = ""
-    cmd = 'sudo vtysh -c "configure terminal" -c "ip route'
-    if prefix_str:
-        if len(prefix_str) == 2:
-            prefix_mask = prefix_str[1]
-            cmd += ' {}'.format(prefix_mask)
-        elif len(prefix_str) == 4:
-            vrf_name = prefix_str[2]
-            prefix_mask = prefix_str[3]
-            cmd += ' {}'.format(prefix_mask)
+    config_db = ctx.obj['config_db']
+    key, route = cli_sroute_to_config(ctx, command_str)
+
+    # If defined intf name, check if it belongs to interface
+    if 'ifname' in route:
+        if (not route['ifname'] in config_db.get_keys('VLAN_INTERFACE') and
+            not route['ifname'] in config_db.get_keys('INTERFACE') and
+            not route['ifname'] in config_db.get_keys('PORTCHANNEL_INTERFACE') and
+            not route['ifname'] == 'null'):
+            ctx.fail('interface {} doesn`t exist'.format(route['ifname']))
+
+    entry_counter = 1
+    if 'nexthop' in route:
+        entry_counter = len(route['nexthop'].split(','))
+
+    # Alignment in case the command contains several nexthop ip
+    for i in range(entry_counter):
+        if 'nexthop-vrf' in route:
+            if i > 0:
+                vrf = route['nexthop-vrf'].split(',')[0]
+                route['nexthop-vrf'] += ',' + vrf
         else:
-            ctx.fail("prefix is not in pattern!")
-    if nexthop_str:
-        if len(nexthop_str) == 2:
-            ip = nexthop_str[1]
-            if vrf_name == "":
-                cmd += ' {}'.format(ip)
-            else:
-                cmd += ' {} vrf {}'.format(ip, vrf_name)
-        elif len(nexthop_str) == 3:
-            dev_name = nexthop_str[2]
-            if vrf_name == "":
-                cmd += ' {}'.format(dev_name)
-            else:
-                cmd += ' {} vrf {}'.format(dev_name, vrf_name)
-        elif len(nexthop_str) == 4:
-            vrf_name_dst = nexthop_str[2]
-            ip = nexthop_str[3]
-            if vrf_name == "":
-                cmd += ' {} nexthop-vrf {}'.format(ip, vrf_name_dst)
-            else:
-                cmd += ' {} vrf {} nexthop-vrf {}'.format(ip, vrf_name, vrf_name_dst)
+            route['nexthop-vrf'] = ''
+
+        if not 'nexthop' in route:
+            route['nexthop'] = ''
+
+        if 'ifname' in route:
+            if i > 0:
+                route['ifname'] += ','
         else:
-            ctx.fail("nexthop is not in pattern!")
-    cmd += '"'
-    clicommon.run_command(cmd)
+            route['ifname'] = ''
+
+        # Set default values for distance and blackhole because the command doesn't have such an option
+        if 'distance' in route:
+            route['distance'] += ',0'
+        else:
+            route['distance'] = '0'
+
+        if 'blackhole' in route:
+            route['blackhole'] += ',false'
+        else:
+            # If the user configure with "ifname" as "null", set 'blackhole' attribute as true.
+            if 'ifname' in route and route['ifname'] == 'null':
+                route['blackhole'] = 'true'
+            else:
+                route['blackhole'] = 'false'
+
+    # Check if exist entry with key
+    keys = config_db.get_keys('STATIC_ROUTE')
+    if key in keys:
+        # If exist update current entry
+        current_entry = config_db.get_entry('STATIC_ROUTE', key)
+
+        for entry in ['nexthop', 'nexthop-vrf', 'ifname', 'distance', 'blackhole']:
+            if not entry in current_entry:
+                current_entry[entry] = ''
+            if entry in route:
+                current_entry[entry] += ',' + route[entry]
+            else:
+                current_entry[entry] += ','
+
+        config_db.set_entry("STATIC_ROUTE", key, current_entry)
+    else:
+        config_db.set_entry("STATIC_ROUTE", key, route)
 
 @route.command('del', context_settings={"ignore_unknown_options":True})
 @click.argument('command_str', metavar='prefix [vrf <vrf_name>] <A.B.C.D/M> nexthop <[vrf <vrf_name>] <A.B.C.D>>|<dev <dev_name>>', nargs=-1, type=click.Path())
 @click.pass_context
 def del_route(ctx, command_str):
     """Del route command"""
-    if len(command_str) < 4 or len(command_str) > 9:
-        ctx.fail("argument is not in pattern prefix [vrf <vrf_name>] <A.B.C.D/M> nexthop <[vrf <vrf_name>] <A.B.C.D>>|<dev <dev_name>>!")
-    if "prefix" not in command_str:
-        ctx.fail("argument is incomplete, prefix not found!")
-    if "nexthop" not in command_str:
-        ctx.fail("argument is incomplete, nexthop not found!")
-    for i in range(0, len(command_str)):
-        if "nexthop" == command_str[i]:
-            prefix_str = command_str[:i]
-            nexthop_str = command_str[i:]
-    vrf_name = ""
-    cmd = 'sudo vtysh -c "configure terminal" -c "no ip route'
-    if prefix_str:
-        if len(prefix_str) == 2:
-            prefix_mask = prefix_str[1]
-            cmd += ' {}'.format(prefix_mask)
-        elif len(prefix_str) == 4:
-            vrf_name = prefix_str[2]
-            prefix_mask = prefix_str[3]
-            cmd += ' {}'.format(prefix_mask)
+    config_db = ctx.obj['config_db']
+    key, route = cli_sroute_to_config(ctx, command_str, strict_nh=False)
+    keys = config_db.get_keys('STATIC_ROUTE')
+    prefix_tuple = tuple(key.split('|'))
+    if not key in keys and not prefix_tuple in keys:
+        ctx.fail('Route {} doesnt exist'.format(key))
+    else:
+        # If not defined nexthop or intf name remove entire route
+        if not 'nexthop' in route and not 'ifname' in route:
+            config_db.set_entry("STATIC_ROUTE", key, None)
+            return
+
+        current_entry = config_db.get_entry('STATIC_ROUTE', key)
+
+        nh = ['']
+        nh_vrf = ['']
+        ifname = ['']
+        distance = ['']
+        blackhole = ['']
+        if 'nexthop' in current_entry:
+            nh = current_entry['nexthop'].split(',')
+        if 'nexthop-vrf' in current_entry:
+            nh_vrf = current_entry['nexthop-vrf'].split(',')
+        if 'ifname' in current_entry:
+            ifname = current_entry['ifname'].split(',')
+        if 'distance' in current_entry:
+            distance = current_entry['distance'].split(',')
+        if 'blackhole' in current_entry:
+            blackhole = current_entry['blackhole'].split(',')
+
+        # Zip data from config_db into tuples
+        # {'nexthop': '10.0.0.2,20.0.0.2', 'vrf-nexthop': ',Vrf-RED', 'ifname': ','}
+        # [('10.0.0.2', '', ''), ('20.0.0.2', 'Vrf-RED', '')]
+        nh_zip = list(itertools.zip_longest(nh, nh_vrf, ifname, fillvalue=''))
+        cli_tuple = ()
+
+        # Create tuple from CLI argument
+        # config route add prefix 1.4.3.4/32 nexthop vrf Vrf-RED 20.0.0.2
+        # ('20.0.0.2', 'Vrf-RED', '')
+        for entry in ['nexthop', 'nexthop-vrf', 'ifname']:
+            if entry in route:
+                cli_tuple += (route[entry],)
+            else:
+                cli_tuple += ('',)
+
+        if cli_tuple in nh_zip:
+            # If cli tuple is in config_db find its index and delete from lists
+            idx = nh_zip.index(cli_tuple)
+            if len(nh) - 1 >= idx:
+                del nh[idx]
+            if len(nh_vrf) - 1 >= idx:
+                del nh_vrf[idx]
+            if len(ifname) - 1 >= idx:
+                del ifname[idx]
+            if len(distance) - 1 >= idx:
+                del distance[idx]
+            if len(blackhole) - 1 >= idx:
+                del blackhole[idx]
         else:
-            ctx.fail("prefix is not in pattern!")
-    if nexthop_str:
-        if len(nexthop_str) == 2:
-            ip = nexthop_str[1]
-            if vrf_name == "":
-                cmd += ' {}'.format(ip)
-            else:
-                cmd += ' {} vrf {}'.format(ip, vrf_name)
-        elif len(nexthop_str) == 3:
-            dev_name = nexthop_str[2]
-            if vrf_name == "":
-                cmd += ' {}'.format(dev_name)
-            else:
-                cmd += ' {} vrf {}'.format(dev_name, vrf_name)
-        elif len(nexthop_str) == 4:
-            vrf_name_dst = nexthop_str[2]
-            ip = nexthop_str[3]
-            if vrf_name == "":
-                cmd += ' {} nexthop-vrf {}'.format(ip, vrf_name_dst)
-            else:
-                cmd += ' {} vrf {} nexthop-vrf {}'.format(ip, vrf_name, vrf_name_dst)
+            ctx.fail('Not found {} in {}'.format(cli_tuple, key))
+
+        if (len(nh) == 0 or (len(nh) == 1 and nh[0] == '')) and \
+            (len(ifname) == 0 or (len(ifname) == 1 and ifname[0] == '')):
+            # If there are no nexthop and ifname fields in the current record, delete it
+            config_db.set_entry("STATIC_ROUTE", key, None)
         else:
-            ctx.fail("nexthop is not in pattern!")
-    cmd += '"'
-    clicommon.run_command(cmd)
+            # Otherwise it still has ECMP nexthop or ifname fields, so compose it from the lists into db
+            current_entry['nexthop'] = ','.join((str(e)) for e in nh)
+            current_entry['nexthop-vrf'] = ','.join((str(e)) for e in nh_vrf)
+            current_entry['ifname'] = ','.join((str(e)) for e in ifname)
+            current_entry['distance'] = ','.join((str(e)) for e in distance)
+            current_entry['blackhole'] = ','.join((str(e)) for e in blackhole)
+            config_db.set_entry("STATIC_ROUTE", key, current_entry)
 
 #
 # 'acl' group ('config acl ...')
@@ -4892,7 +5116,7 @@ def polling_int(ctx, interval):
     config_db.mod_entry('SFLOW', 'global', sflow_tbl['global'])
 
 def is_valid_sample_rate(rate):
-    return rate in range(256, 8388608 + 1)
+    return rate.isdigit() and int(rate) in range(256, 8388608 + 1)
 
 
 #
@@ -4950,24 +5174,31 @@ def disable(ctx, ifname):
 #
 @interface.command('sample-rate')
 @click.argument('ifname', metavar='<interface_name>', required=True, type=str)
-@click.argument('rate', metavar='<sample_rate>', required=True, type=int)
+@click.argument('rate', metavar='<sample_rate>', required=True, type=str)
 @click.pass_context
 def sample_rate(ctx, ifname, rate):
     config_db = ctx.obj['db']
     if not interface_name_is_valid(config_db, ifname) and ifname != 'all':
         click.echo('Invalid interface name')
         return
-    if not is_valid_sample_rate(rate):
-        click.echo('Error: Sample rate must be between 256 and 8388608')
+    if not is_valid_sample_rate(rate) and rate != 'default':
+        click.echo('Error: Sample rate must be between 256 and 8388608 or default')
         return
 
     sess_dict = config_db.get_table('SFLOW_SESSION')
 
-    if sess_dict and ifname in sess_dict:
+    if sess_dict and ifname in sess_dict.keys():
+        if rate == 'default':
+            if 'sample_rate' not in sess_dict[ifname]:
+                return
+            del sess_dict[ifname]['sample_rate']
+            config_db.set_entry('SFLOW_SESSION', ifname, sess_dict[ifname])
+            return
         sess_dict[ifname]['sample_rate'] = rate
         config_db.mod_entry('SFLOW_SESSION', ifname, sess_dict[ifname])
     else:
-        config_db.mod_entry('SFLOW_SESSION', ifname, {'sample_rate': rate})
+        if rate != 'default':
+            config_db.mod_entry('SFLOW_SESSION', ifname, {'sample_rate': rate})
 
 
 #
