@@ -257,7 +257,7 @@ class MatchEngine:
         filtered_keys = []
         for key in all_matched_keys:
             f_values = src.hget(req.db, key, req.field)
-            if "," in f_values and not req.match_entire_list: # Fields Containing Multile Values
+            if "," in f_values and not req.match_entire_list: # Fields Containing Multiple Values
                 f_value = f_values.split(",")
             else:
                 f_value = [f_values]
