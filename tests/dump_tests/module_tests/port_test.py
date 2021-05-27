@@ -39,7 +39,7 @@ def sort_lists(ret):
                 ret[db][key].sort()
     return ret
 
-@patch("dump.redis_match.SonicV2Connector", mock_connector)
+@patch("dump.match_infra.SonicV2Connector", mock_connector)
 class TestPortModule(unittest.TestCase):
     
     def test_working_state(self):
