@@ -500,7 +500,7 @@ def main():
     parser.add_argument('-m', "--mode", type=Level, choices=list(Level), default='ERR')
     parser.add_argument("-i", "--interval", type=int, default=0, help="Scan interval in seconds")
     parser.add_argument("-s", "--log_to_syslog", action="store_true", default=True, help="Write message to syslog")
-    args = parser.parse_args()
+    args = parser.parse_known_args()[0] # https://docs.python.org/3/library/argparse.html#partial-parsing
 
     set_level(args.mode, args.log_to_syslog)
 
