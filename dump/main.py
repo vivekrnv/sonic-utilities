@@ -4,7 +4,7 @@ from tabulate import tabulate
 
 sys.path.append(os.path.dirname(__file__))
 import plugins
-from dump.redis_match import RedisSource, JsonSource
+from dump.match_infra import RedisSource, JsonSource
 from swsscommon.swsscommon import SonicV2Connector
 from utilities_common.multi_asic import multi_asic_ns_choices, multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
