@@ -2,7 +2,7 @@ import json, os, sys
 import jsonpatch
 import unittest
 import pytest
-from dump.redis_match import MatchEngine, error_dict, MatchRequest
+from dump.match_infra import MatchEngine, error_dict, MatchRequest
 from deepdiff import DeepDiff
 
 test_path = os.path.join(os.path.abspath(__file__),"../")
@@ -293,5 +293,20 @@ class TestMatchEngine(unittest.TestCase):
         exp_dict =  {"COPP_GROUP|queue4_group2": {"trap_action": "copy", "trap_priority": "4", "queue": "4", "meter_type": "packets", "mode": "sr_tcm", "cir": "600", "cbs": "600", "red_action": "drop"}}
         ddiff = DeepDiff(exp_dict, recv_dict)
         assert not ddiff, ddiff
+    
+    def test_match_entire_list(self):
+        req = MatchRequest()
+        req.db = "CONFIG_DB"
+        req.table = "PORT"
+        req.key_pattern = "*"
+        req.field = "lanes"
+        req.value = "61,62,63,64"
+        req.match_entire_list = True
+        req.just_keys = True
+        ret = self.match_engine.fetch(req)
+        assert ret["error"] == ""
+        assert len(ret["keys"]) == 1
+        assert "PORT|Ethernet60" in ret["keys"]
+        
         
         

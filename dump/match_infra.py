@@ -29,6 +29,7 @@ class MatchRequest:
         self.file = ""
         self.just_keys = True
         self.ns = ''
+        self.match_entire_list = False
     
     def __str__(self):
         str = "MatchRequest: \n"
@@ -52,6 +53,10 @@ class MatchRequest:
             str += "Return Fields: " + ",".join(self.return_fields)
         if self.ns:
             str += "Namespace: " + self.ns 
+        if self.match_entire_list:
+            str += "Match Entire List: True"
+        else:
+            str += "Match Entire List: False"
         return str
     
 class SourceAdapter:
@@ -252,7 +257,7 @@ class MatchEngine:
         filtered_keys = []
         for key in all_matched_keys:
             f_values = src.hget(req.db, key, req.field)
-            if "," in f_values: # Fields Containing Multile Values
+            if "," in f_values and not req.match_entire_list: # Fields Containing Multile Values
                 f_value = f_values.split(",")
             else:
                 f_value = [f_values]
