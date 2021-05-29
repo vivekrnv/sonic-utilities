@@ -4,7 +4,7 @@ import unittest
 import pytest
 from deepdiff import DeepDiff
 from mock import patch
-from dump.helper import display_template
+from dump.helper import display_template, sort_lists
 from dump.plugins.port import Port
 
 module_tests_path = os.path.dirname(__file__)
@@ -32,12 +32,6 @@ def verbosity_setup():
     print("TEARDOWN")
     os.environ["VERBOSE"] = "0"
 
-def sort_lists(ret):
-    for db in ret.keys():
-        for key in ret[db].keys():
-            if isinstance(ret[db][key], list):
-                ret[db][key].sort()
-    return ret
 
 @patch("dump.match_infra.SonicV2Connector", mock_connector)
 class TestPortModule(unittest.TestCase):
