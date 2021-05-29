@@ -201,8 +201,8 @@ def print_dump(collected_info, table, module, identifier, key_map):
             total_info = ""
 
             if collected_info[ids][db]["tables_not_found"]:
-                total_info += tabulate(collected_info[ids][db]["tables_not_found"], ["Tables Not Found"])
-                total_info += ""
+                total_info += tabulate([collected_info[ids][db]["tables_not_found"]], ["Tables Not Found"], tablefmt="grid")
+                total_info += "\n"
     
             if not key_map:
                 values = []
