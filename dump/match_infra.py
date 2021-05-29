@@ -15,7 +15,8 @@ error_dict  = {
     "SRC_VAGUE": "Only one of db or file should be provided",
     "CONN_ERR" : "Connection Error",
     "JUST_KEYS_COMPAT": "When Just_keys is set to False, return_fields should be empty",
-    "BAD_FORMAT_RE_FIELDS": "Return Fields should be of list type"
+    "BAD_FORMAT_RE_FIELDS": "Return Fields should be of list type",
+    "NO_ENTRIES": "No Keys found after applying the filtering criteria"
 }
 
 class MatchRequest:
@@ -32,7 +33,7 @@ class MatchRequest:
         self.match_entire_list = False
     
     def __str__(self):
-        str = "MatchRequest: \n"
+        str = "----------------------- \n MatchRequest: \n"
         if self.db:
             str += "db:{} , ".format(self.db)
         if self.file:
@@ -50,13 +51,13 @@ class MatchRequest:
         else:
             str += "just_keys:False "
         if len(self.return_fields) > 0:
-            str += "Return Fields: " + ",".join(self.return_fields)
+            str += "Return Fields: " + ",".join(self.return_fields) + " "
         if self.ns:
             str += "Namespace: " + self.ns 
         if self.match_entire_list:
-            str += "Match Entire List: True"
+            str += "Match Entire List: True "
         else:
-            str += "Match Entire List: False"
+            str += "Match Entire List: False "
         return str
     
 class SourceAdapter:
@@ -165,7 +166,6 @@ class JsonSource(SourceAdapter):
         key_ptrn = tokens[-1]
         tokens.pop()
         table = sp.join(tokens)
-        print(table, key_ptrn)
         if table in self.db_driver and key_ptrn in self.db_driver[table] and field in self.db_driver[table][key_ptrn]:
             return self.db_driver[table][key_ptrn][field]
         return ""
@@ -200,6 +200,9 @@ class MatchEngine:
         
         filtered_keys = self.__filter_out_keys(src, req, all_matched_keys)
         verbose_print("Filtered Keys:" + str(filtered_keys))
+        if not filtered_keys:
+            template['error'] = error_dict["NO_ENTRIES"]
+            return self.__return_error(template)
         return self.__fill(src, req, filtered_keys)
     
     def __ret_template(self):
@@ -280,4 +283,5 @@ class MatchEngine:
                     template["return_values"][key][field] = src.hget(req.db, key, field)
             else:
                 template["keys"].append(key)
+        verbose_print("Return Values:" + str(template["return_values"]))
         return template

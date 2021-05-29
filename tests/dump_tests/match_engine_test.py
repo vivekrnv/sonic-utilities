@@ -169,7 +169,7 @@ class TestMatchEngine(unittest.TestCase):
         req.field = "SAI_SWITCH_ATTR_SRC_MAC_ADDRESS"
         req.value = "DE:AD:EE:EE:EE"
         ret = self.match_engine.fetch(req)
-        assert ret["error"] == ""
+        assert ret["error"] == error_dict["NO_ENTRIES"]
         assert len(ret["keys"]) == 0
     
     def test_for_no_key_match(self):
@@ -188,7 +188,7 @@ class TestMatchEngine(unittest.TestCase):
         req.field = "led_status"
         req.value = "yellow"
         ret = self.match_engine.fetch(req)
-        assert ret["error"] == ""
+        assert ret["error"] == error_dict["NO_ENTRIES"]
         assert len(ret["keys"]) == 0
     
     def test_return_keys(self):
