@@ -37,9 +37,8 @@ def dump():
 @click.option('--table', '-t', is_flag=True, default=False, help='Print in tabular format', show_default=True)
 @click.option('--key-map', '-k', is_flag=True, default=False, help="Only fetch the keys matched, don't extract field-value dumps", show_default=True)
 @click.option('--verbose', '-v', is_flag=True, default=False, help="Prints any intermediate output to stdout useful for dev & troubleshooting", show_default=True)
-@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=str, show_default=True, help='Dump the redis-state for this namespace.')
-@click.option('--no-split', is_flag=True, default=False, show_default=True, help="Doesn't split the identifier when a list type (eg: 1,2,3,4) is passed as an identifier")  
-def state(ctx, module, identifier, db, table, key_map, verbose, namespace, no_split):
+@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=str, show_default=True, help='Dump the redis-state for this namespace.')  
+def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     """
     Dump the redis-state of the identifier for the module specified
     """
@@ -65,10 +64,8 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace, no_sp
     
     if identifier == "all":
         ids = obj.get_all_args(namespace)
-    elif not no_split:
-        ids = identifier.split(",")
     else:
-        ids = [identifier] # When the use-case requires the match to happen on entire list including "," character
+        ids = identifier.split(",")
         
     params = {}
     collected_info = {}
