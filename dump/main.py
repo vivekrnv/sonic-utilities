@@ -23,14 +23,6 @@ def show_modules(ctx, param, value):
         display.append((mod, plugins.dump_modules[mod].ARG_NAME))
     click.echo(tabulate(display, header))
     ctx.exit()
-
-# Display Modules Callback
-def all_modules(ctx, param, value):
-    if not value or ctx.resilient_parsing:
-        return
-    keys = list(plugins.dump_modules.keys())
-    print(";".join(keys))
-    ctx.exit()
              
 @click.group()
 def dump():
@@ -41,13 +33,13 @@ def dump():
 @click.argument('module', required=True, type=str, autocompletion=get_available_modules)
 @click.argument('identifier', required=True, type=str) 
 @click.option('--show', '-s', is_flag=True, default=False, help='Display Modules Available', is_eager=True, expose_value=False, callback=show_modules)
-@click.option('--all-modules', '-a', is_flag=True, default=False, help='Print modules in a techsupport-friendly format', is_eager=True, expose_value=False, callback=all_modules)
 @click.option('--db', '-d', multiple=True, help='Only dump from these Databases')
 @click.option('--table', '-t', is_flag=True, default=False, help='Print in tabular format', show_default=True)
 @click.option('--key-map', '-k', is_flag=True, default=False, help="Only fetch the keys matched, don't extract field-value dumps", show_default=True)
 @click.option('--verbose', '-v', is_flag=True, default=False, help="Prints any intermediate output to stdout useful for dev & troubleshooting", show_default=True)
-@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=str, show_default=True, help='Dump the redis-state for this namespace.')  
-def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
+@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=str, show_default=True, help='Dump the redis-state for this namespace.')
+@click.option('--no-split', is_flag=True, default=False, show_default=True, help="Doesn't split the identifier when a list type (eg: 1,2,3,4) is passed as an identifier")  
+def state(ctx, module, identifier, db, table, key_map, verbose, namespace, no_split):
     """
     Dump the redis-state of the identifier for the module specified
     """
@@ -73,8 +65,10 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     
     if identifier == "all":
         ids = obj.get_all_args(namespace)
-    else:
+    elif not no_split:
         ids = identifier.split(",")
+    else:
+        ids = [identifier] # When the use-case requires the match to happen on entire list including "," character
         
     params = {}
     collected_info = {}
@@ -92,8 +86,7 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
         collected_info = populate_fv(collected_info, module, namespace)
     
     for id in vidtorid.keys():
-        if  vidtorid[id] and vidtorid:
-            collected_info[id]["ASIC_DB"]["vidtorid"] = vidtorid[id]
+        collected_info[id]["ASIC_DB"]["vidtorid"] = vidtorid[id]
          
     print_dump(collected_info, table, module, identifier, key_map)
     
@@ -104,7 +97,9 @@ def extract_rid(info, ns):
     r.connect("ASIC_DB")
     vidtorid = {}
     for arg in info.keys():
-        vidtorid[arg] = get_v_r_map(r, info[arg])
+        mp = get_v_r_map(r, info[arg])
+        if mp:
+            vidtorid[arg] = mp
     return vidtorid
 
 def get_v_r_map(r, single_dict):
@@ -179,14 +174,6 @@ def get_keys(dump):
         else:
             keys.append(key_)
     return keys
-
-def get_rid(redis_key, vidtorid):
-    matches = re.findall(r"oid:0x\w{1,14}", redis_key)
-    if matches:
-       vid = matches[0]
-       if vid in vidtorid:
-           return vidtorid[vid]   
-    return "Not Found"
  
 # print dump
 def print_dump(collected_info, table, module, identifier, key_map):
@@ -220,10 +207,10 @@ def print_dump(collected_info, table, module, identifier, key_map):
 
             total_info += "\n"
             if "vidtorid" in collected_info[ids][db]:
-                table = []
+                temp = []
                 for pair in collected_info[ids][db]["vidtorid"].items():
-                    table.append(list(pair))
-                total_info +=str(tabulate(table, headers=["vid", "rid"], tablefmt="grid"))
+                    temp.append(list(pair))
+                total_info +=str(tabulate(temp, headers=["vid", "rid"], tablefmt="grid"))
             final_collection.append([ids, db, total_info])
 
     click.echo(tabulate(final_collection, top_header, tablefmt="grid"))
