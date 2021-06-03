@@ -1009,20 +1009,19 @@ save_counter_snapshot() {
 # save the debug dump output
 ###############################################################################
 save_dump_state_all_ns() {
-    IFS=';'
-    read -ra MODULES <<< "$(dump state -a)"
+    MODULES="$(dump state -s | sed '1d;2d' | awk '{print $1}')"
     local UVDUMP="unified_view_dump"
-
+    echo "Modules Available to Generate Debug Dump Output"
     $MKDIR $V -p $LOGDIR/$UVDUMP
 
-    for addr in "${MODULES[@]}";
+    for addr in $MODULES;
     do
             save_cmd_all_ns "dump state $addr all --key-map" "$UVDUMP/$addr"
             if [[ ( "$NUM_ASICS" > 1 ) ]] ; then
                 for (( i=0; i<$NUM_ASICS; i++ ))
                 do
                         local cmd="dump state $addr all --key-map --namespace asic$i"
-                        local file="$UVDUMP/$addr.$i"
+                        local file="$UVDUMP/$addr.asic$i"
                         save_cmd "$cmd" "$file"
                 done
             fi
