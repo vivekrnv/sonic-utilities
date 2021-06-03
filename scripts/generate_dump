@@ -1011,7 +1011,8 @@ save_counter_snapshot() {
 save_dump_state_all_ns() {
     MODULES="$(dump state -s | sed '1d;2d' | awk '{print $1}')"
     local UVDUMP="unified_view_dump"
-    echo "Modules Available to Generate Debug Dump Output"
+    echo "DEBUG DUMP: Modules Available to Generate Debug Dump Output"
+    echo $MODULES
     $MKDIR $V -p $LOGDIR/$UVDUMP
 
     for addr in $MODULES;
