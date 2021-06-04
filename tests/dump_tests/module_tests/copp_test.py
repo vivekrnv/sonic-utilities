@@ -36,7 +36,10 @@ def verbosity_setup():
 @patch("dump.plugins.copp.Copp.CONFIG_FILE", os.path.join(dump_tests_path, "files/copp_cfg.json"))
 class TestCoppModule(unittest.TestCase):
     
-    def test_custom_trap_with_default_grp(self):
+    def test_usr_cfg_trap_and_copp_cfg_file_grp(self):
+        '''
+        Scenario: A custom COPP_TRAP table entry is defined by the user and the relevant Trap Group is configured through the copp_cfg file 
+        '''
         params = {}
         params[Copp.ARG_NAME] = "snmp"
         params["namespace"] = ""
@@ -53,7 +56,10 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(sort_lists(returned), sort_lists(expect))
         assert not ddiff, ddiff
     
-    def test_default_trap_and_default_grp(self):
+    def test_copp_cfg_file_trap_and_copp_cfg_file_grp(self):
+        '''
+        Scenario: Both the Trap ID and Trap Group are configured through copp_cfg file
+        '''
         params = {}
         params[Copp.ARG_NAME] = "arp_resp"
         params["namespace"] = ""
@@ -69,7 +75,11 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(sort_lists(returned), sort_lists(expect))
         assert not ddiff, ddiff
     
-    def test_default_trap_and_default_grp_with_diff(self):
+    def test_copp_cfg_file_trap_and_copp_cfg_file_grp_with_diff(self):
+        '''
+        Scenario: Both the Trap ID and Trap Group are configured through copp_cfg file. 
+                  In addition, User also provided a diff for the COPP_GROUP entry
+        '''
         params = {}
         params[Copp.ARG_NAME] = "sample_packet"
         params["namespace"] = ""
@@ -86,7 +96,10 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(sort_lists(returned), sort_lists(expect))
         assert not ddiff, ddiff
     
-    def test_custom_trap_with_missing_group(self):
+    def test_usr_cfg_trap_with_missing_group(self):
+        '''
+        Scenario: A custom COPP_TRAP table entry is defined by the user, but the relevant COPP_GROUP entry is missing
+        '''
         params = {}
         params[Copp.ARG_NAME] = "vrrpv6"
         params["namespace"] = ""
@@ -102,7 +115,11 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(sort_lists(returned), sort_lists(expect))
         assert not ddiff, ddiff
     
-    def test_default_grp_and_custom_trap_with_diff(self):
+    def test_copp_cfg_file_group_and_copp_cfg_file_trap_with_diff(self):
+        '''
+        Scenario: User has added a trap_id to a COPP_TRAP entry. The COPP_TRAP entry is already present in copp_cfg file (i.e diff) 
+                  and the relevant trap group is in copp_cfg file
+        '''
         params = {}
         params[Copp.ARG_NAME] = "ospfv6"
         params["namespace"] = ""
