@@ -22,14 +22,14 @@ class Port(Executor):
         self.ret_temp = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
         port_name = params_dict[Port.ARG_NAME]
         self.ns = params_dict["namespace"]
-        self.get_config_info(port_name)
-        self.get_appl_info(port_name)
-        port_asic_obj = self.get_asic_info_hostif(port_name)
-        self.get_asic_info_port(port_asic_obj)
-        self.get_state_info(port_name)
+        self.init_port_config_info(port_name)
+        self.init_port_appl_info(port_name)
+        port_asic_obj = self.init_asic_hostif_info(port_name)
+        self.init_asic_port_info(port_asic_obj)
+        self.init_state_port_info(port_name)
         return self.ret_temp
     
-    def get_config_info(self, port_name):
+    def init_port_config_info(self, port_name):
         req = MatchRequest(db="CONFIG_DB", table="PORT", key_pattern=port_name, ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) != 0:
@@ -37,7 +37,7 @@ class Port(Executor):
         else:
             self.ret_temp[req.db]["tables_not_found"] = [req.table]
     
-    def get_appl_info(self, port_name):
+    def init_port_appl_info(self, port_name):
         req = MatchRequest(db="APPL_DB", table="PORT_TABLE", key_pattern=port_name, ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) != 0:
@@ -46,7 +46,7 @@ class Port(Executor):
             self.ret_temp[req.db]["tables_not_found"] = [req.table]
         
     
-    def get_state_info(self, port_name):
+    def init_state_port_info(self, port_name):
         req = MatchRequest(db="STATE_DB", table="PORT_TABLE", key_pattern=port_name, ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) != 0:
@@ -54,7 +54,7 @@ class Port(Executor):
         else:
             self.ret_temp[req.db]["tables_not_found"] = [req.table]
     
-    def get_asic_info_hostif(self, port_name):
+    def init_asic_hostif_info(self, port_name):
         req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF", key_pattern="*", field="SAI_HOSTIF_ATTR_NAME", 
                            value=port_name, return_fields=["SAI_HOSTIF_ATTR_OBJ_ID"], ns=self.ns)
         ret = self.match_engine.fetch(req)
@@ -69,7 +69,7 @@ class Port(Executor):
             self.ret_temp[req.db]["tables_not_found"] = [req.table]
         return asic_port_obj_id
            
-    def get_asic_info_port(self, asic_port_obj_id):
+    def init_asic_port_info(self, asic_port_obj_id):
         if not asic_port_obj_id: 
             self.ret_temp["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_PORT")
             return 
