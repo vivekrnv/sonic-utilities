@@ -26,10 +26,10 @@ def handle_multiple_keys_matched_error(err_str, key_to_go_with="", excep=False):
         print("ERROR (AMBIGUITY): {} \n Proceeding with the key {}".format(err_str, key_to_go_with), file = sys.stderr)
 
 
-def sort_lists(ret):
+def sort_lists(ret_template):
     """ Used to sort the nested list returned by the template dict. """
-    for db in ret.keys():
-        for key in ret[db].keys():
-            if isinstance(ret[db][key], list):
-                ret[db][key].sort()
-    return ret
+    for db in ret_template.keys():
+        for key in ret_template[db].keys():
+            if isinstance(ret_template[db][key], list):
+                ret_template[db][key].sort()
+    return ret_template
