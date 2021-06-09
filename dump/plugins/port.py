@@ -9,8 +9,10 @@ class Port(Executor):
     
     def __init__(self):
         self.match_engine = MatchEngine()
+        self.ret_temp = {}
+        self.ns = ''
           
-    def get_all_args(self, ns):
+    def get_all_args(self, ns=""):
         req = MatchRequest(db="CONFIG_DB", table="PORT", key_pattern="*", ns=ns)
         ret = self.match_engine.fetch(req)
         all_ports = ret["keys"]
