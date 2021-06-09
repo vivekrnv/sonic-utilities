@@ -1017,7 +1017,7 @@ save_dump_state_all_ns() {
 
     for addr in $MODULES;
     do
-            save_cmd_all_ns "dump state $addr all --key-map" "$UVDUMP/$addr"
+            save_cmd "dump state $addr all --key-map" "$UVDUMP/$addr"
             if [[ ( "$NUM_ASICS" > 1 ) ]] ; then
                 for (( i=0; i<$NUM_ASICS; i++ ))
                 do
