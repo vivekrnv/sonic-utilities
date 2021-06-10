@@ -7,13 +7,16 @@ from mock import patch
 from dump.helper import create_template_dict, sort_lists
 from dump.plugins.port import Port
 
+from .mock_sonicv2connector import MockSonicV2Connector
+
 module_tests_path = os.path.dirname(__file__)
 dump_tests_path = os.path.join(module_tests_path, "../")
-port_files_path = os.path.join(dump_tests_path,"files","port")
-sys.path.append(dump_tests_path)
-sys.path.append(module_tests_path)
+tests_path = os.path.join(dump_tests_path, "../")
+dump_test_input = os.path.join(tests_path,"dump_input")
 
-from module_tests.mock_sonicv2connector import MockSonicV2Connector
+
+# Location for dedicated db's used for UT
+port_files_path = os.path.join(dump_test_input,"port")
 
 dedicated_dbs = {}
 dedicated_dbs['CONFIG_DB'] = os.path.join(port_files_path, "config_db.json") 

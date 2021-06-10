@@ -3,9 +3,6 @@ from utilities_common.constants import DEFAULT_NAMESPACE
 
 class MockSonicV2Connector():
     def __init__(self, dedicated_dbs, namespace=DEFAULT_NAMESPACE):
-        # TODO: Add Support for 
-        # 1) Different namespace, i.e. asic0, asic1 etc
-        # 2) In the case when user-provider dedicated_dbs is empty, Read from mock_tables/*_db.json
         if namespace != DEFAULT_NAMESPACE:
             raise "This Mock doesn't support multi-asic configuration"
         self.db = None
@@ -17,13 +14,13 @@ class MockSonicV2Connector():
     
     def connect(self, db_name, retry=False):
         if db_name not in self.dedicated_dbs:
-            return None
+            raise Exception("{} not found. Available db's: {}".fomrat(db_name, self.dedicated_dbs.keys()))
         try:
             with open(self.dedicated_dbs[db_name]) as f:
                 self.db = json.load(f)
                 self.db_name_connect_to = db_name  
-        except Exception as e:
-            raise "Connection Failure"
+        except BaseException as e:
+            raise "Connection Failure" + str(e)
     
     def get_db_separator(self, db_name):
         return self.db_cfg["DATABASES"][db_name]["separator"]
