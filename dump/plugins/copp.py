@@ -1,7 +1,8 @@
 import os, sys
-from .executor import Executor
 from dump.match_infra import MatchEngine, MatchRequest
-from dump.helper import create_template_dict, handle_multiple_keys_matched_error, verbose_print, handle_error
+from dump.helper import create_template_dict, handle_multiple_keys_matched_error
+from dump.helper import verbose_print, handle_error
+from .executor import Executor
 
 TRAP_ID_MAP = { 
     "stp" : "SAI_HOSTIF_TRAP_TYPE_STP",
@@ -51,7 +52,7 @@ APP_COPP_TABLE_NAME = "COPP_TABLE"
 
 ASIC_DB_PREFIX = "ASIC_STATE"
 
-ASIC_TRAP_OBJ  = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF_TRAP"
+ASIC_TRAP_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF_TRAP"
 ASIC_TRAP_GROUP_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP"
 ASIC_POLICER_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_POLICER"
 ASIC_QUEUE_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_QUEUE"
@@ -64,6 +65,11 @@ class Copp(Executor):
     
     def __init__(self):
         self.match_engine = MatchEngine()
+        self.copp_trap_cfg_key = ""
+        self.trap_group = ""
+        self.trap_id = ""
+        self.ns = ""
+        self.ret_temp = {}
     
     def fetch_all_trap_ids(self, ret):
         traps = []
@@ -114,7 +120,7 @@ class Copp(Executor):
     
     def handle_appl_db(self):
         req = MatchRequest(db="APPL_DB", table=APP_COPP_TABLE_NAME, key_pattern="*", field="trap_ids", 
-                            value=self.trap_id, match_entire_list=False, return_fields=["trap_group"])
+                           value=self.trap_id, match_entire_list=False, return_fields=["trap_group"])
         ret = self.match_engine.fetch(req)
         tg = ""
         if not ret["error"] and len(ret["keys"]) > 0:
@@ -150,7 +156,8 @@ class Copp(Executor):
             self.ret_temp["ASIC_DB"]["tables_not_found"].append(ASIC_TRAP_OBJ)
             return ""
         
-        req = MatchRequest(db="ASIC_DB", table=ASIC_TRAP_OBJ, field="SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE", value=sai_trap_id, ns=self.ns, return_fields=["SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP"])
+        req = MatchRequest(db="ASIC_DB", table=ASIC_TRAP_OBJ, field="SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE", value=sai_trap_id, 
+                           ns=self.ns, return_fields=["SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP"])
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
             if len(ret["keys"]) > 1:
@@ -169,7 +176,7 @@ class Copp(Executor):
             return "", ""
         
         req = MatchRequest(db="ASIC_DB", table=ASIC_TRAP_GROUP_OBJ, key_pattern=trap_group_obj, ns=self.ns, 
-                            return_fields = ["SAI_HOSTIF_TRAP_GROUP_ATTR_QUEUE", "SAI_HOSTIF_TRAP_GROUP_ATTR_POLICER"])
+                           return_fields=["SAI_HOSTIF_TRAP_GROUP_ATTR_QUEUE", "SAI_HOSTIF_TRAP_GROUP_ATTR_POLICER"])
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
             trap_group_asic_key = ret["keys"][0]
@@ -195,7 +202,7 @@ class Copp(Executor):
         # Not adding tp tables_not_found because of the type of reason specified for policer obj
         if not queue_sai_obj:
             return 
-        req = MatchRequest(db="ASIC_DB", table=ASIC_QUEUE_OBJ, field="SAI_QUEUE_ATTR_INDEX", value = queue_sai_obj, ns=self.ns)
+        req = MatchRequest(db="ASIC_DB", table=ASIC_QUEUE_OBJ, field="SAI_QUEUE_ATTR_INDEX", value=queue_sai_obj, ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
             self.ret_temp["ASIC_DB"]["keys"].append(ret["keys"][0]) 
@@ -276,7 +283,7 @@ class Copp(Executor):
             field_ = "trap_ids"
             value_ = self.trap_id
         req = MatchRequest(file=Copp.CONFIG_FILE, table=CFG_COPP_TRAP_TABLE_NAME, key_pattern=key_ptrn, match_entire_list=False, 
-                            ns=self.ns, return_fields=["trap_group"], field=field_, value=value_)
+                           ns=self.ns, return_fields=["trap_group"], field=field_, value=value_)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
             if len(ret["keys"]) > 1:
@@ -293,7 +300,7 @@ class Copp(Executor):
             field_ = "trap_ids"
             value_ = self.trap_id
         req = MatchRequest(db="CONFIG_DB", table=CFG_COPP_TRAP_TABLE_NAME, key_pattern=key_ptrn, match_entire_list=False, 
-                            ns=self.ns, return_fields=["trap_group"], field=field_, value=value_)
+                           ns=self.ns, return_fields=["trap_group"], field=field_, value=value_)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
             if len(ret["keys"]) > 1:
