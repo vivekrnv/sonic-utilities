@@ -2,6 +2,8 @@ import os
 import pytest
 import sys
 
+from deepdiff import DeepDiff
+
 from swsssdk import SonicV2Connector
 from sonic_py_common import device_info
 
@@ -40,10 +42,10 @@ class TestMellanoxBufferMigrator(object):
     def setup_class(cls):
         cls.config_db_tables_to_verify = ['BUFFER_POOL', 'BUFFER_PROFILE', 'BUFFER_PG', 'DEFAULT_LOSSLESS_BUFFER_PARAMETER', 'LOSSLESS_TRAFFIC_PATTERN', 'VERSIONS', 'DEVICE_METADATA']
         cls.appl_db_tables_to_verify = ['BUFFER_POOL_TABLE:*', 'BUFFER_PROFILE_TABLE:*', 'BUFFER_PG_TABLE:*', 'BUFFER_QUEUE:*', 'BUFFER_PORT_INGRESS_PROFILE_LIST:*', 'BUFFER_PORT_EGRESS_PROFILE_LIST:*']
-        cls.warm_reboot_from_version = 'version_1_0_5'
+        cls.warm_reboot_from_version = 'version_1_0_6'
         cls.warm_reboot_to_version = 'version_2_0_0'
 
-        cls.version_list = ['version_1_0_1', 'version_1_0_2', 'version_1_0_3', 'version_1_0_4', 'version_1_0_5', 'version_2_0_0']
+        cls.version_list = ['version_1_0_1', 'version_1_0_2', 'version_1_0_3', 'version_1_0_4', 'version_1_0_5', 'version_1_0_6', 'version_2_0_0']
 
         os.environ['UTILITIES_UNIT_TESTING'] = "2"
 
@@ -218,3 +220,30 @@ class TestAutoNegMigrator(object):
 
         assert dbmgtr.configDB.get_table('PORT') == expected_db.cfgdb.get_table('PORT')
         assert dbmgtr.configDB.get_table('VERSIONS') == expected_db.cfgdb.get_table('VERSIONS')
+
+
+class TestInitConfigMigrator(object):
+    @classmethod
+    def setup_class(cls):
+        os.environ['UTILITIES_UNIT_TESTING'] = "2"
+
+    @classmethod
+    def teardown_class(cls):
+        os.environ['UTILITIES_UNIT_TESTING'] = "0"
+        dbconnector.dedicated_dbs['CONFIG_DB'] = None
+
+    def test_init_config_feature_migration(self):
+        dbconnector.dedicated_dbs['CONFIG_DB'] = os.path.join(mock_db_path, 'config_db', 'feature-input')
+        import db_migrator
+        dbmgtr = db_migrator.DBMigrator(None)
+        dbmgtr.migrate()
+        dbconnector.dedicated_dbs['CONFIG_DB'] = os.path.join(mock_db_path, 'config_db', 'feature-expected')
+        expected_db = Db()
+
+        resulting_table = dbmgtr.configDB.get_table('FEATURE')
+        expected_table = expected_db.cfgdb.get_table('FEATURE')
+
+        diff = DeepDiff(resulting_table, expected_table, ignore_order=True)
+        assert not diff
+
+        assert not expected_db.cfgdb.get_table('CONTAINER_FEATURE')
