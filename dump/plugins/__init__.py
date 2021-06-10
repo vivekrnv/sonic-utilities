@@ -14,6 +14,3 @@ for (module_loader, name, ispkg) in pkgutil.iter_modules([pkg_dir]):
 
 # Classes inheriting Executor
 dump_modules = {cls.__name__.lower(): cls for cls in Executor.__subclasses__()}
-
-
-

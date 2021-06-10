@@ -79,7 +79,4 @@ class Port(Executor):
             sai_port_obj_key = ret["keys"][-1]
             self.ret_temp[req.db]["keys"].append(sai_port_obj_key)
         else:
-            self.ret_temp[req.db]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_PORT")
-        
-        
-        
+            self.ret_temp[req.db]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_PORT") 

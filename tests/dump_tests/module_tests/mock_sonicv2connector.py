@@ -1,4 +1,3 @@
-
 import json, re, os
 from utilities_common.constants import DEFAULT_NAMESPACE
 
