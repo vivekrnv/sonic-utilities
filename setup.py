@@ -73,7 +73,8 @@ setup(
                   'filter_fdb_input/*',
                   'pfcwd_input/*',
                   'wm_input/*',
-                  'ecn_input/*']
+                  'ecn_input/*',
+                  'dump_input/*']
     },
     scripts=[
         'scripts/aclshow',
