@@ -109,15 +109,10 @@ def get_v_r_map(r, single_dict):
                 matches = re.findall(r"oid:0x\w{1,14}", redis_key)
                 if matches:
                    vid = matches[0]
-                   v_r_map[vid] =  vid_to_rid(vid, r)
+                   v_r_map[vid] =  r.get("ASIC_DB", "VIDTORID", vid)
+                   if not v_r_map[vid]:
+                       v_r_map[vid] = "Real ID Not Found"
     return v_r_map
-
-# Get a vid:rid for the input vid
-def vid_to_rid(vid, r):
-    rid = r.get("ASIC_DB", "VIDTORID", vid)
-    if not rid:
-        rid = "Real ID Not Found" 
-    return rid  
 
 # Filter dbs which are not required
 def filter_out_dbs(db_list, collected_info):
