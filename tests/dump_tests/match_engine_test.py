@@ -4,7 +4,8 @@ import pytest
 from dump.match_infra import MatchEngine, EXCEP_DICT, MatchRequest
 from deepdiff import DeepDiff
 
-test_path = os.path.join(os.path.abspath(__file__), "../")
+test_path = os.path.join(os.path.dirname(__file__), "../")
+dump_test_input = os.path.join(test_path, "dump_input")
 
 sys.path.append(test_path)
 
@@ -174,7 +175,7 @@ class TestMatchEngine(unittest.TestCase):
         assert not ddiff, ddiff
     
     def test_file_source(self):
-        file = os.path.join(os.path.dirname(__file__), "files/copp_cfg.json")
+        file = os.path.join(dump_test_input, "copp_cfg.json")
         req = MatchRequest(file=file, table="COPP_TRAP", field="trap_ids", value="arp_req")
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
@@ -182,7 +183,7 @@ class TestMatchEngine(unittest.TestCase):
         assert "COPP_TRAP|arp" in ret["keys"] 
         
     def test_file_source_with_key_ptrn(self):
-        file = os.path.join(os.path.dirname(__file__), "files/copp_cfg.json")
+        file = os.path.join(dump_test_input, "copp_cfg.json")
         req = MatchRequest(file=file, table="COPP_GROUP", key_pattern="queue4*", field="red_action", value="drop")
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
@@ -190,7 +191,7 @@ class TestMatchEngine(unittest.TestCase):
         assert "COPP_GROUP|queue4_group2" in ret["keys"]
     
     def test_file_source_with_not_only_return_keys(self):
-        file = os.path.join(os.path.dirname(__file__), "files/copp_cfg.json")
+        file = os.path.join(dump_test_input, "copp_cfg.json")
         req = MatchRequest(file=file, table="COPP_GROUP", key_pattern="queue4*", field="red_action", value="drop", just_keys=False)
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
