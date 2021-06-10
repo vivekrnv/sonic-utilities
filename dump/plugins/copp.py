@@ -302,5 +302,4 @@ class Copp(Executor):
             key_copp_trap = ret["keys"][0]
             return key_copp_trap, ret["return_values"][key_copp_trap]["trap_group"]
         else:
-            return "", ""
-        
+            return "", ""  

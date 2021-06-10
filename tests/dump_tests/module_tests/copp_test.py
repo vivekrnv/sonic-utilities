@@ -206,5 +206,4 @@ class TestCoppModule(unittest.TestCase):
         expect = ["bgp", "bgpv6", "lacp", "arp_req", "arp_resp", "neigh_discovery", "lldp", "dhcp", "dhcpv6", "udld", "ip2me", "src_nat_miss", "dest_nat_miss", "sample_packet", "snmp", "bfd", "vrrpv6", "ospf", "ospfv6"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
         assert not ddiff, ddiff   
- 
         
