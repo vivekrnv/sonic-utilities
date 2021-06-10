@@ -1,6 +1,6 @@
-import re, json, os, fnmatch
-from dump.helper import verbose_print
+import json, fnmatch
 from abc import ABC, abstractmethod
+from dump.helper import verbose_print
 from swsscommon.swsscommon import SonicV2Connector, SonicDBConfig
 
 EXCEP_DICT = {
@@ -286,6 +286,4 @@ class MatchEngine:
         if not filtered_keys:
             return self.__display_error(EXCEP_DICT["NO_ENTRIES"])
         return self.__fill_template(src, req, filtered_keys, template)
-    
-    
-    
+

@@ -1,11 +1,10 @@
-import json, os, sys
-import jsonpatch
+import os, sys
 import unittest
 import pytest
 from dump.match_infra import MatchEngine, EXCEP_DICT, MatchRequest
 from deepdiff import DeepDiff
 
-test_path = os.path.join(os.path.abspath(__file__),"../")
+test_path = os.path.join(os.path.abspath(__file__), "../")
 
 sys.path.append(test_path)
 
@@ -58,7 +57,7 @@ class TestMatchRequestValidation(unittest.TestCase):
         self.assertRaisesWithMessage(EXCEP_DICT["NO_VALUE"], MatchRequest, db="APPL_DB", table="COPP_TABLE", key_pattern="*", field="trap_ids", value="")
     
     def test_no_table(self):
-        self.assertRaisesWithMessage(EXCEP_DICT["NO_TABLE"], MatchRequest, db="APPL_DB", table="", key_pattern="*", field="trap_ids", value = "bgpv6")
+        self.assertRaisesWithMessage(EXCEP_DICT["NO_TABLE"], MatchRequest, db="APPL_DB", table="", key_pattern="*", field="trap_ids", value="bgpv6")
     
     def test_just_keys_return_fields_compat(self):
         self.assertRaisesWithMessage(EXCEP_DICT["JUST_KEYS_COMPAT"], MatchRequest, db="APPL_DB", return_fields=["trap_group"], table="COPP_TABLE", 
@@ -148,14 +147,14 @@ class TestMatchEngine(unittest.TestCase):
         assert "reboot" == ret["return_values"]["REBOOT_CAUSE|2020_10_09_02_33_06"]["cause"]
     
     def test_return_fields_with_field_value_filtering(self):
-        req = MatchRequest(db="STATE_DB", table="CHASSIS_MODULE_TABLE", field="oper_status", value="Offline", return_fields = ["slot"])
+        req = MatchRequest(db="STATE_DB", table="CHASSIS_MODULE_TABLE", field="oper_status", value="Offline", return_fields=["slot"])
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
         assert len(ret["keys"]) == 1
         assert "18" == ret["return_values"]["CHASSIS_MODULE_TABLE|FABRIC-CARD1"]["slot"]
     
     def test_return_fields_with_all_filtering(self):
-        req = MatchRequest(db="STATE_DB", table="VXLAN_TUNNEL_TABLE", key_pattern="EVPN_25.25.25.2*", field="operstatus", value="down", return_fields = ["src_ip"])
+        req = MatchRequest(db="STATE_DB", table="VXLAN_TUNNEL_TABLE", key_pattern="EVPN_25.25.25.2*", field="operstatus", value="down", return_fields=["src_ip"])
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
         assert len(ret["keys"]) == 3
@@ -170,12 +169,12 @@ class TestMatchEngine(unittest.TestCase):
         assert len(ret["keys"]) == 1
         recv_dict = ret["keys"][0]
         assert isinstance(recv_dict, dict)
-        exp_dict =  {"SFLOW|global": {"admin_state": "up", "polling_interval": "0"}}
+        exp_dict = {"SFLOW|global": {"admin_state": "up", "polling_interval": "0"}}
         ddiff = DeepDiff(exp_dict, recv_dict)
         assert not ddiff, ddiff
     
     def test_file_source(self):
-        file = os.path.join(os.path.dirname(__file__),"files/copp_cfg.json")
+        file = os.path.join(os.path.dirname(__file__), "files/copp_cfg.json")
         req = MatchRequest(file=file, table="COPP_TRAP", field="trap_ids", value="arp_req")
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
@@ -183,7 +182,7 @@ class TestMatchEngine(unittest.TestCase):
         assert "COPP_TRAP|arp" in ret["keys"] 
         
     def test_file_source_with_key_ptrn(self):
-        file = os.path.join(os.path.dirname(__file__),"files/copp_cfg.json")
+        file = os.path.join(os.path.dirname(__file__), "files/copp_cfg.json")
         req = MatchRequest(file=file, table="COPP_GROUP", key_pattern="queue4*", field="red_action", value="drop")
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
@@ -191,18 +190,18 @@ class TestMatchEngine(unittest.TestCase):
         assert "COPP_GROUP|queue4_group2" in ret["keys"]
     
     def test_file_source_with_not_only_return_keys(self):
-        file = os.path.join(os.path.dirname(__file__),"files/copp_cfg.json")
+        file = os.path.join(os.path.dirname(__file__), "files/copp_cfg.json")
         req = MatchRequest(file=file, table="COPP_GROUP", key_pattern="queue4*", field="red_action", value="drop", just_keys=False)
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
         assert len(ret["keys"]) == 1
         recv_dict = ret["keys"][0]
-        exp_dict =  {"COPP_GROUP|queue4_group2": {"trap_action": "copy", "trap_priority": "4", "queue": "4", "meter_type": "packets", "mode": "sr_tcm", "cir": "600", "cbs": "600", "red_action": "drop"}}
+        exp_dict = {"COPP_GROUP|queue4_group2": {"trap_action": "copy", "trap_priority": "4", "queue": "4", "meter_type": "packets", "mode": "sr_tcm", "cir": "600", "cbs": "600", "red_action": "drop"}}
         ddiff = DeepDiff(exp_dict, recv_dict)
         assert not ddiff, ddiff
     
     def test_match_entire_list(self):
-        req = MatchRequest(db="CONFIG_DB", table="PORT", key_pattern="*", field="lanes", value = "61,62,63,64", match_entire_list=True, just_keys=True)
+        req = MatchRequest(db="CONFIG_DB", table="PORT", key_pattern="*", field="lanes", value="61,62,63,64", match_entire_list=True, just_keys=True)
         ret = self.match_engine.fetch(req)
         assert ret["error"] == ""
         assert len(ret["keys"]) == 1
