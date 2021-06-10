@@ -12,12 +12,13 @@ from .module_tests import mock_sonicv2connector
 from utilities_common.constants import DEFAULT_NAMESPACE
 
 def compare_json_output(exp_json, rec, exclude_paths=None):
-    print(exp_json)
+    print("EXPECTED: \n")
+    print(json.dumps(exp_json, indent=4))
     try:
         rec_json = json.loads(rec)
     except Exception as e:
         print(rec)
-        assert 0 , "CLI Output is not in JSON Format"    
+        assert 0 , "CLI Output is not in JSON Format"   
     return DeepDiff(exp_json, rec_json, exclude_paths=exclude_paths)
 
 table_display_output = '''\
@@ -115,7 +116,7 @@ class TestDumpState(object):
                     "STATE_DB":{"keys":[],"tables_not_found":["PORT_TABLE"]}}}
         assert result.exit_code == 0, "exit code: {}, Exception: {}, Traceback: {}".format(result.exit_code, result.exception, result.exc_info)
         pths = ["root['Ethernet0']['CONFIG_DB']['keys'][0]['PORT|Ethernet0']", "root['Ethernet0']['APPL_DB']['keys'][0]['PORT_TABLE:Ethernet0']"]
-        pths += ["root['Ethernet4']['CONFIG_DB']['keys'][0]['PORT|Ethernet4]", "root['Ethernet4']['APPL_DB']['keys'][0]['PORT_TABLE:Ethernet4']"]
+        pths.extend(["root['Ethernet4']['CONFIG_DB']['keys'][0]['PORT|Ethernet4']", "root['Ethernet4']['APPL_DB']['keys'][0]['PORT_TABLE:Ethernet4']"])
         ddiff = compare_json_output(expected, result.output, pths)
         assert not ddiff, ddiff
     
