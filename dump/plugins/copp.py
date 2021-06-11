@@ -1,4 +1,4 @@
-import os, sys
+import os, sys, re
 from dump.match_infra import MatchEngine, MatchRequest
 from dump.helper import create_template_dict, handle_multiple_keys_matched_error
 from dump.helper import verbose_print, handle_error
@@ -54,6 +54,8 @@ ASIC_DB_PREFIX = "ASIC_STATE"
 
 ASIC_TRAP_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF_TRAP"
 ASIC_TRAP_GROUP_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP"
+ASIC_HOSTIF_TABLE_ENTRY = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF_TABLE_ENTRY"
+ASIC_HOSTIF = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_HOSTIF"
 ASIC_POLICER_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_POLICER"
 ASIC_QUEUE_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_QUEUE"
 
@@ -146,15 +148,17 @@ class Copp(Executor):
             sai_trap_id = ""
         else:
             sai_trap_id = TRAP_ID_MAP[self.trap_id]
-        sai_trap_grp = self.__get_asic_trap_obj(sai_trap_id)
-        sai_queue, sai_policer = self.__get_asic_trap_group_obj(sai_trap_grp)
+        sai_trap, sai_trap_grp = self.__get_asic_hostif_trap_obj(sai_trap_id)
+        sai_queue, sai_policer = self.__get_asic_hostif_trap_group_obj(sai_trap_grp)
         self.__get_asic_policer_obj(sai_policer)
         self.__get_asic_queue_obj(sai_queue)
+        sai_hostif_vid = self.__get_asic_hostif_entry_obj(sai_trap)
+        self.__get_asic_hostif_obj(sai_hostif_vid)
         
-    def __get_asic_trap_obj(self, sai_trap_id):
+    def __get_asic_hostif_trap_obj(self, sai_trap_id):
         if not sai_trap_id:
             self.ret_temp["ASIC_DB"]["tables_not_found"].append(ASIC_TRAP_OBJ)
-            return ""
+            return "", ""
         
         req = MatchRequest(db="ASIC_DB", table=ASIC_TRAP_OBJ, field="SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE", value=sai_trap_id, 
                            ns=self.ns, return_fields=["SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP"])
@@ -165,12 +169,12 @@ class Copp(Executor):
                 handle_multiple_keys_matched_error(err_str, ret["keys"][0])
             trap_asic_key = ret["keys"][0]
             self.ret_temp["ASIC_DB"]["keys"].append(trap_asic_key)
-            return ret["return_values"][trap_asic_key]["SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP"]
+            return trap_asic_key, ret["return_values"][trap_asic_key]["SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP"]
         else:
             self.ret_temp["ASIC_DB"]["tables_not_found"].append(ASIC_TRAP_OBJ)
-            return ""
+            return "", ""
     
-    def __get_asic_trap_group_obj(self, trap_group_obj):
+    def __get_asic_hostif_trap_group_obj(self, trap_group_obj):
         if not trap_group_obj:
             self.ret_temp["ASIC_DB"]["tables_not_found"].append(ASIC_TRAP_GROUP_OBJ)
             return "", ""
@@ -203,6 +207,34 @@ class Copp(Executor):
         if not queue_sai_obj:
             return 
         req = MatchRequest(db="ASIC_DB", table=ASIC_QUEUE_OBJ, field="SAI_QUEUE_ATTR_INDEX", value=queue_sai_obj, ns=self.ns)
+        ret = self.match_engine.fetch(req)
+        if not ret["error"] and len(ret["keys"]) > 0:
+            self.ret_temp["ASIC_DB"]["keys"].append(ret["keys"][0]) 
+    
+    def __get_asic_hostif_entry_obj(self, sai_trap_key):
+        # Not adding tp tables_not_found because of the type of reason specified for policer obj
+        if not sai_trap_key:
+            return 
+        asic_obj_ptrn = "ASIC_STATE:.*:oid:0x\w{1,14}"
+        matches = re.findall(r"oid:0x\w{1,14}", sai_trap_key)
+        if matches:
+            sai_trap_vid = matches[0]
+        else:
+            return 
+        req = MatchRequest(db="ASIC_DB", table=ASIC_HOSTIF_TABLE_ENTRY, field="SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID", 
+                           value=sai_trap_vid, return_fields=["SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF"], ns=self.ns)
+        ret = self.match_engine.fetch(req)
+        if not ret["error"] and len(ret["keys"]) > 0:
+            sai_hostif_table_entry_key = ret["keys"][0]
+            self.ret_temp["ASIC_DB"]["keys"].append(sai_hostif_table_entry_key)
+            sai_hostif_vid = ret["return_values"][sai_hostif_table_entry_key]["SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF"]
+            return sai_hostif_vid
+    
+    def __get_asic_hostif_obj(self, sai_hostif_vid):
+         # Not adding tp tables_not_found because of the type of reason specified for policer obj
+        if not sai_hostif_vid:
+            return 
+        req = MatchRequest(db="ASIC_DB", table=ASIC_HOSTIF, key_pattern=sai_hostif_vid, ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
             self.ret_temp["ASIC_DB"]["keys"].append(ret["keys"][0]) 

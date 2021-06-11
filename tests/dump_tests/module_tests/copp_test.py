@@ -86,14 +86,15 @@ class TestCoppModule(unittest.TestCase):
         params["namespace"] = ""
         m_copp = Copp()
         returned = m_copp.execute(params)
-        print(returned)
+        print(json.dumps(returned, indent=2))
         expect = create_template_dict(dbs=["CONFIG_FILE", "CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
         expect["CONFIG_FILE"]["keys"].extend(["COPP_GROUP|queue2_group1", "COPP_TRAP|sflow"])
         expect["CONFIG_DB"]["keys"].append("COPP_GROUP|queue2_group1")
         expect["APPL_DB"]["keys"].append("COPP_TABLE:queue2_group1")
         expect["STATE_DB"]["keys"].extend(["COPP_GROUP_TABLE|queue2_group1", "COPP_TRAP_TABLE|sflow"])
         expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004de", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004db", 
-                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004dc","ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a1"])
+                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004dc","ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a1",
+                                          "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF:oid:0xd0000000004d6", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TABLE_ENTRY:oid:0x230000000004d8"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
     
