@@ -215,7 +215,6 @@ class Copp(Executor):
         # Not adding tp tables_not_found because of the type of reason specified for policer obj
         if not sai_trap_key:
             return 
-        asic_obj_ptrn = "ASIC_STATE:.*:oid:0x\w{1,14}"
         matches = re.findall(r"oid:0x\w{1,14}", sai_trap_key)
         if matches:
             sai_trap_vid = matches[0]
