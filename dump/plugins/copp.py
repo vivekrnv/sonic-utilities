@@ -1,7 +1,7 @@
-import os, sys, re
+import re
 from dump.match_infra import MatchEngine, MatchRequest
 from dump.helper import create_template_dict, handle_multiple_keys_matched_error
-from dump.helper import verbose_print, handle_error
+from dump.helper import handle_error
 from .executor import Executor
 
 TRAP_ID_MAP = { 
