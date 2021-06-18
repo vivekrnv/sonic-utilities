@@ -84,6 +84,8 @@ CFG_PORTCHANNEL_NO="<0-9999>"
 
 PORT_MTU = "mtu"
 PORT_SPEED = "speed"
+PORT_TPID = "tpid"
+DEFAULT_TPID = "0x8100"
 
 asic_type = None
 
@@ -777,6 +779,22 @@ def validate_mirror_session_config(config_db, session_name, dst_port, src_port, 
 
     return True
 
+def validate_ip_mask(ctx, ip_addr):
+    split_ip_mask = ip_addr.split("/")
+    # Check if the IP address is correct or if there are leading zeros.
+    ip_obj = ipaddress.ip_address(split_ip_mask[0])
+
+    # Check if the mask is correct
+    mask_range = 33 if isinstance(ip_obj, ipaddress.IPv4Address) else 129
+    # If mask is not specified
+    if len(split_ip_mask) < 2:
+        return 0
+
+    if not int(split_ip_mask[1]) in range(1, mask_range):
+        return 0
+
+    return str(ip_obj) + '/' + str(int(split_ip_mask[1]))
+
 def cli_sroute_to_config(ctx, command_str, strict_nh = True):
     if len(command_str) < 2 or len(command_str) > 9:
         ctx.fail("argument is not in pattern prefix [vrf <vrf_name>] <A.B.C.D/M> nexthop <[vrf <vrf_name>] <A.B.C.D>>|<dev <dev_name>>!")
@@ -1292,6 +1310,9 @@ def reload(db, filename, yes, load_sysinfo, no_service_restart, disable_arp_cach
                 command = "{} -o migrate -n {}".format(db_migrator, namespace)
             clicommon.run_command(command, display_cmd=True)
 
+    # Re-generate the environment variable in case config_db.json was edited
+    update_sonic_environment()
+
     # We first run "systemctl reset-failed" to remove the "failed"
     # status from all services before we attempt to restart them
     if not no_service_restart:
@@ -1582,6 +1603,15 @@ def add_portchannel_member(ctx, portchannel_name, port_name):
             if portchannel_mtu != port_mtu:
                 ctx.fail("Port MTU of {} is different than the {} MTU size"
                          .format(port_name, portchannel_name))
+
+    # Dont allow a port to be member of port channel if its TPID is not at default 0x8100
+    # If TPID is supported at LAG level, when member is added, the LAG's TPID is applied to the
+    # new member by SAI.
+    port_entry = db.get_entry('PORT', port_name)
+    if port_entry and port_entry.get(PORT_TPID) is not None:
+       port_tpid = port_entry.get(PORT_TPID)
+       if port_tpid != DEFAULT_TPID:
+           ctx.fail("Port TPID of {}: {} is not at default 0x8100".format(port_name, port_tpid))
 
     db.set_entry('PORTCHANNEL_MEMBER', (portchannel_name, port_name),
             {'NULL': 'NULL'})
@@ -3367,6 +3397,34 @@ def mtu(ctx, interface_name, interface_mtu, verbose):
         command += " -vv"
     clicommon.run_command(command, display_cmd=verbose)
 
+#
+# 'tpid' subcommand
+#
+
+@interface.command()
+@click.pass_context
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+@click.argument('interface_tpid', metavar='<interface_tpid>', required=True)
+@click.option('-v', '--verbose', is_flag=True, help="Enable verbose output")
+def tpid(ctx, interface_name, interface_tpid, verbose):
+    """Set interface tpid"""
+    # Get the config_db connector
+    config_db = ctx.obj['config_db']
+    if clicommon.get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(config_db, interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    if ctx.obj['namespace'] is DEFAULT_NAMESPACE:
+        command = "portconfig -p {} -tp {}".format(interface_name, interface_tpid)
+    else:
+        command = "portconfig -p {} -tp {} -n {}".format(interface_name, interface_tpid, ctx.obj['namespace'])
+
+    if verbose:
+        command += " -vv"
+    clicommon.run_command(command, display_cmd=verbose)
+
+
 @interface.command()
 @click.pass_context
 @click.argument('interface_name', metavar='<interface_name>', required=True)
@@ -3434,6 +3492,10 @@ def add(ctx, interface_name, ip_addr, gw):
         if '/' not in ip_addr:
             ip_addr = str(net)
 
+        ip_addr = validate_ip_mask(ctx, ip_addr)
+        if not ip_addr:
+            raise ValueError('')
+
         if interface_name == 'eth0':
 
             # Configuring more than 1 IPv4 or more than 1 IPv6 address fails.
@@ -3470,7 +3532,7 @@ def add(ctx, interface_name, ip_addr, gw):
                 config_db.set_entry(table_name, interface_name, {"NULL": "NULL"})
         config_db.set_entry(table_name, (interface_name, ip_addr), {"NULL": "NULL"})
     except ValueError:
-        ctx.fail("'ip_addr' is not valid.")
+        ctx.fail("ip address or mask is not valid.")
 
 #
 # 'del' subcommand
@@ -3494,6 +3556,10 @@ def remove(ctx, interface_name, ip_addr):
         net = ipaddress.ip_network(ip_addr, strict=False)
         if '/' not in ip_addr:
             ip_addr = str(net)
+        
+        ip_addr = validate_ip_mask(ctx, ip_addr)
+        if not ip_addr:
+            raise ValueError('')
 
         if interface_name == 'eth0':
             config_db.set_entry("MGMT_INTERFACE", (interface_name, ip_addr), None)
@@ -3533,7 +3599,7 @@ def remove(ctx, interface_name, ip_addr):
             command = "ip neigh flush dev {} {}".format(interface_name, ip_addr)
         clicommon.run_command(command)
     except ValueError:
-        ctx.fail("'ip_addr' is not valid.")
+        ctx.fail("ip address or mask is not valid.")
 
 
 #
