@@ -2,6 +2,7 @@ import json, fnmatch
 from abc import ABC, abstractmethod
 from dump.helper import verbose_print
 from swsscommon.swsscommon import SonicV2Connector, SonicDBConfig
+from sonic_py_common import multi_asic
 
 EXCEP_DICT = {
     "INV_REQ": "Argument should be of type MatchRequest",
@@ -16,7 +17,8 @@ EXCEP_DICT = {
     "JUST_KEYS_COMPAT": "When Just_keys is set to False, return_fields should be empty",
     "BAD_FORMAT_RE_FIELDS": "Return Fields should be of list type",
     "NO_ENTRIES": "No Keys found after applying the filtering criteria",
-    "FILE_R_EXEP": "Exception Caught While Reading the json cfg file provided" 
+    "FILE_R_EXEP": "Exception Caught While Reading the json cfg file provided",
+    "INV_NS": "Namespace is invalid"
 }
 
 class MatchRequest:
@@ -85,6 +87,9 @@ class MatchRequest:
         if self.field and not self.value:
             return EXCEP_DICT["NO_VALUE"]
         
+        if self.ns not in multi_asic.get_namespace_list():
+            return EXCEP_DICT["INV_NS"]
+        
         verbose_print("MatchRequest Checks Passed")
         
         return ""
@@ -141,7 +146,7 @@ class SourceAdapter(ABC):
         return ""
     
     @abstractmethod
-    def sep(self, db):
+    def get_separator(self, db):
         return ""
         
 class RedisSource(SourceAdapter):
@@ -152,18 +157,23 @@ class RedisSource(SourceAdapter):
         
     def connect(self, db, ns):
         try:
-            self.conn = SonicV2Connector(namespace=ns, host="127.0.0.1")
+            if not SonicDBConfig.isInit():
+                if multi_asic.is_multi_asic():
+                    SonicDBConfig.load_sonic_global_db_config()
+                else:
+                    SonicDBConfig.load_sonic_db_config()
+            self.conn = SonicV2Connector(namespace=ns, use_unix_socket_path=True) #host="127.0.0.1"
             self.conn.connect(db)
         except Exception as e:
             verbose_print("RedisSource: Connection Failed\n" + str(e))
             return False
         return True
     
-    def sep(self, db):
+    def get_separator(self, db):
         return self.conn.get_db_separator(db)
        
     def getKeys(self, db, table, key_pattern):       
-        return self.conn.keys(db, table + self.sep(db) + key_pattern)
+        return self.conn.keys(db, table + self.get_separator(db) + key_pattern)
     
     def get(self, db, key):
         return self.conn.get_all(db, key)
@@ -186,7 +196,7 @@ class JsonSource(SourceAdapter):
             return False
         return True
     
-    def sep(self, db):
+    def get_separator(self, db):
         return SonicDBConfig.getSeparator("CONFIG_DB")
     
     def getKeys(self, db, table, key_pattern):
@@ -195,15 +205,15 @@ class JsonSource(SourceAdapter):
         # https://docs.python.org/3.7/library/fnmatch.html
         kp = key_pattern.replace("[^", "[!")
         kys = fnmatch.filter(self.json_data[table].keys(), kp)
-        return [table+self.sep(db)+ky for ky in kys]
+        return [table + self.get_separator(db) + ky for ky in kys]
     
     def get(self, db, key):
-        sep = self.sep(db)
+        sep = self.get_separator(db)
         table, key = key.split(sep, 1)
         return self.json_data.get(table, {}).get(key, {})
             
     def hget(self, db, key, field):
-        sep = self.sep(db)
+        sep = self.get_separator(db)
         table, key = key.split(sep, 1)
         return self.json_data.get(table, "").get(key, "").get(field, "")
                         

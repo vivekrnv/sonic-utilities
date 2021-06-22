@@ -3,6 +3,7 @@ import unittest
 import pytest
 from dump.match_infra import MatchEngine, EXCEP_DICT, MatchRequest
 from deepdiff import DeepDiff
+from importlib import reload
 
 test_path = os.path.join(os.path.dirname(__file__), "../")
 dump_test_input = os.path.join(test_path, "dump_input")
@@ -48,7 +49,11 @@ class TestMatchRequestValidation(unittest.TestCase):
 
     def test_invalid_db(self):  
         self.assertRaisesWithMessage(EXCEP_DICT["INV_DB"], MatchRequest, db="CONFIGURATION_DB")
-        
+    
+    def test_invalid_namespace(self):
+        self.assertRaisesWithMessage(EXCEP_DICT["INV_NS"], MatchRequest, db="APPL_DB", table="PORT_TABLE", 
+                                     field="lanes", value="202", ns="asic4")
+    
     def test_bad_key_pattern(self):
         req = MatchRequest(db="CONFIG_DB", table="PORT", key_pattern="")
         ret = self.match_engine.fetch(req)
@@ -207,3 +212,37 @@ class TestMatchEngine(unittest.TestCase):
         assert ret["error"] == ""
         assert len(ret["keys"]) == 1
         assert "PORT|Ethernet60" in ret["keys"] 
+             
+
+class TestNonDefaultNameSpace(unittest.TestCase):
+    
+    @classmethod
+    def setup_class(cls):
+        print("SETUP")
+        os.environ["UTILITIES_UNIT_TESTING"] = "2"
+        os.environ["UTILITIES_UNIT_TESTING_TOPOLOGY"] = "multi_asic"
+        from ..mock_tables import mock_multi_asic
+        reload(mock_multi_asic)
+        from ..mock_tables import dbconnector
+        dbconnector.load_namespace_config()
+    
+    def teardown_class(cls):
+        print("TEARDOWN")
+        os.environ["UTILITIES_UNIT_TESTING"] = "0"
+        os.environ["UTILITIES_UNIT_TESTING_TOPOLOGY"] = "" 
+    
+    def test_namespace_asic0(self):
+        req = MatchRequest(db="CONFIG_DB", table="PORT", key_pattern="*", field="asic_port_name", value="Eth0-ASIC0", ns="asic0")
+        match_engine = MatchEngine()
+        ret = match_engine.fetch(req)
+        assert ret["error"] == ""
+        assert len(ret["keys"]) == 1
+        assert "PORT|Ethernet0" in ret["keys"]
+    
+    def test_namespace_asic1(self):
+        req = MatchRequest(db="CONFIG_DB", table="PORT", key_pattern="Ethernet-BP256", ns="asic1")
+        match_engine = MatchEngine()
+        ret = match_engine.fetch(req)
+        assert ret["error"] == ""
+        assert len(ret["keys"]) == 1
+        assert "PORT|Ethernet-BP256" in ret["keys"] 
