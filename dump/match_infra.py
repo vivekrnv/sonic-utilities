@@ -163,7 +163,7 @@ class RedisSource(SourceAdapter):
                     SonicDBConfig.load_sonic_global_db_config()
                 else:
                     SonicDBConfig.load_sonic_db_config()
-            self.conn = SonicV2Connector(namespace=ns, use_unix_socket_path=True) #host="127.0.0.1"
+            self.conn = SonicV2Connector(namespace=ns, use_unix_socket_path=True) 
             self.conn.connect(db)
         except Exception as e:
             verbose_print("RedisSource: Connection Failed\n" + str(e))
