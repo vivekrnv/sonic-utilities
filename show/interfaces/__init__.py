@@ -8,7 +8,7 @@ from natsort import natsorted
 from tabulate import tabulate
 from sonic_py_common import multi_asic
 from sonic_py_common import device_info
-from swsssdk import ConfigDBConnector
+from swsscommon.swsscommon import ConfigDBConnector
 from portconfig import get_child_ports
 
 from . import portchannel
@@ -134,6 +134,29 @@ def status(interfacename, namespace, display, verbose):
     ctx = click.get_current_context()
 
     cmd = "intfutil -c status"
+
+    if interfacename is not None:
+        interfacename = try_convert_interfacename_from_alias(ctx, interfacename)
+
+        cmd += " -i {}".format(interfacename)
+    else:
+        cmd += " -d {}".format(display)
+
+    if namespace is not None:
+        cmd += " -n {}".format(namespace)
+
+    clicommon.run_command(cmd, display_cmd=verbose)
+
+@interfaces.command()
+@click.argument('interfacename', required=False)
+@multi_asic_util.multi_asic_click_options
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+def tpid(interfacename, namespace, display, verbose):
+    """Show Interface tpid information"""
+
+    ctx = click.get_current_context()
+
+    cmd = "intfutil -c tpid"
 
     if interfacename is not None:
         interfacename = try_convert_interfacename_from_alias(ctx, interfacename)
