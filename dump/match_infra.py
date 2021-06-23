@@ -2,7 +2,8 @@ import json, fnmatch
 from abc import ABC, abstractmethod
 from dump.helper import verbose_print
 from swsscommon.swsscommon import SonicV2Connector, SonicDBConfig
-from sonic_py_common import multi_asic
+from utilities_common.multi_asic import multi_asic_ns_choices, multi_asic
+from utilities_common.constants import DEFAULT_NAMESPACE
 
 EXCEP_DICT = {
     "INV_REQ": "Argument should be of type MatchRequest",
@@ -87,8 +88,8 @@ class MatchRequest:
         if self.field and not self.value:
             return EXCEP_DICT["NO_VALUE"]
         
-        if self.ns not in multi_asic.get_namespace_list():
-            return EXCEP_DICT["INV_NS"]
+        if self.ns != DEFAULT_NAMESPACE and self.ns not in multi_asic_ns_choices():
+            return EXCEP_DICT["INV_NS"] + " Choose From {}".format(multi_asic_ns_choices())
         
         verbose_print("MatchRequest Checks Passed")
         
@@ -115,11 +116,11 @@ class MatchRequest:
         if len(self.return_fields) > 0:
             str += "return_fields: " + ",".join(self.return_fields) + " "
         if self.ns:
-            str += "namespace: ," + self.ns 
+            str += "namespace: , " + self.ns 
         if self.match_entire_list:
-            str += "match_list: True ,"
+            str += "match_list: True , "
         else:
-            str += "match_list: False ,"
+            str += "match_list: False , "
         return str
     
 class SourceAdapter(ABC):
