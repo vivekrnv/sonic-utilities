@@ -683,7 +683,6 @@ def _get_sonic_services():
 
 def _reset_failed_services():
     for service in _get_sonic_services():
-        click.echo("Resetting failed status on {}".format(service))
         clicommon.run_command("systemctl reset-failed {}".format(service))
 
 
@@ -702,6 +701,32 @@ def _restart_services():
     click.echo("Reloading Monit configuration ...")
     clicommon.run_command("sudo monit reload")
 
+def _get_delay_timers():
+    out = clicommon.run_command("systemctl list-dependencies sonic-delayed.target --plain |sed '1d'", return_cmd=True)
+    return [timer.strip() for timer in out.splitlines()]
+
+def _delay_timers_elapsed():
+    for timer in _get_delay_timers():
+        out = clicommon.run_command("systemctl show {} --property=LastTriggerUSecMonotonic --value".format(timer), return_cmd=True)
+        if out.strip() == "0":
+            return False
+    return True
+
+def _swss_ready():
+    out = clicommon.run_command("systemctl show swss.service --property ActiveState --value", return_cmd=True)
+    if out.strip() != "active":
+        return False
+    out = clicommon.run_command("systemctl show swss.service --property ActiveEnterTimestampMonotonic --value", return_cmd=True)
+    swss_up_time = float(out.strip())/1000000
+    now =  time.monotonic()
+    if (now - swss_up_time > 120):
+        return True
+    else:
+        return False
+
+def _system_running():
+    out = clicommon.run_command("sudo systemctl is-system-running", return_cmd=True)
+    return out.strip() == "running"
 
 def interface_is_in_vlan(vlan_member_table, interface_name):
     """ Check if an interface is in a vlan """
@@ -1191,12 +1216,26 @@ def list_checkpoints(ctx, verbose):
 @click.option('-l', '--load-sysinfo', is_flag=True, help='load system default information (mac, portmap etc) first.')
 @click.option('-n', '--no_service_restart', default=False, is_flag=True, help='Do not restart docker services')
 @click.option('-d', '--disable_arp_cache', default=False, is_flag=True, help='Do not cache ARP table before reloading (applies to dual ToR systems only)')
+@click.option('-f', '--force', default=False, is_flag=True, help='Force config reload without system checks')
 @click.argument('filename', required=False)
 @clicommon.pass_db
-def reload(db, filename, yes, load_sysinfo, no_service_restart, disable_arp_cache):
+def reload(db, filename, yes, load_sysinfo, no_service_restart, disable_arp_cache, force):
     """Clear current configuration and import a previous saved config DB dump file.
        <filename> : Names of configuration file(s) to load, separated by comma with no spaces in between
     """
+    if not force and not no_service_restart:
+        if not _system_running():
+            click.echo("System is not up. Retry later or use -f to avoid system checks")
+            return
+
+        if not _delay_timers_elapsed():
+            click.echo("Relevant services are not up. Retry later or use -f to avoid system checks")
+            return
+
+        if not _swss_ready():
+            click.echo("SwSS container is not ready. Retry later or use -f to avoid system checks")
+            return
+
     if filename is None:
         message = 'Clear current config and reload config from the default config file(s) ?'
     else:
@@ -1488,7 +1527,7 @@ def portchannel(ctx, namespace):
 
 @portchannel.command('add')
 @click.argument('portchannel_name', metavar='<portchannel_name>', required=True)
-@click.option('--min-links', default=0, type=int)
+@click.option('--min-links', default=1, type=click.IntRange(1,1024))
 @click.option('--fallback', default='false')
 @click.pass_context
 def add_portchannel(ctx, portchannel_name, min_links, fallback):
@@ -1503,7 +1542,8 @@ def add_portchannel(ctx, portchannel_name, min_links, fallback):
         ctx.fail("{} already exists!".format(portchannel_name))
 
     fvs = {'admin_status': 'up',
-           'mtu': '9100'}
+           'mtu': '9100',
+           'lacp_key': 'auto'}
     if min_links != 0:
         fvs['min_links'] = str(min_links)
     if fallback != 'false':
