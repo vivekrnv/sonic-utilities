@@ -22,8 +22,8 @@ dedicated_dbs['APPL_DB'] = os.path.join(copp_files_path, "appl_db.json")
 dedicated_dbs['ASIC_DB'] = os.path.join(copp_files_path, "asic_db.json")
 dedicated_dbs['STATE_DB'] = os.path.join(copp_files_path, "state_db.json")
 
-def mock_connector(host, namespace):
-    return MockSonicV2Connector(dedicated_dbs, namespace)
+def mock_connector(namespace, use_unix_socket_path=True):
+    return MockSonicV2Connector(dedicated_dbs, namespace=namespace, use_unix_socket_path=use_unix_socket_path)
 
 @pytest.fixture(scope="module", autouse=True)
 def verbosity_setup():
