@@ -2,8 +2,8 @@ import json, re, os
 from utilities_common.constants import DEFAULT_NAMESPACE
 
 class MockSonicV2Connector():
-    def __init__(self, dedicated_dbs, namespace=DEFAULT_NAMESPACE):
-        if namespace != DEFAULT_NAMESPACE:
+    def __init__(self, dedicated_dbs, **kwargs):
+        if "namespace" in kwargs and kwargs["namespace"] != DEFAULT_NAMESPACE:
             raise "This Mock doesn't support multi-asic configuration"
         self.db = None
         self.db_name_connect_to = None
