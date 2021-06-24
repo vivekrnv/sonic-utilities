@@ -90,8 +90,8 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     return 
 
 def extract_rid(info, ns):
-    r = SonicV2Connector(namespace=ns, host="127.0.0.1")
-    r.connect("ASIC_DB")
+    r = RedisSource()
+    r.connect("ASIC_DB", ns)
     vidtorid = {}
     for arg in info.keys():
         mp = get_v_r_map(r, info[arg])
@@ -109,7 +109,7 @@ def get_v_r_map(r, single_dict):
                 matches = re.findall(r"oid:0x\w{1,14}", redis_key)
                 if matches:
                    vid = matches[0]
-                   v_r_map[vid] =  r.get("ASIC_DB", "VIDTORID", vid)
+                   v_r_map[vid] =  r.hget("ASIC_DB", "VIDTORID", vid)
                    if not v_r_map[vid]:
                        v_r_map[vid] = "Real ID Not Found"
     return v_r_map
