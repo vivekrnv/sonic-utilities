@@ -235,7 +235,7 @@ class TestDumpStateMultiAsic(object):
         runner = CliRunner()
         db = Db()
         result = runner.invoke(dump.state, ["port", "Ethernet0", "--namespace", "asic3"], obj=db)
-        assert result.output == "Namespace option is not valid. Choose one of ['asic0', 'asic1']\n"
+        assert result.output == "Namespace option is not valid. Choose one of ['asic0', 'asic1']\n", result
     
 
     def teardown_class(cls):

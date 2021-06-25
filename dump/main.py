@@ -5,8 +5,7 @@ from tabulate import tabulate
 sys.path.append(os.path.dirname(__file__))
 import plugins
 from dump.match_infra import RedisSource, JsonSource
-from swsscommon.swsscommon import SonicV2Connector
-from utilities_common.multi_asic import multi_asic_ns_choices, multi_asic
+from sonic_py_common import multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
 
 # Autocompletion Helper
@@ -33,21 +32,21 @@ def dump():
 @click.argument('module', required=True, type=str, autocompletion=get_available_modules)
 @click.argument('identifier', required=True, type=str) 
 @click.option('--show', '-s', is_flag=True, default=False, help='Display Modules Available', is_eager=True, expose_value=False, callback=show_modules)
-@click.option('--db', '-d', multiple=True, help='Only dump from these Databases')
+@click.option('--db', '-d', multiple=True, help='Only dump from these Databases or the CONFIG_FILE')
 @click.option('--table', '-t', is_flag=True, default=False, help='Print in tabular format', show_default=True)
 @click.option('--key-map', '-k', is_flag=True, default=False, help="Only fetch the keys matched, don't extract field-value dumps", show_default=True)
 @click.option('--verbose', '-v', is_flag=True, default=False, help="Prints any intermediate output to stdout useful for dev & troubleshooting", show_default=True)
 @click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=str, show_default=True, help='Dump the redis-state for this namespace.')  
 def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     """
-    Dump the redis-state of the identifier for the module specified
+    Dump the current state of the identifier for the specified module from Redis DB or CONFIG_FILE
     """
     if not multi_asic.is_multi_asic() and namespace != DEFAULT_NAMESPACE:
         click.echo("Namespace option is not valid for a single-ASIC device")
         ctx.exit()
     
-    if multi_asic.is_multi_asic() and (namespace != DEFAULT_NAMESPACE and namespace not in multi_asic_ns_choices()):
-        click.echo("Namespace option is not valid. Choose one of {}".format(multi_asic_ns_choices()))
+    if multi_asic.is_multi_asic() and (namespace != DEFAULT_NAMESPACE and namespace not in multi_asic.get_namespace_list()):
+        click.echo("Namespace option is not valid. Choose one of {}".format(multi_asic.get_namespace_list()))
         ctx.exit()
     
     if module not in plugins.dump_modules:
