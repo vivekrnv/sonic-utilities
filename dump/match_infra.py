@@ -2,7 +2,7 @@ import json, fnmatch
 from abc import ABC, abstractmethod
 from dump.helper import verbose_print
 from swsscommon.swsscommon import SonicV2Connector, SonicDBConfig
-from utilities_common.multi_asic import multi_asic_ns_choices, multi_asic
+from sonic_py_common import multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
 
 EXCEP_DICT = {
@@ -88,8 +88,8 @@ class MatchRequest:
         if self.field and not self.value:
             return EXCEP_DICT["NO_VALUE"]
         
-        if self.ns != DEFAULT_NAMESPACE and self.ns not in multi_asic_ns_choices():
-            return EXCEP_DICT["INV_NS"] + " Choose From {}".format(multi_asic_ns_choices())
+        if self.ns != DEFAULT_NAMESPACE and self.ns not in multi_asic.get_namespace_list():
+            return EXCEP_DICT["INV_NS"] + " Choose From {}".format(multi_asic.get_namespace_list())
         
         verbose_print("MatchRequest Checks Passed")
         
