@@ -242,7 +242,7 @@ copy_from_docker() {
     local dstpath=$3
     local timeout_cmd="timeout --foreground ${TIMEOUT_MIN}m"
 
-    local touch_cmd="sudo docker exec -i ${docker} touch ${filename}"
+    local touch_cmd="sudo docker exec -t ${docker} touch ${filename}"
     local cp_cmd="sudo docker cp ${docker}:${filename} ${dstpath}"
 
     if $NOOP; then
@@ -622,11 +622,11 @@ save_redis() {
 ###############################################################################
 save_saidump() {
     if [[ ( "$NUM_ASICS" == 1 ) ]] ; then
-        save_cmd "docker exec -it syncd saidump" "saidump"
+        save_cmd "docker exec -t syncd saidump" "saidump"
     else
         for (( i=0; i<$NUM_ASICS; i++ ))
         do
-            save_cmd "docker exec -it syncd$i saidump" "saidump$i"
+            save_cmd "docker exec -t syncd$i saidump" "saidump$i"
         done
     fi
 }
@@ -761,8 +761,8 @@ collect_mellanox() {
     local sai_dump_folder="/tmp/saisdkdump"
     local sai_dump_filename="${sai_dump_folder}/sai_sdk_dump_$(date +"%m_%d_%Y_%I_%M_%p")"
 
-    ${CMD_PREFIX}docker exec -it syncd mkdir -p $sai_dump_folder
-    ${CMD_PREFIX}docker exec -it syncd saisdkdump -f $sai_dump_filename
+    ${CMD_PREFIX}docker exec -t syncd mkdir -p $sai_dump_folder
+    ${CMD_PREFIX}docker exec -t syncd saisdkdump -f $sai_dump_filename
 
     copy_from_docker syncd $sai_dump_folder $sai_dump_folder
     echo "$sai_dump_folder"
@@ -771,7 +771,7 @@ collect_mellanox() {
     done
 
     ${CMD_PREFIX}rm -rf $sai_dump_folder
-    ${CMD_PREFIX}docker exec -it syncd rm -rf $sai_dump_folder
+    ${CMD_PREFIX}docker exec -t syncd rm -rf $sai_dump_folder
     
     # Save SDK error dumps
     local sdk_dump_path=`${CMD_PREFIX}docker exec syncd cat /tmp/sai.profile|grep "SAI_DUMP_STORE_PATH"|cut -d = -f2`
@@ -1106,12 +1106,12 @@ main() {
     if [[ ( "$NUM_ASICS" > 1 ) ]]; then
         for (( i=0; i<$NUM_ASICS; i++ ))
         do
-            save_cmd "docker exec -it lldp$i lldpcli show statistics" "lldp$i.statistics"
+            save_cmd "docker exec -t lldp$i lldpcli show statistics" "lldp$i.statistics"
             save_cmd "docker logs bgp$i" "docker.bgp$i.log"
             save_cmd "docker logs swss$i" "docker.swss$i.log"
         done
     else
-        save_cmd "docker exec -it lldp lldpcli show statistics" "lldp.statistics"
+        save_cmd "docker exec -t lldp lldpcli show statistics" "lldp.statistics"
         save_cmd "docker logs bgp" "docker.bgp.log"
         save_cmd "docker logs swss" "docker.swss.log"
     fi
