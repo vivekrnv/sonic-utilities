@@ -12,11 +12,11 @@ from .mock_sonicv2connector import MockSonicV2Connector
 module_tests_path = os.path.dirname(__file__)
 dump_tests_path = os.path.join(module_tests_path, "../")
 tests_path = os.path.join(dump_tests_path, "../")
-dump_test_input = os.path.join(tests_path,"dump_input")
+dump_test_input = os.path.join(tests_path, "dump_input")
 
 
 # Location for dedicated db's used for UT
-port_files_path = os.path.join(dump_test_input,"port")
+port_files_path = os.path.join(dump_test_input, "port")
 
 dedicated_dbs = {}
 dedicated_dbs['CONFIG_DB'] = os.path.join(port_files_path, "config_db.json") 

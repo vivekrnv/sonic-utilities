@@ -8,13 +8,13 @@ class MockSonicV2Connector():
         self.db = None
         self.db_name_connect_to = None
         self.dedicated_dbs = dedicated_dbs
-        db_config_path = os.path.join(os.path.dirname(__file__),"../../mock_tables/database_config.json")
+        db_config_path = os.path.join(os.path.dirname(__file__), "../../mock_tables/database_config.json")
         with open(db_config_path) as f:
             self.db_cfg = json.load(f)
     
     def connect(self, db_name, retry=False):
         if db_name not in self.dedicated_dbs:
-            raise Exception("{} not found. Available db's: {}".fomrat(db_name, self.dedicated_dbs.keys()))
+            raise Exception("{} not found. Available db's: {}".format(db_name, self.dedicated_dbs.keys()))
         try:
             with open(self.dedicated_dbs[db_name]) as f:
                 self.db = json.load(f)
