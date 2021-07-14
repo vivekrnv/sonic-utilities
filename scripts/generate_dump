@@ -54,7 +54,6 @@ handle_error() {
     echo "ERR: RC:-$1 observed on line $2" >&2
     RETURN_CODE=1
   fi
-  return $1
 }
 
 save_bcmcmd() {
