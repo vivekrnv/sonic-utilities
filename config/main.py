@@ -1253,6 +1253,11 @@ def reload(db, filename, yes, load_sysinfo, no_service_restart, disable_arp_cach
     if multi_asic.is_multi_asic():
         num_cfg_file += num_asic
 
+    # Remove cached PG drop counters data
+    dropstat_dir_prefix = '/tmp/dropstat'
+    command = "rm -rf {}-*".format(dropstat_dir_prefix)
+    clicommon.run_command(command, display_cmd=True)
+
     # If the user give the filename[s], extract the file names.
     if filename is not None:
         cfg_files = filename.split(',')
@@ -2082,20 +2087,28 @@ def warm_restart(ctx, redis_unix_socket_path):
     ctx.obj = {'db': config_db, 'state_db': state_db, 'prefix': prefix}
 
 @warm_restart.command('enable')
-@click.argument('module', metavar='<module>', default='system', required=False, type=click.Choice(["system", "swss", "bgp", "teamd"]))
+@click.argument('module', metavar='<module>', default='system', required=False)
 @click.pass_context
 def warm_restart_enable(ctx, module):
     state_db = ctx.obj['state_db']
+    config_db = ctx.obj['db']
+    feature_table = config_db.get_table('FEATURE')
+    if module != 'system' and module not in feature_table:
+        exit('Feature {} is unknown'.format(module))
     prefix = ctx.obj['prefix']
     _hash = '{}{}'.format(prefix, module)
     state_db.set(state_db.STATE_DB, _hash, 'enable', 'true')
     state_db.close(state_db.STATE_DB)
 
 @warm_restart.command('disable')
-@click.argument('module', metavar='<module>', default='system', required=False, type=click.Choice(["system", "swss", "bgp", "teamd"]))
+@click.argument('module', metavar='<module>', default='system', required=False)
 @click.pass_context
 def warm_restart_enable(ctx, module):
     state_db = ctx.obj['state_db']
+    config_db = ctx.obj['db']
+    feature_table = config_db.get_table('FEATURE')
+    if module != 'system' and module not in feature_table:
+        exit('Feature {} is unknown'.format(module))
     prefix = ctx.obj['prefix']
     _hash = '{}{}'.format(prefix, module)
     state_db.set(state_db.STATE_DB, _hash, 'enable', 'false')
@@ -3935,6 +3948,56 @@ def reset(ctx, interface_name):
 
     cmd = "sudo sfputil reset {}".format(interface_name)
     clicommon.run_command(cmd)
+
+#
+# 'mpls' subgroup ('config interface mpls ...')
+#
+
+@interface.group(cls=clicommon.AbbreviationGroup)
+@click.pass_context
+def mpls(ctx):
+    """Add or remove MPLS"""
+    pass
+
+#
+# 'add' subcommand
+#
+
+@mpls.command()
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+@click.pass_context
+def add(ctx, interface_name):
+    """Add MPLS operation on the interface"""
+    config_db = ctx.obj["config_db"]
+    if clicommon.get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(config_db, interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    table_name = get_interface_table_name(interface_name)
+    if table_name == "":
+        ctx.fail("'interface_name' is not valid. Valid names [Ethernet/PortChannel/Vlan]")
+    config_db.set_entry(table_name, interface_name, {"mpls": "enable"})
+
+#
+# 'del' subcommand
+#
+
+@mpls.command()
+@click.argument('interface_name', metavar='<interface_name>', required=True)
+@click.pass_context
+def remove(ctx, interface_name):
+    """Remove MPLS operation from the interface"""
+    config_db = ctx.obj["config_db"]
+    if clicommon.get_interface_naming_mode() == "alias":
+        interface_name = interface_alias_to_name(config_db, interface_name)
+        if interface_name is None:
+            ctx.fail("'interface_name' is None!")
+
+    table_name = get_interface_table_name(interface_name)
+    if table_name == "":
+        ctx.fail("'interface_name' is not valid. Valid names [Ethernet/PortChannel/Vlan]")
+    config_db.set_entry(table_name, interface_name, {"mpls": "disable"})
 
 #
 # 'vrf' subgroup ('config interface vrf ...')
