@@ -38,8 +38,10 @@ def verbosity_setup():
 
 @patch("dump.match_infra.SonicV2Connector", mock_connector)
 class TestPortModule(unittest.TestCase):
-    
     def test_working_state(self):
+        """
+        Scenario: When the config is properly applied and propagated
+        """
         params = {}
         params[Port.ARG_NAME] = "Ethernet176"
         params["namespace"] = ""
@@ -55,6 +57,9 @@ class TestPortModule(unittest.TestCase):
         assert not ddiff, ddiff
         
     def test_missing_asic_port(self):
+        """
+        Scenario: When the config was applied and just the SAI_OBJECT_TYPE_PORT is missing
+        """
         params = {}
         params[Port.ARG_NAME] = "Ethernet160"
         params["namespace"] = ""
@@ -70,6 +75,9 @@ class TestPortModule(unittest.TestCase):
         assert not ddiff, ddiff
     
     def test_missing_asic_hostif(self):
+        """
+        Scenario: When the config was applied and it did not propagate to ASIC DB
+        """
         params = {}
         params[Port.ARG_NAME] = "Ethernet164"
         params["namespace"] = ""
@@ -85,6 +93,9 @@ class TestPortModule(unittest.TestCase):
         assert not ddiff, ddiff
     
     def test_missing_state_and_appl(self):
+        """
+        Scenario: When the config was applied and it did not propagate to other db's
+        """
         params = {}
         params[Port.ARG_NAME] = "Ethernet156"
         params["namespace"] = ""
@@ -100,6 +111,9 @@ class TestPortModule(unittest.TestCase):
         assert not ddiff, ddiff
     
     def test_no_port(self):
+        """
+        Scenario: When no entry for the port is present in any of the db's
+        """
         params = {}
         params[Port.ARG_NAME] = "Ethernet152"
         params["namespace"] = ""
@@ -115,6 +129,9 @@ class TestPortModule(unittest.TestCase):
         assert not ddiff, ddiff
     
     def test_all_args(self):
+        """
+        Scenario: Verify Whether the get_all_args method is working as expected
+        """
         params = {}
         m_port = Port()
         returned = m_port.get_all_args("")
