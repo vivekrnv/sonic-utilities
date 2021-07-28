@@ -33,9 +33,9 @@ def verbosity_setup():
     print("TEARDOWN")
     os.environ["VERBOSE"] = "0"
 
-def get_asic_route_key(dest, switch_id="oid:0x21000000000000", vr="oid:0x3000000000002"):
-    template = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:{\"dest\":\"{}\",\"switch_id\":\"{}\",\"vr\":\"{}\"}"
-    return template.format(dest, switch_id, vr)
+def get_asic_route_key(dest):
+    return "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:{\"dest\":\"" + dest + \
+            "\",\"switch_id\":\"oid:0x21000000000000\",\"vr\":\"oid:0x3000000000002\"}"
 
 @patch("dump.match_infra.SonicV2Connector", mock_connector)
 class TestRouteModule(unittest.TestCase):
@@ -49,7 +49,7 @@ class TestRouteModule(unittest.TestCase):
         params = {Route.ARG_NAME : "20.0.0.0/24", "namespace" : ""}
         m_route = Route()
         returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB")
+        expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB"])
         expect["CONFIG_DB"]["keys"].append("STATIC_ROUTE|20.0.0.0/24")
         expect["APPL_DB"]["keys"].append("ROUTE_TABLE:20.0.0.0/24")
         expect["ASIC_DB"]["keys"].append(get_asic_route_key("20.0.0.0/24"))
@@ -57,6 +57,7 @@ class TestRouteModule(unittest.TestCase):
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000002cd")
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
+        print(expect, returned)
         assert not ddiff, ddiff
         
     def test_ip2me_route(self):
@@ -71,7 +72,7 @@ class TestRouteModule(unittest.TestCase):
         params = {Route.ARG_NAME : "fe80::/64", "namespace" : ""}
         m_route = Route()
         returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB")
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["keys"].append("ROUTE_TABLE:fe80::/64")
         expect["ASIC_DB"]["keys"].append(get_asic_route_key("fe80::/64"))
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:0x1000000000001")
@@ -90,7 +91,7 @@ class TestRouteModule(unittest.TestCase):
         params = {Route.ARG_NAME : "1.1.1.0/24", "namespace" : ""}
         m_route = Route()
         returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB")
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["keys"].append("ROUTE_TABLE:1.1.1.0/24")
         expect["ASIC_DB"]["keys"].append(get_asic_route_key("1.1.1.0/24"))
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000002cd")
@@ -109,7 +110,7 @@ class TestRouteModule(unittest.TestCase):
         params = {Route.ARG_NAME : "10.212.0.0/16", "namespace" : ""}
         m_route = Route()
         returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB")
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["keys"].append("ROUTE_TABLE:10.212.0.0/16")
         expect["ASIC_DB"]["keys"].append(get_asic_route_key("10.212.0.0/16"))
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x40000000002e7")
@@ -129,7 +130,7 @@ class TestRouteModule(unittest.TestCase):
         params = {Route.ARG_NAME : "20c0:e6e0:0:80::/64", "namespace" : ""}
         m_route = Route()
         returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB")
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["keys"].append("ROUTE_TABLE:20c0:e6e0:0:80::/64")
         expect["ASIC_DB"]["keys"].append(get_asic_route_key("20c0:e6e0:0:80::/64"))
         
