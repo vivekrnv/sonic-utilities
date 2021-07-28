@@ -1,13 +1,12 @@
-imRoute json, os, sys
-imRoute jsonpatch
-imRoute unittest
-imRoute pytest
-from deepdiff imRoute DeepDiff
-from mock imRoute patch
-from dump.helper imRoute create_template_dict,
-from dump.plugins.route imRoute Route 
+import os, sys
+import unittest
+import pytest
+from deepdiff import DeepDiff
+from mock import patch
+from dump.helper import create_template_dict
+from dump.plugins.route import Route 
 
-from .mock_sonicv2connector imRoute MockSonicV2Connector
+from .mock_sonicv2connector import MockSonicV2Connector
 
 module_tests_path = os.path.dirname(__file__)
 dump_tests_path = os.path.join(module_tests_path, "../")
