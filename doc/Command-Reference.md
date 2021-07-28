@@ -3095,6 +3095,7 @@ Subsequent pages explain each of these commands in detail.
   breakout     Show Breakout Mode information by interfaces
   counters     Show interface counters
   description  Show interface status, protocol and...
+  mpls         Show Interface MPLS status
   naming_mode  Show interface naming_mode status
   neighbor     Show neighbor related information
   portchannel  Show PortChannel information
@@ -3334,6 +3335,36 @@ This command displays the key fields of the interfaces such as Operational Statu
   Ethernet4    down       up  hundredGigE1/2  T0-2:hundredGigE1/30
   ```
 
+**show interfaces mpls**
+
+This command is used to display the configured MPLS state for the list of configured interfaces.
+
+- Usage:
+  ```
+  show interfaces mpls [<interface_name>]
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show interfaces mpls
+  Interface    MPLS State
+  -----------  ------------
+  Ethernet0    disable
+  Ethernet4    enable
+  Ethernet8    enable
+  Ethernet12   disable
+  Ethernet16   disable
+  Ethernet20   disable
+  ```
+
+- Example (to only display the MPLS state for interface Ethernet4):
+  ```
+  admin@sonic:~$ show interfaces mpls Ethernet4
+  Interface    MPLS State
+  -----------  ------------
+  Ethernet4    enable
+  ```
+
 **show interfaces tpid**
 
 This command displays the key fields of the interfaces such as Operational Status, Administrative Status, Alias and TPID.
@@ -3479,6 +3510,7 @@ This sub-section explains the following list of configuration on the interfaces.
 8) advertised-speeds - to set interface advertised speeds
 9) advertised-types - to set interface advertised types
 10) type - to set interface type
+11) mpls - To add or remove MPLS operation for the interface
 
 From 201904 release onwards, the “config interface” command syntax is changed and the format is as follows:
 
@@ -3948,6 +3980,51 @@ Go Back To [Beginning of the document](#) or [Beginning of this section](#interf
 This command is used to configure a static buffer profile on a port's lossless priorities. There shouldn't be any `lossless_pg` configured on the port when configuring `headroom_override`. The port's headroom won't be updated after `headroom_override` has been configured on the port.
 
 For details please refer [dynamic buffer management](#dynamic-buffer-management)
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#interfaces)
+
+**config interface mpls add <interface_name> (Versions >= 202106)**
+
+This command is used for adding MPLS operation on the interface.
+MPLS operation for either physical, portchannel, or VLAN interface can be configured using this command.
+
+
+- Usage:
+  ```
+  sudo config interface mpls add --help
+  Usage: config interface mpls add [OPTIONS] <interface_name>
+
+    Add MPLS operation on the interface
+
+  Options:
+    -?, -h, --help  Show this message and exit.
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config interface mpls add Ethernet4
+  ```
+
+**config interface mpls remove <interface_name> (Versions >= 202106)**
+
+This command is used for removing MPLS operation on the interface.
+MPLS operation for either physical, portchannel, or VLAN interface can be configured using this command.
+
+- Usage:
+  ```
+  sudo config interface mpls remove --help
+  Usage: config interface mpls remove [OPTIONS] <interface_name>
+
+    Remove MPLS operation from the interface
+
+  Options:
+    -?, -h, --help  Show this message and exit.
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config interface mpls remove Ethernet4
+  ```
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#interfaces)
 
@@ -5812,22 +5889,86 @@ Go Back To [Beginning of the document](#) or [Beginning of this section](#pfc-wa
 
 ### Platform Component Firmware show commands
 
-**show platform firmware**
+**show platform firmware status**
 
 This command displays platform components firmware status information.
 
 - Usage:
 ```bash
-show platform firmware
+show platform firmware status
 ```
 
 - Example:
 ```bash
-admin@sonic:~$ show platform firmware
+admin@sonic:~$ sudo show platform firmware status
 Chassis    Module    Component    Version                  Description
----------  --------  -----------  -----------------------  ---------------------------------------
-Chassis1   N/A       BIOS         0ACLH004_02.02.007_9600  BIOS - Basic Input/Output System
-                     CPLD         5.3.3.1                  CPLD - includes all CPLDs in the switch
+---------  --------  -----------  -----------------------  ----------------------------------------
+MSN3800    N/A       ONIE         2020.11-5.2.0022-9600    ONIE - Open Network Install Environment
+                     SSD          0202-000                 SSD - Solid-State Drive
+                     BIOS         0ACLH004_02.02.008_9600  BIOS - Basic Input/Output System
+                     CPLD1        CPLD000120_REV0900       CPLD - Complex Programmable Logic Device
+                     CPLD2        CPLD000165_REV0500       CPLD - Complex Programmable Logic Device
+                     CPLD3        CPLD000166_REV0300       CPLD - Complex Programmable Logic Device
+                     CPLD4        CPLD000167_REV0100       CPLD - Complex Programmable Logic Device
+```
+
+**show platform firmware updates**
+
+This command displays platform components firmware updates information.
+
+- Usage:
+```bash
+show platform firmware updates [-i|--image]
+```
+
+- Options:
+  - _-i|--image_: show updates using current/next SONiC image
+
+    Valid values:
+    - current
+    - next
+
+    Default:
+    - current
+
+- Example:
+```bash
+admin@sonic:~$ sudo show platform firmware updates
+Chassis    Module    Component    Firmware                                    Version (Current/Available)                        Status
+---------  --------  -----------  ------------------------------------------  -------------------------------------------------  ------------------
+MSN3800    N/A       ONIE         /usr/local/lib/firmware/mellanox/onie.bin   2020.11-5.2.0022-9600 / 2020.11-5.2.0024-9600      update is required
+                     SSD          /usr/local/lib/firmware/mellanox/ssd.bin    0202-000 / 0204-000                                update is required
+                     BIOS         /usr/local/lib/firmware/mellanox/bios.bin   0ACLH004_02.02.008_9600 / 0ACLH004_02.02.010_9600  update is required
+                     CPLD1        /usr/local/lib/firmware/mellanox/cpld.mpfa  CPLD000120_REV0900 / CPLD000120_REV0900            up-to-date
+                     CPLD2        /usr/local/lib/firmware/mellanox/cpld.mpfa  CPLD000165_REV0500 / CPLD000165_REV0500            up-to-date
+                     CPLD3        /usr/local/lib/firmware/mellanox/cpld.mpfa  CPLD000166_REV0300 / CPLD000166_REV0300            up-to-date
+                     CPLD4        /usr/local/lib/firmware/mellanox/cpld.mpfa  CPLD000167_REV0100 / CPLD000167_REV0100            up-to-date
+```
+
+- Note:
+  - current/next values for _-i|--image_ are taken from `sonic-installer list`
+  ```bash
+  admin@sonic:~$ sudo sonic-installer list
+  Current: SONiC-OS-202012.0-fb89c28c9
+  Next: SONiC-OS-201911.0-2bec3004e
+  Available:
+  SONiC-OS-202012.0-fb89c28c9
+  SONiC-OS-201911.0-2bec3004e
+  ```
+
+**show platform firmware version**
+
+This command displays platform components firmware utility version.
+
+- Usage:
+```bash
+show platform firmware version
+```
+
+- Example:
+```bash
+admin@sonic:~$ show platform firmware version
+fwutil version 2.0.0.0
 ```
 
 ### Platform Component Firmware config commands
@@ -5843,14 +5984,19 @@ config platform firmware install chassis component <component_name> fw <fw_path>
 config platform firmware install module <module_name> component <component_name> fw <fw_path> [-y|--yes]
 ```
 
+- Options:
+  - _-y|--yes_: automatic yes to prompts. Assume "yes" as answer to all prompts and run non-interactively
+
 - Example:
 ```bash
-admin@sonic:~$ sudo config platform firmware install chassis component BIOS fw /etc/mlnx/fw/sn3800/chassis1/bios.bin
+admin@sonic:~$ sudo config platform firmware install chassis component BIOS fw /usr/local/lib/firmware/mellanox/sn3800/chassis1/bios.bin
+Warning: Immediate cold reboot is required to complete BIOS firmware update.
 New firmware will be installed, continue? [y/N]: y
 Installing firmware:
-    /etc/mlnx/fw/sn3800/chassis1/bios.bin
+    /usr/local/lib/firmware/mellanox/sn3800/chassis1/bios.bin
 
-admin@sonic:~$ sudo config platform firmware install module Module1 component BIOS fw http://mellanox.com/fw/sn3800/module1/bios.bin
+admin@sonic:~$ sudo config platform firmware install module Module1 component BIOS fw https://www.mellanox.com/fw/sn3800/module1/bios.bin
+Warning: Immediate cold reboot is required to complete BIOS firmware update.
 New firmware will be installed, continue? [y/N]: y
 Downloading firmware:
     [##################################################]  100%
@@ -5858,15 +6004,15 @@ Installing firmware:
     /tmp/bios.bin
 ```
 
-Supported options:
-1. -y|--yes - automatic yes to prompts. Assume "yes" as answer to all prompts and run non-interactively
+- Note:
+  - <fw_path> can be absolute path or URL
 
 **config platform firmware update**
 
-This command is used for automatic FW update of all available platform components.  
+This command is used to update a platform component firmware from current/next SONiC image.  
 Both modular and non modular chassis platforms are supported.
 
-Automatic FW update requires `platform_components.json` to be created and placed at:  
+FW update requires `platform_components.json` to be created and placed at:  
 sonic-buildimage/device/<platform_name>/<onie_platform>/platform_components.json
 
 Example:
@@ -5877,19 +6023,16 @@ Example:
         "Chassis1": {
             "component": {
                 "BIOS": {
-                    "firmware": "/etc/<platform_name>/fw/<onie_platform>/chassis1/bios.bin",
-                    "version": "0ACLH003_02.02.010",
-                    "info": "Cold reboot is required"
+                    "firmware": "/usr/local/lib/firmware/<platform_name>/<onie_platform>/chassis1/bios.bin",
+                    "version": "<bios_version>"
                 },
                 "CPLD": {
-                    "firmware": "/etc/<platform_name>/fw/<onie_platform>/chassis1/cpld.bin",
-                    "version": "10",
-                    "info": "Power cycle is required"
+                    "firmware": "/usr/local/lib/firmware/<platform_name>/<onie_platform>/chassis1/cpld.bin",
+                    "version": "<cpld_version>"
                 },
                 "FPGA": {
-                    "firmware": "/etc/<platform_name>/fw/<onie_platform>/chassis1/fpga.bin",
-                    "version": "5",
-                    "info": "Power cycle is required"
+                    "firmware": "/usr/local/lib/firmware/<platform_name>/<onie_platform>/chassis1/fpga.bin",
+                    "version": "<fpga_version>"
                 }
             }
         }
@@ -5904,19 +6047,16 @@ Example:
         "Chassis1": {
             "component": {
                 "BIOS": {
-                    "firmware": "/etc/<platform_name>/fw/<onie_platform>/chassis1/bios.bin",
-                    "version": "0ACLH003_02.02.010",
-                    "info": "Cold reboot is required"
+                    "firmware": "/usr/local/lib/firmware/<platform_name>/<onie_platform>/chassis1/bios.bin",
+                    "version": "<bios_version>"
                 },
                 "CPLD": {
-                    "firmware": "/etc/<platform_name>/fw/<onie_platform>/chassis1/cpld.bin",
-                    "version": "10",
-                    "info": "Power cycle is required"
+                    "firmware": "/usr/local/lib/firmware/<platform_name>/<onie_platform>/chassis1/cpld.bin",
+                    "version": "<cpld_version>"
                 },
                 "FPGA": {
-                    "firmware": "/etc/<platform_name>/fw/<onie_platform>/chassis1/fpga.bin",
-                    "version": "5",
-                    "info": "Power cycle is required"
+                    "firmware": "/usr/local/lib/firmware/<platform_name>/<onie_platform>/chassis1/fpga.bin",
+                    "version": "<fpga_version>"
                 }
             }
         }
@@ -5925,14 +6065,12 @@ Example:
         "Module1": {
             "component": {
                 "CPLD": {
-                    "firmware": "/etc/<platform_name>/fw/<onie_platform>/module1/cpld.bin",
-                    "version": "10",
-                    "info": "Power cycle is required"
+                    "firmware": "/usr/local/lib/firmware/<platform_name>/<onie_platform>/module1/cpld.bin",
+                    "version": "<cpld_version>"
                 },
                 "FPGA": {
-                    "firmware": "/etc/<platform_name>/fw/<onie_platform>/module1/fpga.bin",
-                    "version": "5",
-                    "info": "Power cycle is required"
+                    "firmware": "/usr/local/lib/firmware/<platform_name>/<onie_platform>/module1/fpga.bin",
+                    "version": "<fpga_version>"
                 }
             }
         }
@@ -5940,36 +6078,51 @@ Example:
 }
 ```
 
-Note: FW update will be skipped if component definition is not provided (e.g., 'BIOS': { })
-
 - Usage:
 ```bash
-config platform firmware update [-y|--yes] [-f|--force] [-i|--image=current|next]
+config platform firmware update chassis component <component_name> fw [-y|--yes] [-f|--force] [-i|--image]
+config platform firmware update module <module_name> component <component_name> fw [-y|--yes] [-f|--force] [-i|--image]
 ```
+
+- Options:
+  - _-y|--yes_: automatic yes to prompts. Assume "yes" as answer to all prompts and run non-interactively
+  - _-f|--force_: update FW regardless the current version
+  - _-i|--image_: update FW using current/next SONiC image
+
+    Valid values:
+    - current
+    - next
+
+    Default:
+    - current
 
 - Example:
 ```bash
-admin@sonic:~$ sudo config platform firmware update
-Chassis    Module    Component    Firmware                               Version                                            Status              Info
----------  --------  -----------  -------------------------------------  -------------------------------------------------  ------------------  -----------------------
-Chassis1   N/A       BIOS         /etc/mlnx/fw/sn3800/chassis1/bios.bin  0ACLH004_02.02.007_9600 / 0ACLH004_02.02.007_9600  up-to-date          Cold reboot is required
-                     CPLD         /etc/mlnx/fw/sn3800/chassis1/cpld.bin  5.3.3.1 / 5.3.3.2                                  update is required  Power cycle is required
+admin@sonic:~$ sudo config platform firmware update chassis component BIOS fw
+Warning: Immediate cold reboot is required to complete BIOS firmware update.
 New firmware will be installed, continue? [y/N]: y
+Updating firmware:
+    /usr/local/lib/firmware/mellanox/x86_64-mlnx_msn3800-r0/chassis1/bios.bin
 
-Summary:
-
-Chassis    Module    Component    Status
----------  --------  -----------  ----------
-Chassis1   N/A       BIOS         up-to-date
-                     CPLD         success
+admin@sonic:~$ sudo config platform firmware update module Module1 component BIOS fw
+Warning: Immediate cold reboot is required to complete BIOS firmware update.
+New firmware will be installed, continue? [y/N]: y
+Updating firmware:
+    /usr/local/lib/firmware/mellanox/x86_64-mlnx_msn3800-r0/module1/bios.bin
 ```
 
-Supported options:
-1. -y|--yes - automatic yes to prompts. Assume "yes" as answer to all prompts and run non-interactively
-2. -f|--force - install FW regardless the current version
-3. -i|--image - update FW using current/next SONiC image
-
-Note: the default option is --image=current (current/next values are taken from `sonic-installer list`)
+- Note:
+  - FW update will be disabled if component definition is not provided (e.g., 'BIOS': { })
+  - FW version will be read from image if `version` field is not provided
+  - current/next values for _-i|--image_ are taken from `sonic-installer list`
+  ```bash
+  admin@sonic:~$ sudo sonic-installer list
+  Current: SONiC-OS-202012.0-fb89c28c9
+  Next: SONiC-OS-201911.0-2bec3004e
+  Available:
+  SONiC-OS-202012.0-fb89c28c9
+  SONiC-OS-201911.0-2bec3004e
+  ```
 
 ### Platform Component Firmware vendor specific behaviour
 

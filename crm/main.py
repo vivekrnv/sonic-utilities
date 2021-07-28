@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 
 import click
-from swsscommon.swsscommon import ConfigDBConnector, SonicDBConfig
+from swsscommon.swsscommon import ConfigDBConnector
 from tabulate import tabulate
-from utilities_common import multi_asic as multi_asic_util
-from sonic_py_common import multi_asic
 
+from sonic_py_common import multi_asic
+from utilities_common.general import load_db_config
+from utilities_common import multi_asic as multi_asic_util
 class Crm:
     def __init__(self, db=None):
         self.cli_mode = None
@@ -70,7 +71,8 @@ class Crm:
             if resource == 'all':
                 for res in ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor", "ipv6_neighbor",
                             "nexthop_group_member", "nexthop_group", "acl_table", "acl_group", "acl_entry",
-                            "acl_counter", "fdb_entry", "ipmc_entry", "snat_entry", "dnat_entry"]:
+                            "acl_counter", "fdb_entry", "ipmc_entry", "snat_entry", "dnat_entry", "mpls_inseg",
+                            "mpls_nexthop"]:
                     try:
                         data.append([res, crm_info[res + "_threshold_type"], crm_info[res + "_low_threshold"], crm_info[res + "_high_threshold"]])
                     except KeyError:
@@ -97,7 +99,8 @@ class Crm:
         if crm_stats:
             if resource == 'all':
                 for res in ["ipv4_route", "ipv6_route", "ipv4_nexthop", "ipv6_nexthop", "ipv4_neighbor", "ipv6_neighbor",
-                            "nexthop_group_member", "nexthop_group", "fdb_entry", "ipmc_entry", "snat_entry", "dnat_entry"]:
+                            "nexthop_group_member", "nexthop_group", "fdb_entry", "ipmc_entry", "snat_entry", "dnat_entry",
+                            "mpls_inseg", "mpls_nexthop"]:
                     if 'crm_stats_' + res + "_used" in crm_stats.keys() and 'crm_stats_' + res + "_available" in crm_stats.keys():
                         data.append([res, crm_stats['crm_stats_' + res + "_used"], crm_stats['crm_stats_' + res + "_available"]])
             else:
@@ -211,13 +214,8 @@ def cli(ctx):
     # Use the db object if given as input.
     db = None if ctx.obj is None else ctx.obj.cfgdb
 
-    # Note: SonicDBConfig may be already initialized in unit test, then skip
-    if not SonicDBConfig.isInit():
-        if multi_asic.is_multi_asic():
-            # Load the global config file database_global.json once.
-            SonicDBConfig.load_sonic_global_db_config()
-        else:
-            SonicDBConfig.initialize()
+    # Load database config files
+    load_db_config()
 
     context = {
         "crm": Crm(db)
@@ -262,6 +260,18 @@ def ipv6(ctx):
     """CRM resource IPv6 address-family"""
     ctx.obj["crm"].addr_family = 'ipv6'
 
+@thresholds.group()
+@click.pass_context
+def mpls(ctx):
+    """CRM resource MPLS address-family"""
+    ctx.obj["crm"].addr_family = 'mpls'
+
+@mpls.group()
+@click.pass_context
+def inseg(ctx):
+    """CRM configuration for in-segment resource"""
+    ctx.obj["crm"].res_type = 'inseg'
+
 @ipv4.group()
 @click.pass_context
 def route(ctx):
@@ -284,7 +294,7 @@ def nexthop(ctx):
 @click.argument('value', type=click.Choice(['percentage', 'used', 'free']))
 @click.pass_context
 def type(ctx, value):
-    """CRM threshod type configuration"""
+    """CRM threshold type configuration"""
     attr = ''
 
     if ctx.obj["crm"].addr_family != None:
@@ -298,7 +308,7 @@ def type(ctx, value):
 @click.argument('value', type=click.INT)
 @click.pass_context
 def low(ctx, value):
-    """CRM low threshod configuration"""
+    """CRM low threshold configuration"""
     attr = ''
 
     if ctx.obj["crm"].addr_family != None:
@@ -312,7 +322,7 @@ def low(ctx, value):
 @click.argument('value', type=click.INT)
 @click.pass_context
 def high(ctx, value):
-    """CRM high threshod configuration"""
+    """CRM high threshold configuration"""
     attr = ''
 
     if ctx.obj["crm"].addr_family != None:
@@ -328,9 +338,13 @@ neighbor.add_command(high)
 nexthop.add_command(type)
 nexthop.add_command(low)
 nexthop.add_command(high)
+inseg.add_command(type)
+inseg.add_command(low)
+inseg.add_command(high)
 ipv6.add_command(route)
 ipv6.add_command(neighbor)
 ipv6.add_command(nexthop)
+mpls.add_command(nexthop)
 
 @thresholds.group()
 @click.pass_context
@@ -493,6 +507,21 @@ def ipv6(ctx):
     """CRM resource IPv6 address family"""
     ctx.obj["crm"].addr_family = 'ipv6'
 
+@resources.group()
+@click.pass_context
+def mpls(ctx):
+    """CRM resource MPLS address family"""
+    ctx.obj["crm"].addr_family = 'mpls'
+
+@mpls.command()
+@click.pass_context
+def inseg(ctx):
+    """Show CRM information for in-segment resource"""
+    if ctx.obj["crm"].cli_mode == 'thresholds':
+        ctx.obj["crm"].show_thresholds('{0}_inseg'.format(ctx.obj["crm"].addr_family))
+    elif ctx.obj["crm"].cli_mode == 'resources':
+        ctx.obj["crm"].show_resources('{0}_inseg'.format(ctx.obj["crm"].addr_family))
+
 @ipv4.command()
 @click.pass_context
 def route(ctx):
@@ -523,6 +552,7 @@ def nexthop(ctx):
 ipv6.add_command(route)
 ipv6.add_command(neighbor)
 ipv6.add_command(nexthop)
+mpls.add_command(nexthop)
 
 @resources.group()
 @click.pass_context
@@ -619,6 +649,7 @@ thresholds.add_command(all)
 thresholds.add_command(fdb)
 thresholds.add_command(ipv4)
 thresholds.add_command(ipv6)
+thresholds.add_command(mpls)
 thresholds.add_command(nexthop)
 thresholds.add_command(ipmc)
 thresholds.add_command(snat)
