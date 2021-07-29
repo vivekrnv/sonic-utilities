@@ -74,4 +74,4 @@ class Port(Executor):
             return 
         req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_PORT", key_pattern=asic_port_obj_id, ns=self.ns)
         ret = self.match_engine.fetch(req)
-        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"]) 
+        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])

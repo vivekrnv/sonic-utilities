@@ -42,9 +42,7 @@ class TestPortModule(unittest.TestCase):
         """
         Scenario: When the config is properly applied and propagated
         """
-        params = {}
-        params[Port.ARG_NAME] = "Ethernet176"
-        params["namespace"] = ""
+        params = {Port.ARG_NAME : "Ethernet176", "namespace" : ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -60,9 +58,7 @@ class TestPortModule(unittest.TestCase):
         """
         Scenario: When the config was applied and just the SAI_OBJECT_TYPE_PORT is missing
         """
-        params = {}
-        params[Port.ARG_NAME] = "Ethernet160"
-        params["namespace"] = ""
+        params = {Port.ARG_NAME : "Ethernet160", "namespace" : ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -78,9 +74,7 @@ class TestPortModule(unittest.TestCase):
         """
         Scenario: When the config was applied and it did not propagate to ASIC DB
         """
-        params = {}
-        params[Port.ARG_NAME] = "Ethernet164"
-        params["namespace"] = ""
+        params = {Port.ARG_NAME : "Ethernet164", "namespace" : ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -96,9 +90,7 @@ class TestPortModule(unittest.TestCase):
         """
         Scenario: When the config was applied and it did not propagate to other db's
         """
-        params = {}
-        params[Port.ARG_NAME] = "Ethernet156"
-        params["namespace"] = ""
+        params = {Port.ARG_NAME : "Ethernet156", "namespace" : ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -114,9 +106,7 @@ class TestPortModule(unittest.TestCase):
         """
         Scenario: When no entry for the port is present in any of the db's
         """
-        params = {}
-        params[Port.ARG_NAME] = "Ethernet152"
-        params["namespace"] = ""
+        params = {Port.ARG_NAME : "Ethernet152", "namespace" : ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
