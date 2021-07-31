@@ -22,5 +22,13 @@
    "ROUTE_TABLE:20c0:e6e0:0:80::/64": {
     "ifname": "PortChannel0001,PortChannel0002,PortChannel0003,PortChannel0004", 
     "nexthop": "fc00::72,fc00::76,fc00::7a,fc00::7e"
-  }
+   },
+   "ROUTE_TABLE:192.168.0.4/24": {
+    "ifname": "PortChannel0001,PortChannel0002,PortChannel0003,PortChannel0004", 
+    "nexthop": "fc00::72,fc00::76,fc00::7a,fc00::7e"
+   },
+   "ROUTE_TABLE:192.168.0.10/22": {
+    "ifname": "PortChannel0001,PortChannel0002,PortChannel0003,PortChannel0004", 
+    "nexthop": "fc00::72,fc00::76,fc00::7a,fc00::7e"
+   }
 }

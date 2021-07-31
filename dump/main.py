@@ -92,13 +92,14 @@ def extract_rid(info, ns):
     r = RedisSource()
     r.connect("ASIC_DB", ns)
     vidtorid = {}
+    vid_cache = {} # Cache Entries to reduce number of Redis Calls
     for arg in info.keys():
-        mp = get_v_r_map(r, info[arg])
+        mp = get_v_r_map(r, info[arg], vid_cache)
         if mp:
             vidtorid[arg] = mp
     return vidtorid
 
-def get_v_r_map(r, single_dict):
+def get_v_r_map(r, single_dict, vid_cache):
     v_r_map = {}
     asic_obj_ptrn = "ASIC_STATE:.*:oid:0x\w{1,14}"
     
@@ -108,9 +109,12 @@ def get_v_r_map(r, single_dict):
                 matches = re.findall(r"oid:0x\w{1,14}", redis_key)
                 if matches:
                    vid = matches[0]
-                   v_r_map[vid] =  r.hget("ASIC_DB", "VIDTORID", vid)
-                   if not v_r_map[vid]:
-                       v_r_map[vid] = "Real ID Not Found"
+                   if vid in vid_cache:
+                       rid = vid_cache[vid]
+                   else:
+                       rid = r.hget("ASIC_DB", "VIDTORID", vid)
+                       vid_cache[vid] = rid
+                   v_r_map[vid] = rid if rid else "Real ID Not Found"
     return v_r_map
 
 # Filter dbs which are not required

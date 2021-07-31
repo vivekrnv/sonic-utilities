@@ -1,4 +1,4 @@
-import os, sys
+import os
 import unittest
 import pytest
 from deepdiff import DeepDiff
@@ -12,7 +12,6 @@ module_tests_path = os.path.dirname(__file__)
 dump_tests_path = os.path.join(module_tests_path, "../")
 tests_path = os.path.join(dump_tests_path, "../")
 dump_test_input = os.path.join(tests_path, "dump_input")
-
 
 # Location for dedicated db's used for UT
 Route_files_path = os.path.join(dump_test_input, "route")
@@ -117,50 +116,15 @@ class TestRouteModule(unittest.TestCase):
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
-    def test_route_with_next_hop_group(self):
-        """
-        Scenario: Fetch the keys related to a route with multiple next hops.
-                  1) CONF DB doesn't have this route entry
-                  2) APPL is straightforward
-                  3) SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID = SAI_OBJECT_TYPE_NEXT_HOP_GROUP
-                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h 
-        """
-        params = {Route.ARG_NAME : "20c0:e6e0:0:80::/64", "namespace" : ""}
-        m_route = Route()
-        returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
-        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:20c0:e6e0:0:80::/64")
-        expect["ASIC_DB"]["keys"].append(get_asic_route_key("20c0:e6e0:0:80::/64"))
-        
-        exp_nh_group = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP:oid:0x5000000000689"
-        exp_nh_group_mem = ["ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068a",
-                            "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068b",
-                            "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068c",
-                            "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068d"]
-        exp_nh = ["ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x400000000066f", 
-                  "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x400000000067f",
-                  "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x4000000000665",
-                  "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x4000000000667"]
-        exp_rif = ["ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000005c6",
-                   "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000005c7",
-                   "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000005c8",
-                   "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000005c9"]
-        expect["ASIC_DB"]["keys"].append(exp_nh_group)
-        expect["ASIC_DB"]["keys"].extend(exp_nh_group_mem)
-        expect["ASIC_DB"]["keys"].extend(exp_nh)
-        expect["ASIC_DB"]["keys"].extend(exp_rif)
-        expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
-        ddiff = DeepDiff(returned, expect, ignore_order=True)
-        assert not ddiff, ddiff
-    
+
     def test_all_args(self):
         """
         Scenario: Verify Whether the get_all_args method is working as expected
         """
         m_route = Route()
         returned = m_route.get_all_args("")
-        expect = ["1.1.1.0/24", "10.1.0.32", "10.212.0.0/16", "20.0.0.0/24", "fe80::/64", "20c0:e6e0:0:80::/64"]
+        expect = ["1.1.1.0/24", "10.1.0.32", "10.212.0.0/16", "20.0.0.0/24", "192.168.0.10/22",
+                  "fe80::/64", "20c0:e6e0:0:80::/64", "192.168.0.4/24"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
         assert not ddiff, ddiff
     
@@ -180,6 +144,74 @@ class TestRouteModule(unittest.TestCase):
         expect["ASIC_DB"]["keys"].append(get_asic_route_key("0.0.0.0/0"))
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
         ddiff = DeepDiff(returned, expect, ignore_order=True) 
+        assert not ddiff, ddiff
+    
+    def get_asic_nh_group_expected(self, asic_route_key):
+        expect = []
+        expect.append(asic_route_key)
+        exp_nh_group = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP:oid:0x5000000000689"
+        exp_nh_group_mem = ["ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068a",
+                            "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068b",
+                            "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068c",
+                            "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068d"]
+        exp_nh = ["ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x400000000066f", 
+                  "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x400000000067f",
+                  "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x4000000000665",
+                  "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x4000000000667"]
+        exp_rif = ["ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000005c6",
+                   "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000005c7",
+                   "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000005c8",
+                   "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:oid:0x60000000005c9"]
+        expect.append(exp_nh_group)
+        expect.extend(exp_nh_group_mem)
+        expect.extend(exp_nh)
+        expect.extend(exp_rif)
+        expect.append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
+        return expect
+    
+    def test_route_with_next_hop_group(self):
+        """
+        Scenario: Fetch the keys related to a route with multiple next hops.
+                  1) CONF DB doesn't have this route entry
+                  2) APPL is straightforward
+                  3) SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID = SAI_OBJECT_TYPE_NEXT_HOP_GROUP
+                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h 
+        """
+        params = {Route.ARG_NAME : "20c0:e6e0:0:80::/64", "namespace" : ""}
+        m_route = Route()
+        returned = m_route.execute(params)
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:20c0:e6e0:0:80::/64")
+        expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("20c0:e6e0:0:80::/64")))
+        ddiff = DeepDiff(returned, expect, ignore_order=True)
+        assert not ddiff, ddiff
+    
+    def test_caching_redis_keys(self):
+        """
+        Scenario: Test the caching mechanism which reduces number of redis calls
+        """
+        m_route = Route()
+        params = {Route.ARG_NAME : "20c0:e6e0:0:80::/64", "namespace" : ""}
+        returned = m_route.execute(params)
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:20c0:e6e0:0:80::/64")
+        expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("20c0:e6e0:0:80::/64")))
+        ddiff = DeepDiff(returned, expect, ignore_order=True)
+    
+        params = {Route.ARG_NAME : "192.168.0.4/24", "namespace" : ""}
+        returned = m_route.execute(params)
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:192.168.0.4/24")
+        expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("192.168.0.4/24")))
+        ddiff = DeepDiff(returned, expect, ignore_order=True)
+        assert not ddiff, ddiff
+        
+        params = {Route.ARG_NAME : "192.168.0.10/22", "namespace" : ""}
+        returned = m_route.execute(params)
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:192.168.0.10/22")
+        expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("192.168.0.10/22")))
+        ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
     
     def test_no_route_entry(self):
