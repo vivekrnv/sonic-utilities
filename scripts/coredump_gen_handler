@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+
+"""
+coredump_gen_handler script.
+    This script is invoked by the coredump-compress script 
+    for auto techsupport invocation and cleanup core dumps. 
+    For more info, refer to the Event Driven TechSupport & CoreDump Mgmt HLD
+"""
+import os, re
+import sys
+import glob
+import time
+import argparse
+import subprocess
+import syslog
+from swsscommon.swsscommon import SonicV2Connector
+from utilities_common.auto_techsupport_helper import * 
+
+class CoreDumpCreateHandle():
+    def __init__(self, core_name):
+        self.core_name = core_name
+        self.db = None
+        self.proc_mp = {}
+        self.core_ts_map = {}
+        self.curr_ts_list = []
+    
+    def handle_techsupport_creation_event(self):
+        file_path = os.path.join(CORE_DUMP_DIR, self.core_name)
+        if not verify_recent_file_creation(file_path):   
+            return 
+        
+        self.db = SonicV2Connector(host="127.0.0.1")
+        self.db.connect(CFG_DB)
+        self.db.connect(STATE_DB)
+        if cfg_db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
+            sys.exit()
+        self.fetch_critical_procs()
+        proc = self.core_name.split(".")[0]
+        if proc not in self.proc_mp:
+            sys.exit() # Only handles the critical processes
+        
+        FEATURE_KEY = FEATURE.format(self.proc_mp[proc])
+        if cfg_db.get(CFG_DB, FEATURE_KEY, TS) != "enabled":
+            sys.exit() # Should be set "enabled" in the FEATURE Table
+        
+        global_cooloff = cfg_db.get(CFG_DB, AUTO_TS, COOLOFF)
+        proc_cooloff = cfg_db.get(CFG_DB, FEATURE_KEY, COOLOFF)
+    
+        cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, proc)
+        if cooloff_passed:
+            new_file = self.invoke_ts_cmd()
+            if new_file:
+                self.db.set(STATE_DB, TS_MAP, new_file[0], "{};{}".format(self.core_name, int(time.time())))
+        
+        core_usage = 0
+        if cfg_db.hexists(CFG_DB, AUTO_TS, CFG_CORE_USAGE):
+            core_usage = cfg_db.get(CFG_DB, AUTO_TS, CFG_CORE_USAGE)
+        
+        if core_usage == 0:
+            _ , num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
+            syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
+            return 
+        
+        cleanup_process(core_usage, CORE_DUMP_PTRN, CORE_DUMP_DIR)
+    
+    def invoke_ts_cmd(self):
+        _, out, _ = subprocess_exec(["show", "techsupport"]) 
+        new_list = get_ts_dumps(True)
+        diff = list(set(new_list).difference(set(self.curr_ts_list)))
+        self.curr_ts_list = new_list
+        if len(diff) == 0:
+            syslog.syslog(syslog.LOG_ERR, "'show techsupport' invocation was successful but no TechSupport Dump was found")
+        else:
+            syslog.syslog(syslog.LOG_INFO, "'show techsupport' invocation is successful, {} is created".format(diff))
+        return diff
+     
+    def verify_cooloff(self, global_cooloff, proc_cooloff, proc):
+        """Verify both the global cooloff and per-proc cooloff has passed"""
+        self.curr_ts_list = get_ts_dumps(True)
+        if len(curr_list) != 0:
+            last_ts_dump_creation = os.path.getmtime(self.curr_ts_list[-1])
+            if time.time() - last_ts_dump_creation < global_cooloff:
+                syslog.syslog(syslog.LOG_INFO, "Cooloff period has not yet passed.  No Techsupport Invocation is performed ")
+                return False
+        
+        ts_map = self.db.get_all(STATE_DB, TS_MAP)
+        self.parse_ts_map(ts_map)
+        
+        if proc in self.core_ts_map:
+            last_creation_time = self.core_ts_map[proc][0]
+            if time.time() - last_creation_time < proc_cooloff:
+                syslog.syslog(syslog.LOG_INFO, "Cooloff period for {} prcess has not yet passed.  No Techsupport Invocation is performed".format(proc))
+                return False
+        return True
+    
+    def parse_ts_map(self, ts_map):
+        """Create core_dump, ts_dump & creation_time map"""
+        for ts_dump, tup in ts_map:
+            core_dump, creation_time = tup.split(";")
+            if core_dump not in self.core_ts_map:
+                self.core_ts_map[core_dump] = []
+            self.core_ts_map[core_dump].append((int(creation_time), ts_dump))
+        for core_dump in self.core_ts_map:
+            self.core_ts_map[core_dump].sort()
+        
+    def fetch_critical_procs(self):
+        """Fetches the critical_procs and corresponding docker names"""
+        keys = self.db.keys(CFG_DB, FEATURE.format("*"))
+        containers = [key.split()[-1] for key in keys]
+        for container in containers:
+            rc, stdout, _ = subprocess_exec("docker exec -t {} cat /etc/supervisor/critical_processes".format(docker))
+            if rc != 0:
+                continue
+            procs = stdout.split()
+            for proc in procs:
+                if re.match("program:*", proc):
+                    self.proc_mp[proc.split(":")[-1]] = container   
+
+def main():
+    parser = argparse.ArgumentParser(description='Auto Techsupport Invocation and CoreDump Mgmt Script')
+    parser.add_argument('name', type=str, help='Core Dump Name', required=True)
+    args = parser.parse_args()
+    syslog.openlog(logoption=syslog.LOG_PID)
+    cls = CoreDumpCreateHandle()
+    cls.handle_core_dump_creation_event(args.name)
+    
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,70 @@
+#!/usr/bin/env python3
+
+"""
+techsupport_cleanup script.
+    This script is invoked by the generate_dump script for techsupport cleanup 
+    For more info, refer to the Event Driven TechSupport & CoreDump Mgmt HLD
+"""
+import os
+import sys
+import glob
+import time
+import argparse
+import subprocess
+import syslog
+import shutil
+from swsscommon.swsscommon import SonicV2Connector
+from utilities_common.auto_techsupport_helper import * 
+
+def mock_clean_state_db_entries(removed_files, db):
+    all_keys = db.get_all(STATE_DB, TS_MAP)
+    for file in removed_files:
+        if file in all_keys:
+            del all_keys[file]
+    for key in all_keys:
+        db.set(STATE_DB, TS_MAP, key, all_keys[key])
+
+def clean_state_db_entries(removed_files, db):
+    db_conn = db.get_redis_client(STATE_DB)
+    for file in removed_files:
+        db_conn.hdel(TS_MAP, file)
+
+def handle_techsupport_creation_event(dump_name):
+    file_path = os.path.join(TS_DIR, dump_name)
+    
+    if not verify_recent_file_creation(file_path):   
+        return 
+    
+    curr_list = get_ts_dumps()
+    db = SonicV2Connector(host="127.0.0.1")
+    db.connect(CFG_DB)
+    db.connect(STATE_DB)
+    
+    print("STATE: ", db.get(CFG_DB, AUTO_TS, CFG_STATE))
+    if db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
+        return
+            
+    max_ts = db.get("CONFIG_DB", AUTO_TS, CFG_MAX_TS)
+    print("Max TS ", max_ts)
+    if max_ts:
+        max_ts = int(max_ts)
+    else:
+        max_ts = 0
+    
+    if max_ts == 0:
+        _ , num_bytes = get_stats(os.path.join(TS_DIR, TS_PTRN))
+        syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
+        return 
+    
+    removed_files = cleanup_process(max_ts, TS_PTRN, TS_DIR)
+    clean_state_db_entries(removed_files, db)
+    
+def main():
+    parser = argparse.ArgumentParser(description='Auto Techsupport Invocation and CoreDump Mgmt Script')
+    parser.add_argument('name', type=str, help='TechSupport Dump Name', required=True)
+    args = parser.parse_args()
+    syslog.openlog(logoption=syslog.LOG_PID)
+    handle_techsupport_creation_event(args.name)
+ 
+if __name__ == "__main__":
+    main()
