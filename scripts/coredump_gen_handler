@@ -24,7 +24,7 @@ class CoreDumpCreateHandle():
         self.core_ts_map = {}
         self.curr_ts_list = []
     
-    def handle_techsupport_creation_event(self):
+    def handle_core_dump_creation_event(self):
         file_path = os.path.join(CORE_DUMP_DIR, self.core_name)
         if not verify_recent_file_creation(file_path):   
             return 
@@ -32,19 +32,20 @@ class CoreDumpCreateHandle():
         self.db = SonicV2Connector(host="127.0.0.1")
         self.db.connect(CFG_DB)
         self.db.connect(STATE_DB)
-        if cfg_db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
-            sys.exit()
+        if self.db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
+            return
         self.fetch_critical_procs()
         proc = self.core_name.split(".")[0]
         if proc not in self.proc_mp:
-            sys.exit() # Only handles the critical processes
+            print(self.proc_mp)
+            return # Only handles the critical processes
         
         FEATURE_KEY = FEATURE.format(self.proc_mp[proc])
-        if cfg_db.get(CFG_DB, FEATURE_KEY, TS) != "enabled":
-            sys.exit() # Should be set "enabled" in the FEATURE Table
+        if self.db.get(CFG_DB, FEATURE_KEY, TS) != "enabled":
+            return # Should be set "enabled" in the FEATURE Table
         
-        global_cooloff = cfg_db.get(CFG_DB, AUTO_TS, COOLOFF)
-        proc_cooloff = cfg_db.get(CFG_DB, FEATURE_KEY, COOLOFF)
+        global_cooloff = self.db.get(CFG_DB, AUTO_TS, COOLOFF)
+        proc_cooloff = self.db.get(CFG_DB, FEATURE_KEY, COOLOFF)
     
         cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, proc)
         if cooloff_passed:
@@ -53,9 +54,13 @@ class CoreDumpCreateHandle():
                 self.db.set(STATE_DB, TS_MAP, new_file[0], "{};{}".format(self.core_name, int(time.time())))
         
         core_usage = 0
-        if cfg_db.hexists(CFG_DB, AUTO_TS, CFG_CORE_USAGE):
-            core_usage = cfg_db.get(CFG_DB, AUTO_TS, CFG_CORE_USAGE)
-        
+        if self.db.hexists(CFG_DB, AUTO_TS, CFG_CORE_USAGE):
+            core_usage = self.db.get(CFG_DB, AUTO_TS, CFG_CORE_USAGE)
+            try:
+                core_usage = int(core_usage)
+            except:
+                core_usage = 0
+            
         if core_usage == 0:
             _ , num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
             syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
@@ -77,7 +82,8 @@ class CoreDumpCreateHandle():
     def verify_cooloff(self, global_cooloff, proc_cooloff, proc):
         """Verify both the global cooloff and per-proc cooloff has passed"""
         self.curr_ts_list = get_ts_dumps(True)
-        if len(curr_list) != 0:
+        if global_cooloff and len(self.curr_ts_list) != 0:
+            global_cooloff = int(global_cooloff)
             last_ts_dump_creation = os.path.getmtime(self.curr_ts_list[-1])
             if time.time() - last_ts_dump_creation < global_cooloff:
                 syslog.syslog(syslog.LOG_INFO, "Cooloff period has not yet passed.  No Techsupport Invocation is performed ")
@@ -86,8 +92,9 @@ class CoreDumpCreateHandle():
         ts_map = self.db.get_all(STATE_DB, TS_MAP)
         self.parse_ts_map(ts_map)
         
-        if proc in self.core_ts_map:
+        if proc_cooloff and proc in self.core_ts_map:
             last_creation_time = self.core_ts_map[proc][0]
+            proc_cooloff = int(proc_cooloff)
             if time.time() - last_creation_time < proc_cooloff:
                 syslog.syslog(syslog.LOG_INFO, "Cooloff period for {} prcess has not yet passed.  No Techsupport Invocation is performed".format(proc))
                 return False
@@ -106,9 +113,10 @@ class CoreDumpCreateHandle():
     def fetch_critical_procs(self):
         """Fetches the critical_procs and corresponding docker names"""
         keys = self.db.keys(CFG_DB, FEATURE.format("*"))
-        containers = [key.split()[-1] for key in keys]
+        containers = [key.split("|")[-1] for key in keys]
+        print(keys, containers)
         for container in containers:
-            rc, stdout, _ = subprocess_exec("docker exec -t {} cat /etc/supervisor/critical_processes".format(docker))
+            rc, stdout, _ = subprocess_exec("docker exec -t {} cat /etc/supervisor/critical_processes".format(container))
             if rc != 0:
                 continue
             procs = stdout.split()

@@ -25,9 +25,9 @@ RedisHandle = RedisSingleton.getInstance()
 
 def set_auto_ts_cfg(**kwargs):
     state = kwargs[ts_mod.CFG_STATE] if ts_mod.CFG_STATE in kwargs else "disabled"
-    max_ts = kwargs[ts_mod.CFG_MAX_TS] if ts_mod.CFG_MAX_TS in kwargs else "0"
+    max_ts = kwargs[ts_mod.COOLOFF] if ts_mod.COOLOFF in kwargs else "0"
     RedisHandle.data[ts_mod.CFG_DB] = {ts_mod.AUTO_TS : {ts_mod.CFG_STATE : state, ts_mod.CFG_MAX_TS : max_ts}} 
-
+    
 class TestTechsupportCreationEvent(unittest.TestCase):
     
     def setUp(self):

@@ -56,6 +56,8 @@ class MockConn(object):
         return self.redis.data.get(db_name, {}).get(key, {})
     
     def set(self, db_name, key, field, value, blocking=True):
+        if key not in self.redis.data[db_name]:
+            self.redis.data[db_name][key] = {}
         self.redis.data[db_name][key][field] = value
     
     def hmset(self, db_name, key, hash):
