@@ -1,13 +1,12 @@
 import re
-from swsscommon.swsscommon import SonicDBConfig
 
 class RedisSingleton:
-    "Introduced to modify/check Redis DB's data outside of the scripts"
+    """
+    Introduced to modify/check Redis DB's data outside of the scripts
+    Usage: Clear and Set the state of the mock before every test case
+    """
     __instance = None
-    
-    seperator_map = {"APPL_DB" : ":",
-                     "ASIC_DB" : ":"}
-    
+        
     @staticmethod 
     def getInstance():
        """ Static access method. """
@@ -29,12 +28,15 @@ class RedisSingleton:
             RedisSingleton.__instance = self
               
 class MockConn(object):
-    
+    """ 
+    SonicV2Connector Mock for the usecases to verify/modify the Redis State outside 
+        of the scope of the connector class 
+    """
     def __init__(self, host):
         self.redis = RedisSingleton.getInstance()
 
     def connect(self, db_name):
-        if db_name not in self.redis:
+        if db_name not in self.redis.data:
             self.redis.data[db_name] = {}
 
     def get(self, db_name, key, field):
@@ -83,10 +85,10 @@ class MockClient(object):
         try:
             del self.redis.data[self.db_name][key][field]
         except:
-            continue
+            pass
     
     def hset(self, key, field, value):
         try:
            self.redis.data[self.db_name][key][field] = value
         except:
-            continue
+            pass

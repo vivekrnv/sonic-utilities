@@ -16,18 +16,12 @@ import shutil
 from swsscommon.swsscommon import SonicV2Connector
 from utilities_common.auto_techsupport_helper import * 
 
-def mock_clean_state_db_entries(removed_files, db):
-    all_keys = db.get_all(STATE_DB, TS_MAP)
-    for file in removed_files:
-        if file in all_keys:
-            del all_keys[file]
-    for key in all_keys:
-        db.set(STATE_DB, TS_MAP, key, all_keys[key])
-
 def clean_state_db_entries(removed_files, db):
+    if not removed_files:
+        return 
     db_conn = db.get_redis_client(STATE_DB)
     for file in removed_files:
-        db_conn.hdel(TS_MAP, file)
+        db_conn.hdel(TS_MAP, os.path.basename(file))
 
 def handle_techsupport_creation_event(dump_name):
     file_path = os.path.join(TS_DIR, dump_name)
@@ -39,13 +33,11 @@ def handle_techsupport_creation_event(dump_name):
     db = SonicV2Connector(host="127.0.0.1")
     db.connect(CFG_DB)
     db.connect(STATE_DB)
-    
-    print("STATE: ", db.get(CFG_DB, AUTO_TS, CFG_STATE))
+
     if db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
         return
             
     max_ts = db.get("CONFIG_DB", AUTO_TS, CFG_MAX_TS)
-    print("Max TS ", max_ts)
     if max_ts:
         max_ts = int(max_ts)
     else:
