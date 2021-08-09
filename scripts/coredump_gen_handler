@@ -51,7 +51,7 @@ class CoreDumpCreateHandle():
         if cooloff_passed:
             new_file = self.invoke_ts_cmd()
             if new_file:
-                self.db.set(STATE_DB, TS_MAP, new_file[0], "{};{}".format(self.core_name, int(time.time())))
+                self.db.set(STATE_DB, TS_MAP, os.path.basename(new_file[0]), "{};{}".format(self.core_name, int(time.time())))
         
         core_usage = 0
         if self.db.hexists(CFG_DB, AUTO_TS, CFG_CORE_USAGE):
@@ -83,9 +83,11 @@ class CoreDumpCreateHandle():
         """Verify both the global cooloff and per-proc cooloff has passed"""
         self.curr_ts_list = get_ts_dumps(True)
         if global_cooloff and len(self.curr_ts_list) != 0:
-            global_cooloff = int(global_cooloff)
+            global_cooloff = float(global_cooloff)
             last_ts_dump_creation = os.path.getmtime(self.curr_ts_list[-1])
+            print(last_ts_dump_creation, global_cooloff, time.time())
             if time.time() - last_ts_dump_creation < global_cooloff:
+                print("Reached Here!!!@")
                 syslog.syslog(syslog.LOG_INFO, "Cooloff period has not yet passed.  No Techsupport Invocation is performed ")
                 return False
         
@@ -93,8 +95,8 @@ class CoreDumpCreateHandle():
         self.parse_ts_map(ts_map)
         
         if proc_cooloff and proc in self.core_ts_map:
-            last_creation_time = self.core_ts_map[proc][0]
-            proc_cooloff = int(proc_cooloff)
+            last_creation_time = self.core_ts_map[proc][0][0]
+            proc_cooloff = float(proc_cooloff)
             if time.time() - last_creation_time < proc_cooloff:
                 syslog.syslog(syslog.LOG_INFO, "Cooloff period for {} prcess has not yet passed.  No Techsupport Invocation is performed".format(proc))
                 return False
@@ -102,7 +104,8 @@ class CoreDumpCreateHandle():
     
     def parse_ts_map(self, ts_map):
         """Create core_dump, ts_dump & creation_time map"""
-        for ts_dump, tup in ts_map:
+        print(ts_map)
+        for ts_dump, tup in ts_map.items():
             core_dump, creation_time = tup.split(";")
             if core_dump not in self.core_ts_map:
                 self.core_ts_map[core_dump] = []
