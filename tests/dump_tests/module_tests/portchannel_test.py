@@ -49,7 +49,7 @@ class TestPortChannelModule(unittest.TestCase):
     
     def test_missing_appl_state(self):
         '''
-        Scenario: When the LAG is configured but the 
+        Scenario: When the LAG is configured but the Change is not propagated
         '''
         params = {PortChannel.ARG_NAME:"PortChannel003", "namespace":""}
         m_lag = PortChannel()

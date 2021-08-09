@@ -99,7 +99,7 @@ class PortChannel(Executor):
         for port_name in self.lag_members:
             port_asic_obj = self.get_port_asic_obj(port_name)
             if port_asic_obj:
-                lag_member_key, lag_oid = self.get_lag_member(port_asic_obj)
+                lag_member_key, lag_oid = self.get_lag_and_member_obj(port_asic_obj)
                 self.add_to_ret_template("ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER" , "ASIC_DB", [lag_member_key], "")
                 lag_type_objs_asic.add(lag_oid)
         if not lag_type_objs_asic:
@@ -117,7 +117,7 @@ class PortChannel(Executor):
                 asic_port_obj_id = ret["return_values"][sai_hostif_obj_key]["SAI_HOSTIF_ATTR_OBJ_ID"]
         return asic_port_obj_id
     
-    def get_lag_member(self, port_asic_obj):
+    def get_lag_and_member_obj(self, port_asic_obj):
         req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER", key_pattern="*", field="SAI_LAG_MEMBER_ATTR_PORT_ID", 
                            value=port_asic_obj, return_fields=["SAI_LAG_MEMBER_ATTR_LAG_ID"], ns=self.ns)
         ret = self.match_engine.fetch(req)
