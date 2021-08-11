@@ -361,7 +361,7 @@ def install(ctx,
 
     package_source = package_expr or from_repository or from_tarball
     if not package_source:
-        exit_cli('Package source is not specified', fg='red')
+        exit_cli(f'Package source is not specified', fg='red')
 
     if not yes and not force:
         click.confirm(f'{package_source} is going to be installed, '
@@ -386,7 +386,7 @@ def install(ctx,
     except Exception as err:
         exit_cli(f'Failed to install {package_source}: {err}', fg='red')
     except KeyboardInterrupt:
-        exit_cli('Operation canceled by user', fg='red')
+        exit_cli(f'Operation canceled by user', fg='red')
 
 
 @cli.command()
@@ -409,16 +409,15 @@ def reset(ctx, name, force, yes, skip_host_plugins):
     except Exception as err:
         exit_cli(f'Failed to reset package {name}: {err}', fg='red')
     except KeyboardInterrupt:
-        exit_cli('Operation canceled by user', fg='red')
+        exit_cli(f'Operation canceled by user', fg='red')
 
 
 @cli.command()
 @add_options(PACKAGE_COMMON_OPERATION_OPTIONS)
-@click.option('--keep-config', is_flag=True, help='Keep features configuration in CONFIG DB.')
 @click.argument('name')
 @click.pass_context
 @root_privileges_required
-def uninstall(ctx, name, force, yes, keep_config):
+def uninstall(ctx, name, force, yes):
     """ Uninstall package. """
 
     manager: PackageManager = ctx.obj
@@ -427,17 +426,12 @@ def uninstall(ctx, name, force, yes, keep_config):
         click.confirm(f'Package {name} is going to be uninstalled, '
                       f'continue?', abort=True, show_default=True)
 
-    uninstall_opts = {
-        'force': force,
-        'keep_config': keep_config,
-    }
-
     try:
-        manager.uninstall(name, **uninstall_opts)
+        manager.uninstall(name, force)
     except Exception as err:
         exit_cli(f'Failed to uninstall package {name}: {err}', fg='red')
     except KeyboardInterrupt:
-        exit_cli('Operation canceled by user', fg='red')
+        exit_cli(f'Operation canceled by user', fg='red')
 
 
 @cli.command()
@@ -459,7 +453,7 @@ def migrate(ctx, database, force, yes, dockerd_socket):
     except Exception as err:
         exit_cli(f'Failed to migrate packages {err}', fg='red')
     except KeyboardInterrupt:
-        exit_cli('Operation canceled by user', fg='red')
+        exit_cli(f'Operation canceled by user', fg='red')
 
 
 if __name__ == "__main__":

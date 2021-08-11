@@ -143,3 +143,4 @@ class PackageComponentConflictError(PackageInstallationError):
     def __str__(self):
         return (f'Package {self.name} conflicts with {self.component} {self.constraint} '
                 f'in package {self.dependency} but version {self.installed_ver} is installed')
+
