@@ -1,7 +1,0 @@
-{
-    "VLAN_MEMBER": {
-        "Vlan1000|Ethernet8": {
-            "tagging_mode": "untagged"
-        }
-    }
-}
