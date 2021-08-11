@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 
 import json
 import tarfile
-from typing import Dict
+from typing import Dict, Optional
 
 from sonic_package_manager.errors import MetadataError
 from sonic_package_manager.manifest import Manifest
@@ -24,10 +24,10 @@ def deep_update(dst: Dict, src: Dict) -> Dict:
 
     for key, value in src.items():
         if isinstance(value, dict):
-             node = dst.setdefault(key, {})
-             deep_update(node, value)
+            node = dst.setdefault(key, {})
+            deep_update(node, value)
         else:
-             dst[key] = value
+            dst[key] = value
     return dst
 
 
@@ -73,6 +73,7 @@ class Metadata:
 
     manifest: Manifest
     components: Dict[str, Version] = field(default_factory=dict)
+    yang_module_str: Optional[str] = None
 
 
 class MetadataResolver:
@@ -182,4 +183,6 @@ class MetadataResolver:
                 except ValueError as err:
                     raise MetadataError(f'Failed to parse component version: {err}')
 
-        return Metadata(Manifest.marshal(manifest_dict), components)
+        yang_module_str = sonic_metadata.get('yang-module')
+
+        return Metadata(Manifest.marshal(manifest_dict), components, yang_module_str)
