@@ -35,8 +35,10 @@ setup(
         'acl_loader',
         'clear',
         'clear.plugins',
+        'clear.plugins.auto',
         'config',
         'config.plugins',
+        'config.plugins.auto',
         'connect',
         'consutil',
         'counterpoll',
@@ -58,6 +60,7 @@ setup(
         'show',
         'show.interfaces',
         'show.plugins',
+        'show.plugins.auto',
         'sonic_installer',
         'sonic_installer.bootloader',
         'sonic_package_manager',
@@ -66,6 +69,7 @@ setup(
         'undebug',
         'utilities_common',
         'watchdogutil',
+        'sonic_cli_gen',
     ],
     package_data={
         'show': ['aliases.ini'],
@@ -174,6 +178,7 @@ setup(
             'spm = sonic_package_manager.main:cli',
             'undebug = undebug.main:cli',
             'watchdogutil = watchdogutil.main:watchdogutil',
+            'sonic-cli-gen = sonic_cli_gen.main:cli',
         ]
     },
     install_requires=[

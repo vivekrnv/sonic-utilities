@@ -24,6 +24,7 @@ class UtilHelper(object):
 
         for _, module_name, ispkg in iter_namespace(plugins_namespace):
             if ispkg:
+                yield from self.load_plugins(importlib.import_module(module_name))
                 continue
             log.log_debug('importing plugin: {}'.format(module_name))
             try:
