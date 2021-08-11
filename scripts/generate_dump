@@ -1018,6 +1018,14 @@ save_counter_snapshot() {
     save_cmd_all_ns "ifconfig -a" "ifconfig.counters_$idx"
 }
 
+handle_error() {
+  if [ "$1" != "0" ]; then
+    echo "ERR: RC:-$1 observed on line $2" >&2
+    RETURN_CODE=1
+  fi
+  return $1
+}
+
 ###############################################################################
 # Main generate_dump routine
 # Globals:
@@ -1028,6 +1036,7 @@ save_counter_snapshot() {
 #  None
 ###############################################################################
 main() {
+    trap 'handle_error $? $LINENO' ERR
     local start_t=0
     local end_t=0
     if [ `whoami` != root ] && ! $NOOP;
@@ -1208,7 +1217,9 @@ main() {
             echo "WARNING: gzip operation appears to have failed." >&2
         fi
     fi
-
+    
+    nohup /usr/local/bin/techsupport_cleanup ${TARFILE} &
+    
     echo ${TARFILE}
 }
 
@@ -1269,7 +1280,7 @@ OPTIONS
 EOF
 }
 
-while getopts ":xnvhzas:t:" opt; do
+while getopts ":xnvhzas:t:" opt; do    
     case $opt in
         x)
             # enable bash debugging

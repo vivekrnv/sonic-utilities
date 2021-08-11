@@ -4,11 +4,8 @@ import pyfakefs
 import unittest
 from pyfakefs.fake_filesystem_unittest import Patcher
 from swsscommon import swsscommon
-from .shared_state_mock import RedisSingleton, MockConn
 from utilities_common.general import load_module_from_source
-
-# Mock the SonicV2Connector
-swsscommon.SonicV2Connector = MockConn
+from .shared_state_mock import RedisSingleton, MockConn
 
 curr_test_path = os.path.abspath(os.path.join(os.path.abspath(__file__), "../"))
 test_dir_path = os.path.dirname(curr_test_path)
@@ -20,22 +17,18 @@ sys.path.insert(0, modules_path)
 script_path = os.path.join(scripts_path, 'techsupport_cleanup')
 ts_mod = load_module_from_source('techsupport_cleanup', script_path)
 
+# Mock the SonicV2Connector
+ts_mod.SonicV2Connector = MockConn
+
 # Mock Handle to the data inside the Redis
 RedisHandle = RedisSingleton.getInstance()
 
 def set_auto_ts_cfg(**kwargs):
     state = kwargs[ts_mod.CFG_STATE] if ts_mod.CFG_STATE in kwargs else "disabled"
-    max_ts = kwargs[ts_mod.COOLOFF] if ts_mod.COOLOFF in kwargs else "0"
+    max_ts = kwargs[ts_mod.CFG_MAX_TS] if ts_mod.CFG_MAX_TS in kwargs else "0"
     RedisHandle.data[ts_mod.CFG_DB] = {ts_mod.AUTO_TS : {ts_mod.CFG_STATE : state, ts_mod.CFG_MAX_TS : max_ts}} 
     
 class TestTechsupportCreationEvent(unittest.TestCase):
-    
-    def setUp(self):
-        self.orig_time_buf = ts_mod.TIME_BUF
-        ts_mod.TIME_BUF = 0.5 # Patch the buf to 1 sec
-
-    def tearDown(self):
-        ts_mod.TIME_BUF = self.orig_time_buf
     
     def test_no_cleanup_state_disabled(self):
         """
@@ -91,7 +84,6 @@ class TestTechsupportCreationEvent(unittest.TestCase):
             patcher.fs.create_file("/var/dump/sonic_dump_random3.tar.gz", st_size=25) 
             ts_mod.handle_techsupport_creation_event("/var/dump/sonic_dump_random3.tar.gz")
             current_fs = os.listdir(ts_mod.TS_DIR)
-            print(current_fs)
             assert len(current_fs) == 2
             assert "sonic_dump_random1.tar.gz" not in current_fs
             assert "sonic_dump_random2.tar.gz" in current_fs

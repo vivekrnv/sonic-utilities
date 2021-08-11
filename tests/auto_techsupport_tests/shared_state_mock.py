@@ -40,7 +40,7 @@ class MockConn(object):
             self.redis.data[db_name] = {}
 
     def get(self, db_name, key, field):
-        return self.redis.data.get(db_name, {}).get(key, {}).get(field, "")
+        return self.redis.data[db_name].get(key, {}).get(field, "")
 
     def keys(self, db_name, pattern):
         pattern = re.escape(pattern)
@@ -53,7 +53,7 @@ class MockConn(object):
         return filtered_keys        
                 
     def get_all(self, db_name, key):
-        return self.redis.data.get(db_name, {}).get(key, {})
+        return self.redis.data[db_name].get(key, {})
     
     def set(self, db_name, key, field, value, blocking=True):
         if key not in self.redis.data[db_name]:

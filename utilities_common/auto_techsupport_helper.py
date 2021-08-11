@@ -14,6 +14,7 @@ CFG_STATE = "state"
 CFG_MAX_TS = "max_techsupport_size"
 COOLOFF = "cooloff"
 CFG_CORE_USAGE = "core_usage"
+CFG_SINCE = "since"
 
 CORE_DUMP_DIR = "/var/core"
 CORE_DUMP_PTRN = "*.core.gz"
@@ -30,6 +31,7 @@ STATE_DB = "STATE_DB"
 TS_MAP = "AUTO_TECHSUPPORT|TS_CORE_MAP"
 
 TIME_BUF = 20
+SINCE_DEFAULT = "2 days ago"
 
 ##### Helper methods 
 def subprocess_exec(cmd):
@@ -103,7 +105,6 @@ def pretty_size(bytes):
 
 def cleanup_process(limit, file_ptrn, dir):
     """Deletes the oldest files incrementally until the size is under limit"""
-    print("---- Reached Here ------ ")
     if not(1 <= limit and limit <= 100):
         syslog.syslog(syslog.LOG_ERR, "core_usage_limit can only be between 1 and 100, whereas the configured value is: {}".format(limit))
         return 

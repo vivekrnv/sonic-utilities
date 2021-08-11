@@ -49,7 +49,8 @@ class CoreDumpCreateHandle():
     
         cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, proc)
         if cooloff_passed:
-            new_file = self.invoke_ts_cmd()
+            since_cfg = self.get_since_arg()
+            new_file = self.invoke_ts_cmd(since_cfg)
             if new_file:
                 self.db.set(STATE_DB, TS_MAP, os.path.basename(new_file[0]), "{};{}".format(self.core_name, int(time.time())))
         
@@ -68,8 +69,19 @@ class CoreDumpCreateHandle():
         
         cleanup_process(core_usage, CORE_DUMP_PTRN, CORE_DUMP_DIR)
     
-    def invoke_ts_cmd(self):
-        _, out, _ = subprocess_exec(["show", "techsupport"]) 
+    def get_since_arg(self):
+        since_cfg = self.db.get(CFG_DB, AUTO_TS, CFG_SINCE)
+        if not since_cfg: 
+            return SINCE_DEFAULT
+        rc, _, _ = subprocess_exec(["date", "--date=\"{}\"".format(since_cfg)])
+        if rc != 0:
+            return since_cfg
+        return SINCE_DEFAULT   
+        
+    
+    def invoke_ts_cmd(self, since_cfg):
+        since_cfg = "\"" + since_cfg + "\""
+        _, out, _ = subprocess_exec(["show", "techsupport", "--since", since_cfg]) 
         new_list = get_ts_dumps(True)
         diff = list(set(new_list).difference(set(self.curr_ts_list)))
         self.curr_ts_list = new_list
@@ -119,7 +131,7 @@ class CoreDumpCreateHandle():
         containers = [key.split("|")[-1] for key in keys]
         print(keys, containers)
         for container in containers:
-            rc, stdout, _ = subprocess_exec("docker exec -t {} cat /etc/supervisor/critical_processes".format(container))
+            rc, stdout, _ = subprocess_exec(["docker", "exec", "-t", container, "cat", "/etc/supervisor/critical_processes"])
             if rc != 0:
                 continue
             procs = stdout.split()
@@ -131,7 +143,7 @@ def main():
     parser = argparse.ArgumentParser(description='Auto Techsupport Invocation and CoreDump Mgmt Script')
     parser.add_argument('name', type=str, help='Core Dump Name', required=True)
     args = parser.parse_args()
-    syslog.openlog(logoption=syslog.LOG_PID)
+    syslog.openlog(logoption=syslog.LOG_PID)    
     cls = CoreDumpCreateHandle()
     cls.handle_core_dump_creation_event(args.name)
     

@@ -33,11 +33,13 @@ def handle_techsupport_creation_event(dump_name):
     db = SonicV2Connector(host="127.0.0.1")
     db.connect(CFG_DB)
     db.connect(STATE_DB)
-
+    
+    print(db.get_all(CFG_DB, AUTO_TS))
+    
     if db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
         return
             
-    max_ts = db.get("CONFIG_DB", AUTO_TS, CFG_MAX_TS)
+    max_ts = db.get(CFG_DB, AUTO_TS, CFG_MAX_TS)
     if max_ts:
         max_ts = int(max_ts)
     else:
