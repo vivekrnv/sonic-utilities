@@ -100,3 +100,53 @@ def feature_autorestart(db, name, autorestart):
 
     for ns, cfgdb in db.cfgdb_clients.items():
         cfgdb.mod_entry('FEATURE', name, {'auto_restart': autorestart})
+
+#
+# 'auto_techsupport' command ('config feature auto_techsupport ...')
+#
+@feature.command(name='auto_techsupport', short_help="Enable/disable auto_techsupport capability for the processes running inside of this feature")
+@click.argument('name', metavar='<feature-name>', required=True)
+@click.argument('auto_techsupport', metavar='<auto_techsupport>', required=True, type=click.Choice(["enabled", "disabled"]))
+@pass_db
+def feature_auto_techsupport(db, name, auto_techsupport):
+    """Enable/disable auto_techsupport capability for the processes running inside of this feature"""
+    entry_data_set = set()
+
+    for ns, cfgdb in db.cfgdb_clients.items():
+        entry_data = cfgdb.get_entry('FEATURE', name)
+        if not entry_data:
+            click.echo("Feature '{}' doesn't exist".format(name))
+            sys.exit(1)
+        entry_data_set.add(entry_data['auto_techsupport'])
+
+    if len(entry_data_set) > 1:
+        click.echo("Feature '{}' auto_techsupport is not consistent across namespaces".format(name))
+        sys.exit(1)
+
+    for ns, cfgdb in db.cfgdb_clients.items():
+        cfgdb.mod_entry('FEATURE', name, {'auto_techsupport': auto_techsupport})
+
+#
+# 'cooloff' command ('config feature cooloff ...')
+#
+@feature.command(name='cooloff', short_help="Set the cooloff period in seconds for the auto_techsupport capability")
+@click.argument('name', metavar='<feature-name>', required=True)
+@click.argument('auto_techsupport', metavar='<auto_techsupport>', required=True, type=int)
+@pass_db
+def feature_cooloff(db, name, cooloff):
+    """Set the cooloff period in seconds for the auto_techsupport capability"""
+    entry_data_set = set()
+
+    for ns, cfgdb in db.cfgdb_clients.items():
+        entry_data = cfgdb.get_entry('FEATURE', name)
+        if not entry_data:
+            click.echo("Feature '{}' doesn't exist".format(name))
+            sys.exit(1)
+        entry_data_set.add(entry_data['cooloff'])
+
+    if len(entry_data_set) > 1:
+        click.echo("Feature '{}' cooloff is not consistent across namespaces".format(name))
+        sys.exit(1)
+
+    for ns, cfgdb in db.cfgdb_clients.items():
+        cfgdb.mod_entry('FEATURE', name, {'cooloff': cooloff})
