@@ -14,7 +14,6 @@ dump_tests_path = os.path.join(module_tests_path, "../")
 tests_path = os.path.join(dump_tests_path, "../")
 dump_test_input = os.path.join(tests_path, "dump_input")
 
-
 # Location for dedicated db's used for UT
 port_files_path = os.path.join(dump_test_input, "port")
 
@@ -24,8 +23,10 @@ dedicated_dbs['APPL_DB'] = os.path.join(port_files_path, "appl_db.json")
 dedicated_dbs['ASIC_DB'] = os.path.join(port_files_path, "asic_db.json")
 dedicated_dbs['STATE_DB'] = os.path.join(port_files_path, "state_db.json")
 
+
 def mock_connector(namespace, use_unix_socket_path=True):
     return MockSonicV2Connector(dedicated_dbs, namespace=namespace, use_unix_socket_path=use_unix_socket_path)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def verbosity_setup():
@@ -42,7 +43,7 @@ class TestPortModule(unittest.TestCase):
         """
         Scenario: When the config is properly applied and propagated
         """
-        params = {Port.ARG_NAME : "Ethernet176", "namespace" : ""}
+        params = {Port.ARG_NAME: "Ethernet176", "namespace": ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -53,12 +54,12 @@ class TestPortModule(unittest.TestCase):
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF:oid:0xd000000000a4d")
         ddiff = DeepDiff(sort_lists(returned), sort_lists(expect), ignore_order=True)
         assert not ddiff, ddiff
-        
+
     def test_missing_asic_port(self):
         """
         Scenario: When the config was applied and just the SAI_OBJECT_TYPE_PORT is missing
         """
-        params = {Port.ARG_NAME : "Ethernet160", "namespace" : ""}
+        params = {Port.ARG_NAME: "Ethernet160", "namespace": ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -69,12 +70,12 @@ class TestPortModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_PORT")
         ddiff = DeepDiff(sort_lists(returned), sort_lists(expect), ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_missing_asic_hostif(self):
         """
         Scenario: When the config was applied and it did not propagate to ASIC DB
         """
-        params = {Port.ARG_NAME : "Ethernet164", "namespace" : ""}
+        params = {Port.ARG_NAME: "Ethernet164", "namespace": ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -85,12 +86,12 @@ class TestPortModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_missing_state_and_appl(self):
         """
         Scenario: When the config was applied and it did not propagate to other db's
         """
-        params = {Port.ARG_NAME : "Ethernet156", "namespace" : ""}
+        params = {Port.ARG_NAME: "Ethernet156", "namespace": ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -101,12 +102,12 @@ class TestPortModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_no_port(self):
         """
         Scenario: When no entry for the port is present in any of the db's
         """
-        params = {Port.ARG_NAME : "Ethernet152", "namespace" : ""}
+        params = {Port.ARG_NAME: "Ethernet152", "namespace": ""}
         m_port = Port()
         returned = m_port.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -117,7 +118,7 @@ class TestPortModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_all_args(self):
         """
         Scenario: Verify Whether the get_all_args method is working as expected
@@ -127,4 +128,4 @@ class TestPortModule(unittest.TestCase):
         returned = m_port.get_all_args("")
         expect = ["Ethernet156", "Ethernet160", "Ethernet164", "Ethernet176"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
-        assert not ddiff, ddiff 
+        assert not ddiff, ddiff

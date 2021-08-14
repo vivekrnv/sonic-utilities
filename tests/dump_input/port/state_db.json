@@ -1,13 +1,13 @@
 {
-	"PORT_TABLE|Ethernet176":{
-		"state" : "ok",
-		"netdev_oper_status" : "up"
-	},
-	"PORT_TABLE|Ethernet160":{
+        "PORT_TABLE|Ethernet176":{
                 "state" : "ok",
                 "netdev_oper_status" : "up"
         },
-	"PORT_TABLE|Ethernet164":{
+        "PORT_TABLE|Ethernet160":{
+                "state" : "ok",
+                "netdev_oper_status" : "up"
+        },
+        "PORT_TABLE|Ethernet164":{
                 "state" : "ok",
                 "netdev_oper_status" : "up"
         }
