@@ -8,9 +8,11 @@ import shutil
 import math
 import syslog
 
-AUTO_TS = "AUTO_TECHSUPPORT|global"
 CFG_DB = "CONFIG_DB"
-CFG_STATE = "state"
+AUTO_TS = "AUTO_TECHSUPPORT|global"
+CFG_INVOC_TS = "auto_invoke_ts"
+CFG_CORE_CLEANUP = "coredump_cleanup"
+CFG_TS_CLEANUP = "techsupport_cleanup"
 CFG_MAX_TS = "max_techsupport_size"
 COOLOFF = "cooloff"
 CFG_CORE_USAGE = "core_usage"
@@ -29,6 +31,23 @@ TS = "auto_techsupport"
 # State DB Attributes
 STATE_DB = "STATE_DB"
 TS_MAP = "AUTO_TECHSUPPORT|TS_CORE_MAP"
+"""
+key = "AUTO_TECHSUPPORT|TS_CORE_MAP"
+<dump_name> = <core_dump_name;timestamp_as_epoch;crit_proc_name>
+Eg:
+sonic_dump_sonic_20210412_223645 = orchagent.1599047232.39.core;1599047233;orchagent
+sonic_dump_sonic_20210405_202756 = python3.1617684247.17.core;1617684249;snmp-subagent
+"""
+
+CRITICAL_PROC = "AUTO_TECHSUPPORT|PROC_EXIT_EVENTS"
+"""
+key = "AUTO_TECHSUPPORT|PROC_EXIT_EVENTS"
+<executable_name:pid> = <feature_name;supervisor_proc_name>
+Eg:
+<orchagent:20> = "swss;orchagent"
+<python3:22>   = "snmp;snmp-subagent"
+<python2:33>   = "lldp;lldp_syncd"
+"""
 
 TIME_BUF = 20
 SINCE_DEFAULT = "2 days ago"

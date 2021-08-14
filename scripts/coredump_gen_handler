@@ -16,7 +16,18 @@ import syslog
 from swsscommon.swsscommon import SonicV2Connector
 from utilities_common.auto_techsupport_helper import * 
 
-class CoreDumpCreateHandle():
+def handle_coredump_cleanup(dump_name):
+    self.db = SonicV2Connector(host="127.0.0.1")
+    self.db.connect(CFG_DB)
+    if self.db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
+        return
+     
+    
+
+class CriticalProcCoreDumpHandle():
+    """
+    Class to handle coredump creation event for critical processes inside the docker
+    """
     def __init__(self, core_name):
         self.core_name = core_name
         self.db = None
@@ -146,6 +157,7 @@ def main():
     syslog.openlog(logoption=syslog.LOG_PID)    
     cls = CoreDumpCreateHandle()
     cls.handle_core_dump_creation_event(args.name)
+    handle_coredump_cleanup(dump_name)
     
 if __name__ == "__main__":
     main()
