@@ -1,16 +1,19 @@
 import os,sys,json,re
 import click
 from tabulate import tabulate
+from sonic_py_common import multi_asic
+from utilities_common.constants import DEFAULT_NAMESPACE
+from utilities_common.general import load_db_config
 
 sys.path.append(os.path.dirname(__file__))
 import plugins
 from dump.match_infra import RedisSource, JsonSource
-from sonic_py_common import multi_asic
-from utilities_common.constants import DEFAULT_NAMESPACE
+
 
 # Autocompletion Helper
 def get_available_modules(ctx, args, incomplete):
     return [k for k in plugins.dump_modules.keys() if incomplete in k]
+
 
 # Display Modules Callback
 def show_modules(ctx, param, value):
@@ -22,21 +25,29 @@ def show_modules(ctx, param, value):
         display.append((mod, plugins.dump_modules[mod].ARG_NAME))
     click.echo(tabulate(display, header))
     ctx.exit()
-             
+
+
 @click.group()
 def dump():
     pass
 
+
 @dump.command()
 @click.pass_context
 @click.argument('module', required=True, type=str, autocompletion=get_available_modules)
-@click.argument('identifier', required=True, type=str) 
-@click.option('--show', '-s', is_flag=True, default=False, help='Display Modules Available', is_eager=True, expose_value=False, callback=show_modules)
-@click.option('--db', '-d', multiple=True, help='Only dump from these Databases or the CONFIG_FILE')
-@click.option('--table', '-t', is_flag=True, default=False, help='Print in tabular format', show_default=True)
-@click.option('--key-map', '-k', is_flag=True, default=False, help="Only fetch the keys matched, don't extract field-value dumps", show_default=True)
-@click.option('--verbose', '-v', is_flag=True, default=False, help="Prints any intermediate output to stdout useful for dev & troubleshooting", show_default=True)
-@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=str, show_default=True, help='Dump the redis-state for this namespace.')  
+@click.argument('identifier', required=True, type=str)
+@click.option('--show', '-s', is_flag=True, default=False, expose_value=False,
+              callback=show_modules, help='Display Modules Available', is_eager=True)
+@click.option('--db', '-d', multiple=True,
+              help='Only dump from these Databases or the CONFIG_FILE')
+@click.option('--table', '-t', is_flag=True, default=False,
+              help='Print in tabular format', show_default=True)
+@click.option('--key-map', '-k', is_flag=True, default=False, show_default=True,
+              help="Only fetch the keys matched, don't extract field-value dumps")
+@click.option('--verbose', '-v', is_flag=True, default=False, show_default=True,
+              help="Prints any intermediate output to stdout useful for dev & troubleshooting")
+@click.option('--namespace', '-n', default=DEFAULT_NAMESPACE, type=str,
+              show_default=True, help='Dump the redis-state for this namespace.')
 def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     """
     Dump the current state of the identifier for the specified module from Redis DB or CONFIG_FILE
@@ -44,49 +55,53 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     if not multi_asic.is_multi_asic() and namespace != DEFAULT_NAMESPACE:
         click.echo("Namespace option is not valid for a single-ASIC device")
         ctx.exit()
-    
+
+    # Load database config files
+    load_db_config()
+
     if multi_asic.is_multi_asic() and (namespace != DEFAULT_NAMESPACE and namespace not in multi_asic.get_namespace_list()):
         click.echo("Namespace option is not valid. Choose one of {}".format(multi_asic.get_namespace_list()))
         ctx.exit()
-    
+
     if module not in plugins.dump_modules:
         click.echo("No Matching Plugin has been Implemented")
         ctx.exit()
-    
+
     if verbose:
         os.environ["VERBOSE"] = "1"
     else:
         os.environ["VERBOSE"] = "0"
-    
+
     ctx.module = module
     obj = plugins.dump_modules[module]()
-    
+
     if identifier == "all":
         ids = obj.get_all_args(namespace)
     else:
         ids = identifier.split(",")
-        
+
     params = {}
     collected_info = {}
     params['namespace'] = namespace
     for arg in ids: 
         params[plugins.dump_modules[module].ARG_NAME] = arg 
         collected_info[arg] = obj.execute(params)
-        
+
     if len(db) > 0:
         collected_info = filter_out_dbs(db, collected_info)
-    
+
     vidtorid = extract_rid(collected_info, namespace)
-    
+
     if not key_map:
         collected_info = populate_fv(collected_info, module, namespace)
-    
+
     for id in vidtorid.keys():
         collected_info[id]["ASIC_DB"]["vidtorid"] = vidtorid[id]
-         
+
     print_dump(collected_info, table, module, identifier, key_map)
-    
-    return 
+
+    return
+
 
 def extract_rid(info, ns):
     r = RedisSource()
@@ -98,20 +113,22 @@ def extract_rid(info, ns):
             vidtorid[arg] = mp
     return vidtorid
 
+
 def get_v_r_map(r, single_dict):
     v_r_map = {}
     asic_obj_ptrn = "ASIC_STATE:.*:oid:0x\w{1,14}"
-    
-    if "ASIC_DB" in single_dict and 'keys' in single_dict["ASIC_DB"]:
-        for redis_key in single_dict["ASIC_DB"]['keys']:
+
+    if "ASIC_DB" in single_dict and "keys" in single_dict["ASIC_DB"]:
+        for redis_key in single_dict["ASIC_DB"]["keys"]:
             if re.match(asic_obj_ptrn, redis_key):
                 matches = re.findall(r"oid:0x\w{1,14}", redis_key)
                 if matches:
-                   vid = matches[0]
-                   v_r_map[vid] =  r.hget("ASIC_DB", "VIDTORID", vid)
-                   if not v_r_map[vid]:
-                       v_r_map[vid] = "Real ID Not Found"
+                    vid = matches[0]
+                    v_r_map[vid] = r.hget("ASIC_DB", "VIDTORID", vid)
+                    if not v_r_map[vid]:
+                        v_r_map[vid] = "Real ID Not Found"
     return v_r_map
+
 
 # Filter dbs which are not required
 def filter_out_dbs(db_list, collected_info):
@@ -123,14 +140,14 @@ def filter_out_dbs(db_list, collected_info):
                 del collected_info[arg][db]
     return collected_info
 
-def populate_fv(info, module, namespace):
 
+def populate_fv(info, module, namespace):
     all_dbs = set()
     for id in info.keys():
         for db_name in info[id].keys():
             all_dbs.add(db_name)
-            
-    db_dict = {}  
+
+    db_dict = {}
     for db_name in all_dbs:
         if db_name is "CONFIG_FILE":
             db_dict[db_name] = JsonSource()
@@ -138,7 +155,7 @@ def populate_fv(info, module, namespace):
         else:
             db_dict[db_name] = RedisSource()
             db_dict[db_name].connect(db_name, namespace)
-            
+
     final_info = {}
     for id in info.keys():
         final_info[id] = {}
@@ -148,8 +165,9 @@ def populate_fv(info, module, namespace):
             final_info[id][db_name]["tables_not_found"] = info[id][db_name]["tables_not_found"]
             for key in info[id][db_name]["keys"]:
                 final_info[id][db_name]["keys"].append({key : db_dict[db_name].get(db_name, key)})
-                 
+
     return final_info
+
 
 def get_dict_str(key_obj):
     table = []
@@ -157,15 +175,7 @@ def get_dict_str(key_obj):
         table.append(list(pair))
     return tabulate(table, headers=["field", "value"], tablefmt="psql")
 
-def get_keys(dump):
-    keys = []
-    for key_ in dump:
-        if isinstance(key_, dict) and key_:
-            keys.append(list(key_.keys())[0])
-        else:
-            keys.append(key_)
-    return keys
- 
+
 # print dump
 def print_dump(collected_info, table, module, identifier, key_map):
     if not table:
@@ -184,7 +194,7 @@ def print_dump(collected_info, table, module, identifier, key_map):
                     tabulate_fmt.append([tab])
                 total_info += tabulate(tabulate_fmt, ["Tables Not Found"], tablefmt="grid")
                 total_info += "\n"
-    
+
             if not key_map:
                 values = []
                 hdrs = ["Keys", "field-value pairs"]
@@ -204,7 +214,7 @@ def print_dump(collected_info, table, module, identifier, key_map):
                 temp = []
                 for pair in collected_info[ids][db]["vidtorid"].items():
                     temp.append(list(pair))
-                total_info +=str(tabulate(temp, headers=["vid", "rid"], tablefmt="grid"))
+                total_info += str(tabulate(temp, headers=["vid", "rid"], tablefmt="grid"))
             final_collection.append([ids, db, total_info])
 
     click.echo(tabulate(final_collection, top_header, tablefmt="grid"))
