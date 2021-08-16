@@ -51,6 +51,8 @@ Eg:
 
 TIME_BUF = 20
 SINCE_DEFAULT = "2 days ago"
+NO_COMM = "<unknown>"
+
 
 ##### Helper methods 
 def subprocess_exec(cmd):

@@ -143,9 +143,7 @@ setup(
         'scripts/watermarkcfg',
         'scripts/sonic-kdump-config',
         'scripts/centralize_database',
-        'scripts/null_route_helper',
-        'scripts/coredump_gen_handler',
-        'scripts/techsupport_cleanup'
+        'scripts/null_route_helper'
     ],
     entry_points={
         'console_scripts': [
@@ -231,5 +229,6 @@ setup(
         'Topic :: Utilities',
     ],
     keywords='sonic SONiC utilities command line cli CLI',
+    cmdclass={"pytest": PyTest},
     test_suite='setup.get_test_suite'
 )

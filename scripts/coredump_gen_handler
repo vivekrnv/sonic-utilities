@@ -14,15 +14,28 @@ import argparse
 import subprocess
 import syslog
 from swsscommon.swsscommon import SonicV2Connector
-from utilities_common.auto_techsupport_helper import * 
+from utilities_common.auto_techsupport_helper import *
+
 
 def handle_coredump_cleanup(dump_name):
-    self.db = SonicV2Connector(host="127.0.0.1")
-    self.db.connect(CFG_DB)
-    if self.db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
+    db = SonicV2Connector(host="127.0.0.1")
+    db.connect(CFG_DB)
+    if db.get(CFG_DB, AUTO_TS, CFG_CORE_CLEANUP) != "enabled":
         return
-     
-    
+
+    core_usage = db.get(CFG_DB, AUTO_TS, CFG_MAX_TS)
+    try:
+        core_usage = float(core_usage)
+    except:
+        core_usage = 0.0
+
+    if not core_usage:
+        _ , num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
+        syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
+        return
+
+    cleanup_process(max_ts, CORE_DUMP_DIR, CORE_DUMP_PTRN)
+
 
 class CriticalProcCoreDumpHandle():
     """
@@ -34,12 +47,12 @@ class CriticalProcCoreDumpHandle():
         self.proc_mp = {}
         self.core_ts_map = {}
         self.curr_ts_list = []
-    
+
     def handle_core_dump_creation_event(self):
         file_path = os.path.join(CORE_DUMP_DIR, self.core_name)
         if not verify_recent_file_creation(file_path):   
-            return 
-        
+            return
+
         self.db = SonicV2Connector(host="127.0.0.1")
         self.db.connect(CFG_DB)
         self.db.connect(STATE_DB)
@@ -50,21 +63,21 @@ class CriticalProcCoreDumpHandle():
         if proc not in self.proc_mp:
             print(self.proc_mp)
             return # Only handles the critical processes
-        
+
         FEATURE_KEY = FEATURE.format(self.proc_mp[proc])
-        if self.db.get(CFG_DB, FEATURE_KEY, TS) != "enabled":
+        if self.db.get(CFG_DB, FEATURE_KEY, llTS) != "enabled":
             return # Should be set "enabled" in the FEATURE Table
-        
+
         global_cooloff = self.db.get(CFG_DB, AUTO_TS, COOLOFF)
         proc_cooloff = self.db.get(CFG_DB, FEATURE_KEY, COOLOFF)
-    
+
         cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, proc)
         if cooloff_passed:
             since_cfg = self.get_since_arg()
             new_file = self.invoke_ts_cmd(since_cfg)
             if new_file:
                 self.db.set(STATE_DB, TS_MAP, os.path.basename(new_file[0]), "{};{}".format(self.core_name, int(time.time())))
-        
+
         core_usage = 0
         if self.db.hexists(CFG_DB, AUTO_TS, CFG_CORE_USAGE):
             core_usage = self.db.get(CFG_DB, AUTO_TS, CFG_CORE_USAGE)
@@ -72,24 +85,23 @@ class CriticalProcCoreDumpHandle():
                 core_usage = int(core_usage)
             except:
                 core_usage = 0
-            
+
         if core_usage == 0:
             _ , num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
             syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
-            return 
-        
+            return
+
         cleanup_process(core_usage, CORE_DUMP_PTRN, CORE_DUMP_DIR)
-    
+
     def get_since_arg(self):
         since_cfg = self.db.get(CFG_DB, AUTO_TS, CFG_SINCE)
-        if not since_cfg: 
+        if not since_cfg:
             return SINCE_DEFAULT
         rc, _, _ = subprocess_exec(["date", "--date=\"{}\"".format(since_cfg)])
         if rc != 0:
             return since_cfg
-        return SINCE_DEFAULT   
-        
-    
+        return SINCE_DEFAULT
+
     def invoke_ts_cmd(self, since_cfg):
         since_cfg = "\"" + since_cfg + "\""
         _, out, _ = subprocess_exec(["show", "techsupport", "--since", since_cfg]) 
@@ -101,7 +113,7 @@ class CriticalProcCoreDumpHandle():
         else:
             syslog.syslog(syslog.LOG_INFO, "'show techsupport' invocation is successful, {} is created".format(diff))
         return diff
-     
+
     def verify_cooloff(self, global_cooloff, proc_cooloff, proc):
         """Verify both the global cooloff and per-proc cooloff has passed"""
         self.curr_ts_list = get_ts_dumps(True)
@@ -113,10 +125,10 @@ class CriticalProcCoreDumpHandle():
                 print("Reached Here!!!@")
                 syslog.syslog(syslog.LOG_INFO, "Cooloff period has not yet passed.  No Techsupport Invocation is performed ")
                 return False
-        
+
         ts_map = self.db.get_all(STATE_DB, TS_MAP)
         self.parse_ts_map(ts_map)
-        
+
         if proc_cooloff and proc in self.core_ts_map:
             last_creation_time = self.core_ts_map[proc][0][0]
             proc_cooloff = float(proc_cooloff)
@@ -124,7 +136,7 @@ class CriticalProcCoreDumpHandle():
                 syslog.syslog(syslog.LOG_INFO, "Cooloff period for {} prcess has not yet passed.  No Techsupport Invocation is performed".format(proc))
                 return False
         return True
-    
+
     def parse_ts_map(self, ts_map):
         """Create core_dump, ts_dump & creation_time map"""
         print(ts_map)
@@ -135,7 +147,7 @@ class CriticalProcCoreDumpHandle():
             self.core_ts_map[core_dump].append((int(creation_time), ts_dump))
         for core_dump in self.core_ts_map:
             self.core_ts_map[core_dump].sort()
-        
+
     def fetch_critical_procs(self):
         """Fetches the critical_procs and corresponding docker names"""
         keys = self.db.keys(CFG_DB, FEATURE.format("*"))
@@ -148,16 +160,17 @@ class CriticalProcCoreDumpHandle():
             procs = stdout.split()
             for proc in procs:
                 if re.match("program:*", proc):
-                    self.proc_mp[proc.split(":")[-1]] = container   
+                    self.proc_mp[proc.split(":")[-1]] = container
+
 
 def main():
     parser = argparse.ArgumentParser(description='Auto Techsupport Invocation and CoreDump Mgmt Script')
     parser.add_argument('name', type=str, help='Core Dump Name', required=True)
     args = parser.parse_args()
-    syslog.openlog(logoption=syslog.LOG_PID)    
+    syslog.openlog(logoption=syslog.LOG_PID)
     cls = CoreDumpCreateHandle()
     cls.handle_core_dump_creation_event(args.name)
     handle_coredump_cleanup(dump_name)
-    
+
 if __name__ == "__main__":
     main()
