@@ -52,9 +52,11 @@ Eg:
 TIME_BUF = 20
 SINCE_DEFAULT = "2 days ago"
 NO_COMM = "<unknown>"
+WAIT_BUFFER = 40
+SLEEP_FOR = 4
 
 
-##### Helper methods 
+##### Helper methods
 def subprocess_exec(cmd):
     output = subprocess.run(
         cmd,
@@ -62,6 +64,7 @@ def subprocess_exec(cmd):
         text=True
     )
     return output.returncode, output.stdout, output.stderr
+
 
 def get_ts_dumps(full_path=False):
     """ Get the list of TS dumps in the TS_DIR, sorted by the creation time """
@@ -71,6 +74,7 @@ def get_ts_dumps(full_path=False):
         return curr_list
     return [os.path.basename(name) for name in curr_list]
 
+
 def verify_recent_file_creation(file_path, in_last_sec=TIME_BUF):
     """ Verify if the file exists and is created within the last TIME_BUF sec """
     curr = time.time()
@@ -79,9 +83,10 @@ def verify_recent_file_creation(file_path, in_last_sec=TIME_BUF):
     except:
         return False
     if curr - was_created_on < in_last_sec:
-        return True 
+        return True
     else:
         return False
+
 
 def get_stats(ptrn, collect_stats=True):
     """
@@ -98,17 +103,18 @@ def get_stats(ptrn, collect_stats=True):
         total_size += file_size
     if collect_stats:
         # Sort by the Descending order of file_creation_time, size_of_file
-        file_stats = sorted(file_stats, key = lambda sub: (-sub[0], sub[1], sub[2]))
+        file_stats = sorted(file_stats, key=lambda sub: (-sub[0], sub[1], sub[2]))
     return (file_stats, total_size)
+
 
 def pretty_size(bytes):
     """Get human-readable file sizes"""
     UNITS_MAPPING = [
-        (1<<50, ' PB'),
-        (1<<40, ' TB'),
-        (1<<30, ' GB'),
-        (1<<20, ' MB'),
-        (1<<10, ' KB'),
+        (1 << 50, ' PB'),
+        (1 << 40, ' TB'),
+        (1 << 30, ' GB'),
+        (1 << 20, ' MB'),
+        (1 << 10, ' KB'),
         (1, (' byte', ' bytes')),
     ]
     for factor, suffix in UNITS_MAPPING:
@@ -124,20 +130,21 @@ def pretty_size(bytes):
             suffix = multiple
     return str(amount) + suffix
 
+
 def cleanup_process(limit, file_ptrn, dir):
     """Deletes the oldest files incrementally until the size is under limit"""
-    if not(1 <= limit and limit <= 100):
+    if not(0 < limit and limit < 100):
         syslog.syslog(syslog.LOG_ERR, "core_usage_limit can only be between 1 and 100, whereas the configured value is: {}".format(limit))
-        return 
-    
+        return
+
     fs_stats, curr_size = get_stats(os.path.join(dir, file_ptrn))
     orig_dumps = len(fs_stats)
-    disk_stats = shutil.disk_usage(dir) 
+    disk_stats = shutil.disk_usage(dir)
     max_limit_bytes = math.floor((limit*disk_stats.total/100))
-    
+
     if curr_size <= max_limit_bytes:
-        return 
-    
+        return
+
     num_bytes_to_del = curr_size - max_limit_bytes
     num_deleted = 0
     removed_files = []

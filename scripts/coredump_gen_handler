@@ -2,8 +2,8 @@
 
 """
 coredump_gen_handler script.
-    This script is invoked by the coredump-compress script 
-    for auto techsupport invocation and cleanup core dumps. 
+    This script is invoked by the coredump-compress script
+    for auto techsupport invocation and cleanup core dumps.
     For more info, refer to the Event Driven TechSupport & CoreDump Mgmt HLD
 """
 import os, re
@@ -18,28 +18,28 @@ from utilities_common.auto_techsupport_helper import *
 
 
 def handle_coredump_cleanup(dump_name):
-    db = SonicV2Connector(host="127.0.0.1")
+    db = SonicV2Connector(use_unix_socket_path=True)
     db.connect(CFG_DB)
     if db.get(CFG_DB, AUTO_TS, CFG_CORE_CLEANUP) != "enabled":
         return
 
-    core_usage = db.get(CFG_DB, AUTO_TS, CFG_MAX_TS)
+    core_usage = db.get(CFG_DB, AUTO_TS, CFG_CORE_USAGE)
     try:
         core_usage = float(core_usage)
-    except:
+    except Exception as e:
         core_usage = 0.0
 
     if not core_usage:
-        _ , num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
+        _, num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
         syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
         return
 
-    cleanup_process(max_ts, CORE_DUMP_DIR, CORE_DUMP_PTRN)
+    cleanup_process(core_usage, CORE_DUMP_PTRN,  CORE_DUMP_DIR)
 
 
 class CriticalProcCoreDumpHandle():
     """
-    Class to handle coredump creation event for critical processes inside the docker
+    Class to handle coredump creation event for critical processes
     """
     def __init__(self, core_name):
         self.core_name = core_name
@@ -50,80 +50,79 @@ class CriticalProcCoreDumpHandle():
 
     def handle_core_dump_creation_event(self):
         file_path = os.path.join(CORE_DUMP_DIR, self.core_name)
-        if not verify_recent_file_creation(file_path):   
+        if not verify_recent_file_creation(file_path):
             return
 
-        self.db = SonicV2Connector(host="127.0.0.1")
+        self.db = SonicV2Connector(use_unix_socket_path=True)
         self.db.connect(CFG_DB)
         self.db.connect(STATE_DB)
-        if self.db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
+        if self.db.get(CFG_DB, AUTO_TS, CFG_INVOC_TS) != "enabled":
             return
-        self.fetch_critical_procs()
-        proc = self.core_name.split(".")[0]
-        if proc not in self.proc_mp:
-            print(self.proc_mp)
-            return # Only handles the critical processes
 
-        FEATURE_KEY = FEATURE.format(self.proc_mp[proc])
-        if self.db.get(CFG_DB, FEATURE_KEY, llTS) != "enabled":
-            return # Should be set "enabled" in the FEATURE Table
+        container_name, process_name = self.fetch_exit_event()
+        if not (process_name and container_name):
+            msg = "No Corresponding Exit Event was found for {}. Techsupport Invocation is skipped".format(self.core_name)
+            syslog.syslog(syslog.LOG_INFO, msg)
+            return
+
+        FEATURE_KEY = FEATURE.format(container_name)
+        if self.db.get(CFG_DB, FEATURE_KEY, TS) != "enabled":
+            msg = "auto-techsupport feature for {} is not enabled. Techsupport Invocation is skipped. core: {}"
+            syslog.syslog(syslog.LOG_NOTICE, msg.format(container_name, self.core_name))
+            return
 
         global_cooloff = self.db.get(CFG_DB, AUTO_TS, COOLOFF)
         proc_cooloff = self.db.get(CFG_DB, FEATURE_KEY, COOLOFF)
 
-        cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, proc)
+        try:
+            global_cooloff = float(global_cooloff)
+        except:
+            global_cooloff = 0.0
+
+        try:
+            proc_cooloff = float(proc_cooloff)
+        except:
+            proc_cooloff = 0.0
+
+        cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, process_name)
         if cooloff_passed:
             since_cfg = self.get_since_arg()
             new_file = self.invoke_ts_cmd(since_cfg)
             if new_file:
-                self.db.set(STATE_DB, TS_MAP, os.path.basename(new_file[0]), "{};{}".format(self.core_name, int(time.time())))
-
-        core_usage = 0
-        if self.db.hexists(CFG_DB, AUTO_TS, CFG_CORE_USAGE):
-            core_usage = self.db.get(CFG_DB, AUTO_TS, CFG_CORE_USAGE)
-            try:
-                core_usage = int(core_usage)
-            except:
-                core_usage = 0
-
-        if core_usage == 0:
-            _ , num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
-            syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
-            return
-
-        cleanup_process(core_usage, CORE_DUMP_PTRN, CORE_DUMP_DIR)
+                field = os.path.basename(new_file[0])
+                value = "{};{};{}".format(self.core_name, int(time.time()), process_name)
+                self.db.set(STATE_DB, TS_MAP, field, value)
 
     def get_since_arg(self):
         since_cfg = self.db.get(CFG_DB, AUTO_TS, CFG_SINCE)
         if not since_cfg:
             return SINCE_DEFAULT
-        rc, _, _ = subprocess_exec(["date", "--date=\"{}\"".format(since_cfg)])
-        if rc != 0:
+        rc, _, stderr = subprocess_exec(["date", "--date='{}'".format(since_cfg)])
+        if rc == 0:
             return since_cfg
         return SINCE_DEFAULT
 
     def invoke_ts_cmd(self, since_cfg):
-        since_cfg = "\"" + since_cfg + "\""
-        _, out, _ = subprocess_exec(["show", "techsupport", "--since", since_cfg]) 
+        since_cfg = "'" + since_cfg + "'"
+        cmd = " ".join(["show", "techsupport", "--since", since_cfg])
+        _, _, _ = subprocess_exec(["show", "techsupport", "--since", since_cfg])
         new_list = get_ts_dumps(True)
         diff = list(set(new_list).difference(set(self.curr_ts_list)))
         self.curr_ts_list = new_list
         if len(diff) == 0:
-            syslog.syslog(syslog.LOG_ERR, "'show techsupport' invocation was successful but no TechSupport Dump was found")
+            syslog.syslog(syslog.LOG_ERR, "{} was run, but no techsupport dump is found".format(cmd))
         else:
-            syslog.syslog(syslog.LOG_INFO, "'show techsupport' invocation is successful, {} is created".format(diff))
+            syslog.syslog(syslog.LOG_INFO, "{} is successful, {} is created".format(cmd, diff))
         return diff
 
     def verify_cooloff(self, global_cooloff, proc_cooloff, proc):
         """Verify both the global cooloff and per-proc cooloff has passed"""
         self.curr_ts_list = get_ts_dumps(True)
-        if global_cooloff and len(self.curr_ts_list) != 0:
-            global_cooloff = float(global_cooloff)
+        if global_cooloff and self.curr_ts_list:
             last_ts_dump_creation = os.path.getmtime(self.curr_ts_list[-1])
-            print(last_ts_dump_creation, global_cooloff, time.time())
             if time.time() - last_ts_dump_creation < global_cooloff:
-                print("Reached Here!!!@")
-                syslog.syslog(syslog.LOG_INFO, "Cooloff period has not yet passed.  No Techsupport Invocation is performed ")
+                msg = "Global Cooloff period has not passed. Techsupport Invocation is skipped. Core: {}"
+                syslog.syslog(syslog.LOG_INFO, msg.format(self.core_name))
                 return False
 
         ts_map = self.db.get_all(STATE_DB, TS_MAP)
@@ -131,36 +130,44 @@ class CriticalProcCoreDumpHandle():
 
         if proc_cooloff and proc in self.core_ts_map:
             last_creation_time = self.core_ts_map[proc][0][0]
-            proc_cooloff = float(proc_cooloff)
             if time.time() - last_creation_time < proc_cooloff:
-                syslog.syslog(syslog.LOG_INFO, "Cooloff period for {} prcess has not yet passed.  No Techsupport Invocation is performed".format(proc))
+                msg = "Process Cooloff period for {} has not passed. Techsupport Invocation is skipped. Core: {}"
+                syslog.syslog(syslog.LOG_INFO, msg.format(proc, self.core_name))
                 return False
         return True
 
     def parse_ts_map(self, ts_map):
-        """Create core_dump, ts_dump & creation_time map"""
-        print(ts_map)
+        """Create proc_name, ts_dump & creation_time map"""
         for ts_dump, tup in ts_map.items():
-            core_dump, creation_time = tup.split(";")
-            if core_dump not in self.core_ts_map:
-                self.core_ts_map[core_dump] = []
-            self.core_ts_map[core_dump].append((int(creation_time), ts_dump))
-        for core_dump in self.core_ts_map:
-            self.core_ts_map[core_dump].sort()
+            core_dump, creation_time, proc_name = tup.split(";")
+            if proc_name not in self.core_ts_map:
+                self.core_ts_map[proc_name] = []
+            self.core_ts_map[proc_name].append((int(creation_time), ts_dump))
+        for proc_name in self.core_ts_map:
+            self.core_ts_map[proc_name].sort()
 
-    def fetch_critical_procs(self):
-        """Fetches the critical_procs and corresponding docker names"""
-        keys = self.db.keys(CFG_DB, FEATURE.format("*"))
-        containers = [key.split("|")[-1] for key in keys]
-        print(keys, containers)
-        for container in containers:
-            rc, stdout, _ = subprocess_exec(["docker", "exec", "-t", container, "cat", "/etc/supervisor/critical_processes"])
-            if rc != 0:
-                continue
-            procs = stdout.split()
-            for proc in procs:
-                if re.match("program:*", proc):
-                    self.proc_mp[proc.split(":")[-1]] = container
+    def fetch_exit_event(self):
+        """Fetch the relevant entry in the AUTO_TECHSUPPORT|PROC_EXIT_EVENTS table"""
+        comm, _, pid, _, _ = self.core_name.split(".")
+        feature_name, supervisor_proc_name = "", ""
+        start = time.time()
+        while time.time() - start <= WAIT_BUFFER:
+            data = self.db.get_all("STATE_DB", CRITICAL_PROC)
+            for field in data:
+                try:
+                    pid_, comm_ = data[field].split(";")
+                    if pid_ == pid and comm in comm_:
+                        feature_name, supervisor_proc_name = field.split(";")
+                        break
+                    elif comm_ == NO_COMM and pid_ == pid:
+                        feature_name, supervisor_proc_name = field.split(";")
+                        continue
+                except Exception as e:
+                    continue
+            if feature_name and supervisor_proc_name:
+                break
+            time.sleep(SLEEP_FOR)
+        return feature_name, supervisor_proc_name
 
 
 def main():
