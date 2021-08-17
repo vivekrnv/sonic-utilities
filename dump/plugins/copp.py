@@ -4,46 +4,46 @@ from dump.helper import create_template_dict, handle_multiple_keys_matched_error
 from dump.helper import handle_error
 from .executor import Executor
 
-TRAP_ID_MAP = { 
-    "stp" : "SAI_HOSTIF_TRAP_TYPE_STP",
-    "lacp" : "SAI_HOSTIF_TRAP_TYPE_LACP",
-    "eapol" : "SAI_HOSTIF_TRAP_TYPE_EAPOL",
-    "lldp" : "SAI_HOSTIF_TRAP_TYPE_LLDP",
-    "pvrst" : "SAI_HOSTIF_TRAP_TYPE_PVRST",
-    "igmp_query" : "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_QUERY",
-    "igmp_leave" : "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_LEAVE",
-    "igmp_v1_report" : "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V1_REPORT",
-    "igmp_v2_report" : "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V2_REPORT",
-    "igmp_v3_report" : "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V3_REPORT",
-    "sample_packet" : "SAI_HOSTIF_TRAP_TYPE_SAMPLEPACKET",
-    "switch_cust_range" : "SAI_HOSTIF_TRAP_TYPE_SWITCH_CUSTOM_RANGE_BASE",
-    "arp_req" : "SAI_HOSTIF_TRAP_TYPE_ARP_REQUEST",
-    "arp_resp" : "SAI_HOSTIF_TRAP_TYPE_ARP_RESPONSE",
-    "dhcp" : "SAI_HOSTIF_TRAP_TYPE_DHCP",
-    "ospf" : "SAI_HOSTIF_TRAP_TYPE_OSPF",
-    "pim" : "SAI_HOSTIF_TRAP_TYPE_PIM",
-    "vrrp" : "SAI_HOSTIF_TRAP_TYPE_VRRP",
-    "bgp" : "SAI_HOSTIF_TRAP_TYPE_BGP",
-    "dhcpv6" : "SAI_HOSTIF_TRAP_TYPE_DHCPV6",
-    "ospfv6" : "SAI_HOSTIF_TRAP_TYPE_OSPFV6",
-    "vrrpv6" : "SAI_HOSTIF_TRAP_TYPE_VRRPV6",
-    "bgpv6" : "SAI_HOSTIF_TRAP_TYPE_BGPV6",
-    "neigh_discovery" : "SAI_HOSTIF_TRAP_TYPE_IPV6_NEIGHBOR_DISCOVERY",
-    "mld_v1_v2" : "SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_V2",
-    "mld_v1_report" : "SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_REPORT",
-    "mld_v1_done" : "SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_DONE",
-    "mld_v2_report" : "SAI_HOSTIF_TRAP_TYPE_MLD_V2_REPORT",
-    "ip2me" : "SAI_HOSTIF_TRAP_TYPE_IP2ME",
-    "ssh" : "SAI_HOSTIF_TRAP_TYPE_SSH",
-    "snmp" : "SAI_HOSTIF_TRAP_TYPE_SNMP",
-    "router_custom_range" : "SAI_HOSTIF_TRAP_TYPE_ROUTER_CUSTOM_RANGE_BASE",
-    "l3_mtu_error" : "SAI_HOSTIF_TRAP_TYPE_L3_MTU_ERROR",
-    "ttl_error" : "SAI_HOSTIF_TRAP_TYPE_TTL_ERROR",
-    "udld" : "SAI_HOSTIF_TRAP_TYPE_UDLD",
-    "bfd" : "SAI_HOSTIF_TRAP_TYPE_BFD",
-    "bfdv6" : "SAI_HOSTIF_TRAP_TYPE_BFDV6",
-    "src_nat_miss" : "SAI_HOSTIF_TRAP_TYPE_SNAT_MISS",
-    "dest_nat_miss" : "SAI_HOSTIF_TRAP_TYPE_DNAT_MISS" 
+TRAP_ID_MAP = {
+    "stp": "SAI_HOSTIF_TRAP_TYPE_STP",
+    "lacp": "SAI_HOSTIF_TRAP_TYPE_LACP",
+    "eapol": "SAI_HOSTIF_TRAP_TYPE_EAPOL",
+    "lldp": "SAI_HOSTIF_TRAP_TYPE_LLDP",
+    "pvrst": "SAI_HOSTIF_TRAP_TYPE_PVRST",
+    "igmp_query": "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_QUERY",
+    "igmp_leave": "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_LEAVE",
+    "igmp_v1_report": "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V1_REPORT",
+    "igmp_v2_report": "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V2_REPORT",
+    "igmp_v3_report": "SAI_HOSTIF_TRAP_TYPE_IGMP_TYPE_V3_REPORT",
+    "sample_packet": "SAI_HOSTIF_TRAP_TYPE_SAMPLEPACKET",
+    "switch_cust_range": "SAI_HOSTIF_TRAP_TYPE_SWITCH_CUSTOM_RANGE_BASE",
+    "arp_req": "SAI_HOSTIF_TRAP_TYPE_ARP_REQUEST",
+    "arp_resp": "SAI_HOSTIF_TRAP_TYPE_ARP_RESPONSE",
+    "dhcp": "SAI_HOSTIF_TRAP_TYPE_DHCP",
+    "ospf": "SAI_HOSTIF_TRAP_TYPE_OSPF",
+    "pim": "SAI_HOSTIF_TRAP_TYPE_PIM",
+    "vrrp": "SAI_HOSTIF_TRAP_TYPE_VRRP",
+    "bgp": "SAI_HOSTIF_TRAP_TYPE_BGP",
+    "dhcpv6": "SAI_HOSTIF_TRAP_TYPE_DHCPV6",
+    "ospfv6": "SAI_HOSTIF_TRAP_TYPE_OSPFV6",
+    "vrrpv6": "SAI_HOSTIF_TRAP_TYPE_VRRPV6",
+    "bgpv6": "SAI_HOSTIF_TRAP_TYPE_BGPV6",
+    "neigh_discovery": "SAI_HOSTIF_TRAP_TYPE_IPV6_NEIGHBOR_DISCOVERY",
+    "mld_v1_v2": "SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_V2",
+    "mld_v1_report": "SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_REPORT",
+    "mld_v1_done": "SAI_HOSTIF_TRAP_TYPE_IPV6_MLD_V1_DONE",
+    "mld_v2_report": "SAI_HOSTIF_TRAP_TYPE_MLD_V2_REPORT",
+    "ip2me": "SAI_HOSTIF_TRAP_TYPE_IP2ME",
+    "ssh": "SAI_HOSTIF_TRAP_TYPE_SSH",
+    "snmp": "SAI_HOSTIF_TRAP_TYPE_SNMP",
+    "router_custom_range": "SAI_HOSTIF_TRAP_TYPE_ROUTER_CUSTOM_RANGE_BASE",
+    "l3_mtu_error": "SAI_HOSTIF_TRAP_TYPE_L3_MTU_ERROR",
+    "ttl_error": "SAI_HOSTIF_TRAP_TYPE_TTL_ERROR",
+    "udld": "SAI_HOSTIF_TRAP_TYPE_UDLD",
+    "bfd": "SAI_HOSTIF_TRAP_TYPE_BFD",
+    "bfdv6": "SAI_HOSTIF_TRAP_TYPE_BFDV6",
+    "src_nat_miss": "SAI_HOSTIF_TRAP_TYPE_SNAT_MISS",
+    "dest_nat_miss": "SAI_HOSTIF_TRAP_TYPE_DNAT_MISS"
 }
 
 CFG_COPP_TRAP_TABLE_NAME = "COPP_TRAP"
@@ -61,10 +61,10 @@ ASIC_QUEUE_OBJ = ASIC_DB_PREFIX + ":" + "SAI_OBJECT_TYPE_QUEUE"
 
 
 class Copp(Executor):
-    
+
     ARG_NAME = "trap_id"
     CONFIG_FILE = "/etc/sonic/copp_cfg.json"
-    
+
     def __init__(self):
         self.match_engine = MatchEngine()
         self.copp_trap_cfg_key = ""
@@ -72,7 +72,7 @@ class Copp(Executor):
         self.trap_id = ""
         self.ns = ""
         self.ret_temp = {}
-    
+
     def fetch_all_trap_ids(self, ret):
         traps = []
         if not ret["error"]:
@@ -81,18 +81,18 @@ class Copp(Executor):
                 for id in temp_ids:
                     traps.append(id)
         return traps
-          
+
     def get_all_args(self, ns):
         all_trap_ids = set()
         req = MatchRequest(file=Copp.CONFIG_FILE, table=CFG_COPP_TRAP_TABLE_NAME, return_fields=["trap_ids"], ns=ns)
         ret = self.match_engine.fetch(req)
         all_trap_ids.update(self.fetch_all_trap_ids(ret))
-        
+
         req = MatchRequest(db="CONFIG_DB", table=CFG_COPP_TRAP_TABLE_NAME, return_fields=["trap_ids"], ns=ns)
         ret = self.match_engine.fetch(req)
         all_trap_ids.update(self.fetch_all_trap_ids(ret))
         return list(all_trap_ids)
-    
+
     def execute(self, params):
         self.ret_temp = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB", "CONFIG_FILE"])
         self.ns = params["namespace"]
@@ -104,7 +104,7 @@ class Copp(Executor):
         self.handle_asic_db()
         self.handle_state_db()
         return self.ret_temp
-    
+
     def handle_state_db(self):
         req = MatchRequest(db="STATE_DB", table="COPP_TRAP_TABLE", key_pattern=self.copp_trap_cfg_key)
         ret = self.match_engine.fetch(req)
@@ -112,16 +112,16 @@ class Copp(Executor):
             self.ret_temp["STATE_DB"]["keys"].append(ret["keys"][0])
         else:
             self.ret_temp["STATE_DB"]["tables_not_found"].append("COPP_TRAP_TABLE")
-        
+
         req = MatchRequest(db="STATE_DB", table="COPP_GROUP_TABLE", key_pattern=self.trap_group)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
             self.ret_temp["STATE_DB"]["keys"].append(ret["keys"][0])
         else:
             self.ret_temp["STATE_DB"]["tables_not_found"].append("COPP_GROUP_TABLE")
-    
+
     def handle_appl_db(self):
-        req = MatchRequest(db="APPL_DB", table=APP_COPP_TABLE_NAME, key_pattern="*", field="trap_ids", 
+        req = MatchRequest(db="APPL_DB", table=APP_COPP_TABLE_NAME, key_pattern="*", field="trap_ids",
                            value=self.trap_id, match_entire_list=False, return_fields=["trap_group"])
         ret = self.match_engine.fetch(req)
         tg = ""
@@ -133,15 +133,15 @@ class Copp(Executor):
             tg = ret["return_values"][ret["keys"][0]]["trap_group"]
         else:
             self.ret_temp["APPL_DB"]["tables_not_found"].append(APP_COPP_TABLE_NAME)
-        
+
         if tg != self.trap_group and not self.trap_group and not tg:
             err_str = "The Associated Trap_group for the trap_id found in APPL and CONFIG_DB/CONFIG_FILE did not match. In APPL_DB: {}, CONFIG_DB: {}".format(tg, self.trap_group)
             err_str += "\n Proceding with the trap group found in APPL DB"
             handle_error(err_str, False)
-        
+
         if tg:
             self.trap_group = tg
-   
+
     def handle_asic_db(self):
         if self.trap_id not in TRAP_ID_MAP:
             handle_error("Invalid Trap Id {} is provided, no corresponding SAI_TRAP_OBJ is found".format(self.trap_id), False)
@@ -154,13 +154,13 @@ class Copp(Executor):
         self.__get_asic_queue_obj(sai_queue)
         sai_hostif_vid = self.__get_asic_hostif_entry_obj(sai_trap)
         self.__get_asic_hostif_obj(sai_hostif_vid)
-        
+
     def __get_asic_hostif_trap_obj(self, sai_trap_id):
         if not sai_trap_id:
             self.ret_temp["ASIC_DB"]["tables_not_found"].append(ASIC_TRAP_OBJ)
             return "", ""
-        
-        req = MatchRequest(db="ASIC_DB", table=ASIC_TRAP_OBJ, field="SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE", value=sai_trap_id, 
+
+        req = MatchRequest(db="ASIC_DB", table=ASIC_TRAP_OBJ, field="SAI_HOSTIF_TRAP_ATTR_TRAP_TYPE", value=sai_trap_id,
                            ns=self.ns, return_fields=["SAI_HOSTIF_TRAP_ATTR_TRAP_GROUP"])
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
@@ -173,13 +173,13 @@ class Copp(Executor):
         else:
             self.ret_temp["ASIC_DB"]["tables_not_found"].append(ASIC_TRAP_OBJ)
             return "", ""
-    
+
     def __get_asic_hostif_trap_group_obj(self, trap_group_obj):
         if not trap_group_obj:
             self.ret_temp["ASIC_DB"]["tables_not_found"].append(ASIC_TRAP_GROUP_OBJ)
             return "", ""
-        
-        req = MatchRequest(db="ASIC_DB", table=ASIC_TRAP_GROUP_OBJ, key_pattern=trap_group_obj, ns=self.ns, 
+
+        req = MatchRequest(db="ASIC_DB", table=ASIC_TRAP_GROUP_OBJ, key_pattern=trap_group_obj, ns=self.ns,
                            return_fields=["SAI_HOSTIF_TRAP_GROUP_ATTR_QUEUE", "SAI_HOSTIF_TRAP_GROUP_ATTR_POLICER"])
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
@@ -191,36 +191,36 @@ class Copp(Executor):
         else:
             self.ret_temp["ASIC_DB"]["tables_not_found"].append(ASIC_TRAP_GROUP_OBJ)
             return "", ""
-    
+
     def __get_asic_policer_obj(self, policer_sai_obj):
         # Not adding to tables_not_found because, some of the trap_ids might not have a policer associated with them
         # and that is expected
         if not policer_sai_obj:
-            return 
+            return
         req = MatchRequest(db="ASIC_DB", table=ASIC_POLICER_OBJ, key_pattern=policer_sai_obj, ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
             self.ret_temp["ASIC_DB"]["keys"].append(ret["keys"][0])
-             
+
     def __get_asic_queue_obj(self, queue_sai_obj):
         # Not adding tp tables_not_found because of the type of reason specified for policer obj
         if not queue_sai_obj:
-            return 
+            return
         req = MatchRequest(db="ASIC_DB", table=ASIC_QUEUE_OBJ, field="SAI_QUEUE_ATTR_INDEX", value=queue_sai_obj, ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
-            self.ret_temp["ASIC_DB"]["keys"].append(ret["keys"][0]) 
-    
+            self.ret_temp["ASIC_DB"]["keys"].append(ret["keys"][0])
+
     def __get_asic_hostif_entry_obj(self, sai_trap_key):
         # Not adding tp tables_not_found because of the type of reason specified for policer obj
         if not sai_trap_key:
-            return 
+            return
         matches = re.findall(r"oid:0x\w{1,14}", sai_trap_key)
         if matches:
             sai_trap_vid = matches[0]
         else:
-            return 
-        req = MatchRequest(db="ASIC_DB", table=ASIC_HOSTIF_TABLE_ENTRY, field="SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID", 
+            return
+        req = MatchRequest(db="ASIC_DB", table=ASIC_HOSTIF_TABLE_ENTRY, field="SAI_HOSTIF_TABLE_ENTRY_ATTR_TRAP_ID",
                            value=sai_trap_vid, return_fields=["SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF"], ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
@@ -228,16 +228,16 @@ class Copp(Executor):
             self.ret_temp["ASIC_DB"]["keys"].append(sai_hostif_table_entry_key)
             sai_hostif_vid = ret["return_values"][sai_hostif_table_entry_key]["SAI_HOSTIF_TABLE_ENTRY_ATTR_HOST_IF"]
             return sai_hostif_vid
-    
+
     def __get_asic_hostif_obj(self, sai_hostif_vid):
          # Not adding tp tables_not_found because of the type of reason specified for policer obj
         if not sai_hostif_vid:
-            return 
+            return
         req = MatchRequest(db="ASIC_DB", table=ASIC_HOSTIF, key_pattern=sai_hostif_vid, ns=self.ns)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
-            self.ret_temp["ASIC_DB"]["keys"].append(ret["keys"][0]) 
-    
+            self.ret_temp["ASIC_DB"]["keys"].append(ret["keys"][0])
+
      # When the user writes config to CONFIG_DB, that takes precedence over default config
     def handle_user_and_default_config(self):
         # ------------------ Find trap_id_key and trap_group from both the sources
@@ -248,43 +248,43 @@ class Copp(Executor):
             trap_id_key_cf, trap_group_cf = self.__find_trap_id_in_conf_file()
         elif trap_id_key_db and not trap_group_db:
             _, trap_group_cf = self.__find_trap_id_in_conf_file(trap_id_key_db.split("|")[-1], False)
-        
+
         # ------------------ Find any diff and fill the return dictionary with COPP_TRAP keys
         if trap_id_key_db:
             self.ret_temp["CONFIG_DB"]["keys"].append(trap_id_key_db)
-            self.copp_trap_cfg_key = trap_id_key_db.split("|")[-1] 
+            self.copp_trap_cfg_key = trap_id_key_db.split("|")[-1]
             id_in_file, _ = self.__find_trap_id_in_conf_file(self.copp_trap_cfg_key, False)
-            if id_in_file == trap_id_key_db: # If any diff
+            if id_in_file == trap_id_key_db:  # If any diff
                 self.ret_temp["CONFIG_FILE"]["keys"].append(trap_id_key_db)
         elif trap_id_key_cf:
             self.ret_temp["CONFIG_FILE"]["keys"].append(trap_id_key_cf)
             self.copp_trap_cfg_key = trap_id_key_cf.split("|")[-1]
             id_in_file, _ = self.__find_trap_id_in_db(self.copp_trap_cfg_key, False)
-            if id_in_file == trap_id_key_cf: #  # Find the diff, if any, inside the CONFIG DB
+            if id_in_file == trap_id_key_cf:  # Find the diff, if any, inside the CONFIG DB
                 self.ret_temp["CONFIG_DB"]["keys"].append(trap_id_key_cf)
         else:
             self.ret_temp["CONFIG_FILE"]["tables_not_found"].append(CFG_COPP_TRAP_TABLE_NAME)
             self.ret_temp["CONFIG_DB"]["tables_not_found"].append(CFG_COPP_TRAP_TABLE_NAME)
-        
-        # ------------------ Find any diff and fill the return dictionary with COPP_GROUP keys  
+
+        # ------------------ Find any diff and fill the return dictionary with COPP_GROUP keys
         if trap_group_db:  # Preference to User-provided Config
-            self.trap_group = trap_group_db 
-            trap_in_cfg_file = False    
-        elif trap_group_cf: # Then, the preference to the group found in CFG_File
+            self.trap_group = trap_group_db
+            trap_in_cfg_file = False
+        elif trap_group_cf:  # Then, the preference to the group found in CFG_File
             self.trap_group = trap_group_cf
             trap_in_cfg_file = True
         else:
             self.ret_temp["CONFIG_FILE"]["tables_not_found"].append(CFG_COPP_GROUP_TABLE_NAME)
-            self.ret_temp["CONFIG_DB"]["tables_not_found"].append(CFG_COPP_GROUP_TABLE_NAME) 
+            self.ret_temp["CONFIG_DB"]["tables_not_found"].append(CFG_COPP_GROUP_TABLE_NAME)
             return
-        tg_in_default = self.__fill_trap_group_in_conf_file(trap_in_cfg_file) # Check if the trap_group in cfg_file
+        tg_in_default = self.__fill_trap_group_in_conf_file(trap_in_cfg_file)  # Check if the trap_group in cfg_file
         # Trap_group is expected to be in cfg_db when
         # 1) Trap_group is not found in cfg_file
         # 2) Trap_ID was provided by the user i.e trap_in_cfg_file = False
         # Otherwise, we're just looking for diff
         self.__fill_trap_group_in_conf_db(not(tg_in_default) and not(trap_in_cfg_file))
-        
-    def __fill_trap_group_in_conf_file(self, not_found_report=True):  
+
+    def __fill_trap_group_in_conf_file(self, not_found_report=True):
         req = MatchRequest(table=CFG_COPP_GROUP_TABLE_NAME, key_pattern=self.trap_group, ns=self.ns, file=Copp.CONFIG_FILE)
         ret = self.match_engine.fetch(req)
         key_tg = ""
@@ -295,9 +295,9 @@ class Copp(Executor):
         elif not_found_report:
             self.ret_temp["CONFIG_FILE"]["tables_not_found"].append(CFG_COPP_GROUP_TABLE_NAME)
         return False
-           
-    def __fill_trap_group_in_conf_db(self, not_found_report=True):  
-        req = MatchRequest(table=CFG_COPP_GROUP_TABLE_NAME, key_pattern=self.trap_group, ns=self.ns, db="CONFIG_DB")  
+
+    def __fill_trap_group_in_conf_db(self, not_found_report=True):
+        req = MatchRequest(table=CFG_COPP_GROUP_TABLE_NAME, key_pattern=self.trap_group, ns=self.ns, db="CONFIG_DB")
         ret = self.match_engine.fetch(req)
         key_tg = ""
         if not ret["error"] and len(ret["keys"]) > 0:
@@ -307,13 +307,13 @@ class Copp(Executor):
         elif not_found_report:
             self.ret_temp["CONFIG_DB"]["tables_not_found"].append(CFG_COPP_GROUP_TABLE_NAME)
         return False
-    
+
     def __find_trap_id_in_conf_file(self, key_ptrn="*", do_fv_check=True):
         field_, value_ = None, None
         if do_fv_check:
             field_ = "trap_ids"
             value_ = self.trap_id
-        req = MatchRequest(file=Copp.CONFIG_FILE, table=CFG_COPP_TRAP_TABLE_NAME, key_pattern=key_ptrn, match_entire_list=False, 
+        req = MatchRequest(file=Copp.CONFIG_FILE, table=CFG_COPP_TRAP_TABLE_NAME, key_pattern=key_ptrn, match_entire_list=False,
                            ns=self.ns, return_fields=["trap_group"], field=field_, value=value_)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
@@ -324,13 +324,13 @@ class Copp(Executor):
             return key_copp_trap, ret["return_values"][key_copp_trap]["trap_group"]
         else:
             return "", ""
-    
+
     def __find_trap_id_in_db(self, key_ptrn="*", do_fv_check=True):
         field_, value_ = None, None
         if do_fv_check:
             field_ = "trap_ids"
             value_ = self.trap_id
-        req = MatchRequest(db="CONFIG_DB", table=CFG_COPP_TRAP_TABLE_NAME, key_pattern=key_ptrn, match_entire_list=False, 
+        req = MatchRequest(db="CONFIG_DB", table=CFG_COPP_TRAP_TABLE_NAME, key_pattern=key_ptrn, match_entire_list=False,
                            ns=self.ns, return_fields=["trap_group"], field=field_, value=value_)
         ret = self.match_engine.fetch(req)
         if not ret["error"] and len(ret["keys"]) > 0:
@@ -340,4 +340,4 @@ class Copp(Executor):
             key_copp_trap = ret["keys"][0]
             return key_copp_trap, ret["return_values"][key_copp_trap]["trap_group"]
         else:
-            return "", ""  
+            return "", ""

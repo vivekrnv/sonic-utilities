@@ -1,4 +1,6 @@
-import json, os, sys
+import json
+import os
+import sys
 import jsonpatch
 import unittest
 import pytest
@@ -11,19 +13,21 @@ from .mock_sonicv2connector import MockSonicV2Connector
 module_tests_path = os.path.dirname(__file__)
 dump_tests_path = os.path.join(module_tests_path, "../")
 tests_path = os.path.join(dump_tests_path, "../")
-dump_test_input = os.path.join(tests_path,"dump_input")
+dump_test_input = os.path.join(tests_path, "dump_input")
 
 # Location for dedicated db's used for UT
-copp_files_path = os.path.join(dump_test_input,"copp")
+copp_files_path = os.path.join(dump_test_input, "copp")
 
 dedicated_dbs = {}
-dedicated_dbs['CONFIG_DB'] = os.path.join(copp_files_path, "config_db.json") 
-dedicated_dbs['APPL_DB'] = os.path.join(copp_files_path, "appl_db.json") 
+dedicated_dbs['CONFIG_DB'] = os.path.join(copp_files_path, "config_db.json")
+dedicated_dbs['APPL_DB'] = os.path.join(copp_files_path, "appl_db.json")
 dedicated_dbs['ASIC_DB'] = os.path.join(copp_files_path, "asic_db.json")
 dedicated_dbs['STATE_DB'] = os.path.join(copp_files_path, "state_db.json")
 
+
 def mock_connector(namespace, use_unix_socket_path=True):
     return MockSonicV2Connector(dedicated_dbs, namespace=namespace, use_unix_socket_path=use_unix_socket_path)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def verbosity_setup():
@@ -33,13 +37,14 @@ def verbosity_setup():
     print("TEARDOWN")
     os.environ["VERBOSE"] = "0"
 
+
 @patch("dump.match_infra.SonicV2Connector", mock_connector)
 @patch("dump.plugins.copp.Copp.CONFIG_FILE", os.path.join(dump_test_input, "copp_cfg.json"))
 class TestCoppModule(unittest.TestCase):
-    
+
     def test_usr_cfg_trap_and_copp_cfg_file_grp(self):
         '''
-        Scenario: A custom COPP_TRAP table entry is defined by the user and the relevant Trap Group is configured through the copp_cfg file 
+        Scenario: A custom COPP_TRAP table entry is defined by the user and the relevant Trap Group is configured through the copp_cfg file
         '''
         params = {}
         params[Copp.ARG_NAME] = "snmp"
@@ -52,11 +57,11 @@ class TestCoppModule(unittest.TestCase):
         expect["CONFIG_DB"]["keys"].append("COPP_TRAP|snmp_grp")
         expect["APPL_DB"]["keys"].append("COPP_TABLE:queue4_group2")
         expect["STATE_DB"]["keys"].extend(["COPP_GROUP_TABLE|queue4_group2", "COPP_TRAP_TABLE|snmp_grp"])
-        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004dc", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004da", 
-                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004db","ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a0"])
+        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004dc", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004da",
+                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004db", "ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a0"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_copp_cfg_file_trap_and_copp_cfg_file_grp(self):
         '''
         Scenario: Both the Trap ID and Trap Group are configured through copp_cfg file
@@ -71,14 +76,14 @@ class TestCoppModule(unittest.TestCase):
         expect["CONFIG_FILE"]["keys"].extend(["COPP_GROUP|queue4_group2", "COPP_TRAP|arp"])
         expect["APPL_DB"]["keys"].append("COPP_TABLE:queue4_group2")
         expect["STATE_DB"]["keys"].extend(["COPP_GROUP_TABLE|queue4_group2", "COPP_TRAP_TABLE|arp"])
-        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004dd", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004da", 
-                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004db","ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a0"])
+        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004dd", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004da",
+                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004db", "ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a0"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_copp_cfg_file_trap_and_copp_cfg_file_grp_with_diff(self):
         '''
-        Scenario: Both the Trap ID and Trap Group are configured through copp_cfg file. 
+        Scenario: Both the Trap ID and Trap Group are configured through copp_cfg file.
                   In addition, User also provided a diff for the COPP_GROUP entry
         '''
         params = {}
@@ -92,12 +97,12 @@ class TestCoppModule(unittest.TestCase):
         expect["CONFIG_DB"]["keys"].append("COPP_GROUP|queue2_group1")
         expect["APPL_DB"]["keys"].append("COPP_TABLE:queue2_group1")
         expect["STATE_DB"]["keys"].extend(["COPP_GROUP_TABLE|queue2_group1", "COPP_TRAP_TABLE|sflow"])
-        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004de", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004db", 
-                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004dc","ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a1",
+        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004de", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004db",
+                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004dc", "ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a1",
                                           "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF:oid:0xd0000000004d6", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TABLE_ENTRY:oid:0x230000000004d8"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_usr_cfg_trap_with_missing_group(self):
         '''
         Scenario: A custom COPP_TRAP table entry is defined by the user, but the relevant COPP_GROUP entry is missing
@@ -116,10 +121,10 @@ class TestCoppModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_copp_cfg_file_group_and_copp_cfg_file_trap_with_diff(self):
         '''
-        Scenario: User has added a trap_id to a COPP_TRAP entry. The COPP_TRAP entry is already present in copp_cfg file (i.e diff) 
+        Scenario: User has added a trap_id to a COPP_TRAP entry. The COPP_TRAP entry is already present in copp_cfg file (i.e diff)
                   and the relevant trap group is in copp_cfg file
         '''
         params = {}
@@ -133,11 +138,11 @@ class TestCoppModule(unittest.TestCase):
         expect["CONFIG_DB"]["keys"].append("COPP_TRAP|bgp")
         expect["APPL_DB"]["keys"].append("COPP_TABLE:queue4_group1")
         expect["STATE_DB"]["keys"].extend(["COPP_GROUP_TABLE|queue4_group1", "COPP_TRAP_TABLE|bgp"])
-        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004df", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004db", 
-                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004dc","ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a1"])
+        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004df", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004db",
+                                          "ASIC_STATE:SAI_OBJECT_TYPE_POLICER:oid:0x120000000004dc", "ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a1"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_invalid_trap_id(self):
         params = {}
         params[Copp.ARG_NAME] = "random"
@@ -153,7 +158,7 @@ class TestCoppModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_missing_asic_dump(self):
         params = {}
         params[Copp.ARG_NAME] = "ospf"
@@ -169,7 +174,7 @@ class TestCoppModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_missing_appl(self):
         params = {}
         params[Copp.ARG_NAME] = "lldp"
@@ -184,7 +189,7 @@ class TestCoppModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_missing_state(self):
         params = {}
         params[Copp.ARG_NAME] = "src_nat_miss"
@@ -192,15 +197,15 @@ class TestCoppModule(unittest.TestCase):
         m_copp = Copp()
         returned = m_copp.execute(params)
         print(returned)
-        expect = create_template_dict(dbs=["CONFIG_FILE", "APPL_DB", "ASIC_DB", "STATE_DB","CONFIG_DB"])
+        expect = create_template_dict(dbs=["CONFIG_FILE", "APPL_DB", "ASIC_DB", "STATE_DB", "CONFIG_DB"])
         expect["CONFIG_FILE"]["keys"].extend(["COPP_GROUP|queue1_group2", "COPP_TRAP|nat"])
         expect["APPL_DB"]["keys"].append("COPP_TABLE:queue1_group2")
         expect["STATE_DB"]["tables_not_found"].extend(["COPP_GROUP_TABLE", "COPP_TRAP_TABLE"])
-        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004e0", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004e0", 
+        expect["ASIC_DB"]["keys"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP:oid:0x220000000004e0", "ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF_TRAP_GROUP:oid:0x110000000004e0",
                                           "ASIC_STATE:SAI_OBJECT_TYPE_QUEUE:oid:0x150000000002a1"])
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-        
+
     def test_all_args(self):
         params = {}
         m_copp = Copp()
