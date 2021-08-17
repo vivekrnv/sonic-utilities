@@ -1,4 +1,9 @@
-import os,sys,json,re
+from dump.match_infra import RedisSource, JsonSource
+import plugins
+import os
+import sys
+import json
+import re
 import click
 from tabulate import tabulate
 from sonic_py_common import multi_asic
@@ -6,8 +11,6 @@ from utilities_common.constants import DEFAULT_NAMESPACE
 from utilities_common.general import load_db_config
 
 sys.path.append(os.path.dirname(__file__))
-import plugins
-from dump.match_infra import RedisSource, JsonSource
 
 
 # Autocompletion Helper
@@ -83,8 +86,8 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     params = {}
     collected_info = {}
     params['namespace'] = namespace
-    for arg in ids: 
-        params[plugins.dump_modules[module].ARG_NAME] = arg 
+    for arg in ids:
+        params[plugins.dump_modules[module].ARG_NAME] = arg
         collected_info[arg] = obj.execute(params)
 
     if len(db) > 0:
@@ -116,7 +119,7 @@ def extract_rid(info, ns):
 
 def get_v_r_map(r, single_dict):
     v_r_map = {}
-    asic_obj_ptrn = "ASIC_STATE:.*:oid:0x\w{1,14}"
+    asic_obj_ptrn = r"ASIC_STATE:.*:oid:0x\w{1,14}"
 
     if "ASIC_DB" in single_dict and "keys" in single_dict["ASIC_DB"]:
         for redis_key in single_dict["ASIC_DB"]["keys"]:
@@ -164,7 +167,7 @@ def populate_fv(info, module, namespace):
             final_info[id][db_name]["keys"] = []
             final_info[id][db_name]["tables_not_found"] = info[id][db_name]["tables_not_found"]
             for key in info[id][db_name]["keys"]:
-                final_info[id][db_name]["keys"].append({key : db_dict[db_name].get(db_name, key)})
+                final_info[id][db_name]["keys"].append({key: db_dict[db_name].get(db_name, key)})
 
     return final_info
 
@@ -219,6 +222,7 @@ def print_dump(collected_info, table, module, identifier, key_map):
 
     click.echo(tabulate(final_collection, top_header, tablefmt="grid"))
     return
+
 
 if __name__ == '__main__':
     dump()
