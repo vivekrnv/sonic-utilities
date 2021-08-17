@@ -229,6 +229,5 @@ setup(
         'Topic :: Utilities',
     ],
     keywords='sonic SONiC utilities command line cli CLI',
-    cmdclass={"pytest": PyTest},
     test_suite='setup.get_test_suite'
 )
