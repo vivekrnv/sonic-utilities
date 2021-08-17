@@ -1,4 +1,6 @@
-import json, os, sys
+import json
+import os
+import sys
 import jsonpatch
 import unittest
 import pytest
@@ -18,8 +20,8 @@ dump_test_input = os.path.join(tests_path, "dump_input")
 port_files_path = os.path.join(dump_test_input, "port")
 
 dedicated_dbs = {}
-dedicated_dbs['CONFIG_DB'] = os.path.join(port_files_path, "config_db.json") 
-dedicated_dbs['APPL_DB'] = os.path.join(port_files_path, "appl_db.json") 
+dedicated_dbs['CONFIG_DB'] = os.path.join(port_files_path, "config_db.json")
+dedicated_dbs['APPL_DB'] = os.path.join(port_files_path, "appl_db.json")
 dedicated_dbs['ASIC_DB'] = os.path.join(port_files_path, "asic_db.json")
 dedicated_dbs['STATE_DB'] = os.path.join(port_files_path, "state_db.json")
 

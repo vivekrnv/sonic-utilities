@@ -6,8 +6,8 @@ from .executor import Executor
 
 dump_modules = {}
 pkg_dir = os.path.dirname(__file__)
-    
-# import child classes automatically                      
+
+# import child classes automatically
 for (module_loader, name, ispkg) in pkgutil.iter_modules([pkg_dir]):
     importlib.import_module('.' + name, __package__)
 
