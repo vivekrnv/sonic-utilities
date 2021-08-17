@@ -24,12 +24,6 @@ cdump_mod.SonicV2Connector = MockConn
 RedisHandle = RedisSingleton.getInstance()
 
 
-def mock_syslog(level, msg):
-    print("SYSLOG: " + msg)
-
-cdump_mod.syslog.syslog = mock_syslog
-
-
 def set_auto_ts_cfg(**kwargs):
     invoke_ts = kwargs[cdump_mod.CFG_INVOC_TS] if cdump_mod.CFG_INVOC_TS in kwargs else "disabled"
     core_cleanup = kwargs[cdump_mod.CFG_CORE_CLEANUP] if cdump_mod.CFG_CORE_CLEANUP in kwargs else "disabled"
