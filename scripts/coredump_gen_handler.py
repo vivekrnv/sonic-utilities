@@ -1,12 +1,11 @@
-#!/usr/bin/env python3
-
 """
 coredump_gen_handler script.
     This script is invoked by the coredump-compress script
     for auto techsupport invocation and cleanup core dumps.
     For more info, refer to the Event Driven TechSupport & CoreDump Mgmt HLD
 """
-import os, re
+import os
+import re
 import sys
 import glob
 import time
@@ -17,9 +16,7 @@ from swsscommon.swsscommon import SonicV2Connector
 from utilities_common.auto_techsupport_helper import *
 
 
-def handle_coredump_cleanup(dump_name):
-    db = SonicV2Connector(use_unix_socket_path=True)
-    db.connect(CFG_DB)
+def handle_coredump_cleanup(dump_name, db):
     if db.get(CFG_DB, AUTO_TS, CFG_CORE_CLEANUP) != "enabled":
         return
 
@@ -41,9 +38,9 @@ class CriticalProcCoreDumpHandle():
     """
     Class to handle coredump creation event for critical processes
     """
-    def __init__(self, core_name):
+    def __init__(self, core_name, db):
         self.core_name = core_name
-        self.db = None
+        self.db = db
         self.proc_mp = {}
         self.core_ts_map = {}
         self.curr_ts_list = []
@@ -51,11 +48,9 @@ class CriticalProcCoreDumpHandle():
     def handle_core_dump_creation_event(self):
         file_path = os.path.join(CORE_DUMP_DIR, self.core_name)
         if not verify_recent_file_creation(file_path):
+            syslog.syslog(syslog.LOG_INFO, "Spurious Invocation. {} is not created within last {} sec".format(file_path, TIME_BUF))
             return
 
-        self.db = SonicV2Connector(use_unix_socket_path=True)
-        self.db.connect(CFG_DB)
-        self.db.connect(STATE_DB)
         if self.db.get(CFG_DB, AUTO_TS, CFG_INVOC_TS) != "enabled":
             return
 
@@ -85,6 +80,7 @@ class CriticalProcCoreDumpHandle():
             proc_cooloff = 0.0
 
         cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, process_name)
+        print(cooloff_passed)
         if cooloff_passed:
             since_cfg = self.get_since_arg()
             new_file = self.invoke_ts_cmd(since_cfg)
@@ -109,7 +105,7 @@ class CriticalProcCoreDumpHandle():
         new_list = get_ts_dumps(True)
         diff = list(set(new_list).difference(set(self.curr_ts_list)))
         self.curr_ts_list = new_list
-        if len(diff) == 0:
+        if not diff:
             syslog.syslog(syslog.LOG_ERR, "{} was run, but no techsupport dump is found".format(cmd))
         else:
             syslog.syslog(syslog.LOG_INFO, "{} is successful, {} is created".format(cmd, diff))
@@ -127,7 +123,7 @@ class CriticalProcCoreDumpHandle():
 
         ts_map = self.db.get_all(STATE_DB, TS_MAP)
         self.parse_ts_map(ts_map)
-
+        print(self.core_ts_map)
         if proc_cooloff and proc in self.core_ts_map:
             last_creation_time = self.core_ts_map[proc][0][0]
             if time.time() - last_creation_time < proc_cooloff:
@@ -138,6 +134,8 @@ class CriticalProcCoreDumpHandle():
 
     def parse_ts_map(self, ts_map):
         """Create proc_name, ts_dump & creation_time map"""
+        if not ts_map:
+            return
         for ts_dump, tup in ts_map.items():
             core_dump, creation_time, proc_name = tup.split(";")
             if proc_name not in self.core_ts_map:
@@ -153,17 +151,18 @@ class CriticalProcCoreDumpHandle():
         start = time.time()
         while time.time() - start <= WAIT_BUFFER:
             data = self.db.get_all("STATE_DB", CRITICAL_PROC)
-            for field in data:
-                try:
-                    pid_, comm_ = data[field].split(";")
-                    if pid_ == pid and comm in comm_:
-                        feature_name, supervisor_proc_name = field.split(";")
-                        break
-                    elif comm_ == NO_COMM and pid_ == pid:
-                        feature_name, supervisor_proc_name = field.split(";")
+            if data:
+                for field in data:
+                    try:
+                        pid_, comm_ = data[field].split(";")
+                        if pid_ == pid and comm in comm_:
+                            feature_name, supervisor_proc_name = field.split(";")
+                            break
+                        elif comm_ == NO_COMM and pid_ == pid:
+                            feature_name, supervisor_proc_name = field.split(";")
+                            continue
+                    except Exception as e:
                         continue
-                except Exception as e:
-                    continue
             if feature_name and supervisor_proc_name:
                 break
             time.sleep(SLEEP_FOR)
@@ -172,12 +171,15 @@ class CriticalProcCoreDumpHandle():
 
 def main():
     parser = argparse.ArgumentParser(description='Auto Techsupport Invocation and CoreDump Mgmt Script')
-    parser.add_argument('name', type=str, help='Core Dump Name', required=True)
+    parser.add_argument('name', type=str, help='Core Dump Name')
     args = parser.parse_args()
     syslog.openlog(logoption=syslog.LOG_PID)
-    cls = CoreDumpCreateHandle()
-    cls.handle_core_dump_creation_event(args.name)
-    handle_coredump_cleanup(dump_name)
+    db = SonicV2Connector(use_unix_socket_path=True)
+    db.connect(CFG_DB)
+    db.connect(STATE_DB)
+    cls = CriticalProcCoreDumpHandle(args.name, db)
+    cls.handle_core_dump_creation_event()
+    handle_coredump_cleanup(args.name, db)
 
 if __name__ == "__main__":
     main()

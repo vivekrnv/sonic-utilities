@@ -53,15 +53,16 @@ TIME_BUF = 20
 SINCE_DEFAULT = "2 days ago"
 NO_COMM = "<unknown>"
 WAIT_BUFFER = 40
-SLEEP_FOR = 4
+SLEEP_FOR = 5
 
 
 ##### Helper methods
-def subprocess_exec(cmd):
+def subprocess_exec(cmd, env=None):
     output = subprocess.run(
         cmd,
         capture_output=True,
-        text=True
+        text=True,
+        env=env
     )
     return output.returncode, output.stdout, output.stderr
 
@@ -90,7 +91,7 @@ def verify_recent_file_creation(file_path, in_last_sec=TIME_BUF):
 
 def get_stats(ptrn, collect_stats=True):
     """
-    Returns the size of the files (matched by the ptrn) occupied. 
+    Returns the size of the files (matched by the ptrn) occupied.
     Also returns the list of files Sorted by the Descending order of creation time & size
     """
     files = glob.glob(ptrn)

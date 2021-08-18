@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 """
 techsupport_cleanup script.
     This script is invoked by the generate_dump script for techsupport cleanup
@@ -25,14 +23,11 @@ def clean_state_db_entries(removed_files, db):
         db_conn.hdel(TS_MAP, os.path.basename(file))
 
 
-def handle_techsupport_creation_event(dump_name):
+def handle_techsupport_creation_event(dump_name, db):
     file_path = os.path.join(TS_DIR, dump_name)
     if not verify_recent_file_creation(file_path):
         return
     curr_list = get_ts_dumps()
-    db = SonicV2Connector(host="127.0.0.1")
-    db.connect(CFG_DB)
-    db.connect(STATE_DB)
 
     if db.get(CFG_DB, AUTO_TS, CFG_TS_CLEANUP) != "enabled":
         return
@@ -54,10 +49,13 @@ def handle_techsupport_creation_event(dump_name):
 
 def main():
     parser = argparse.ArgumentParser(description='Auto Techsupport Invocation and CoreDump Mgmt Script')
-    parser.add_argument('name', type=str, help='TechSupport Dump Name', required=True)
+    parser.add_argument('name', type=str, help='TechSupport Dump Name')
     args = parser.parse_args()
     syslog.openlog(logoption=syslog.LOG_PID)
-    handle_techsupport_creation_event(args.name)
+    db = SonicV2Connector(use_unix_socket_path=True)
+    db.connect(CFG_DB)
+    db.connect(STATE_DB)
+    handle_techsupport_creation_event(args.name, db)
 
 
 if __name__ == "__main__":
