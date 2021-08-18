@@ -16,4 +16,9 @@ fi
 
 /bin/gzip -1 - > /var/core/${PREFIX}core.gz
 
-nohup /usr/local/bin/coredump_gen_handler ${PREFIX}core.gz &
+# coredump_gen_handler invokes techsupport if all the other required conditions are met
+# explicitly passing in the env vars because coredump-compress's namespace doesn't have these set by default
+setsid $(echo > /tmp/coredump_gen_handler.log;
+         export PYTHONPATH=$PYTHONPATH:/usr/local/lib/python3.7/dist-packages/;
+         export PATH=$PATH:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin;
+         python3 /usr/local/bin/coredump_gen_handler.py ${PREFIX}core.gz &>> /tmp/coredump_gen_handler.log) &

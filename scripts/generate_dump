@@ -39,14 +39,6 @@ USER=${USER:-root}
 TIMEOUT_MIN="5"
 SKIP_BCMCMD=0
 
-handle_signal()
-{
-    echo "Generate Dump received interrupt" >&2
-    $RM $V -rf $TARDIR
-    exit 1
-}
-trap 'handle_signal' SIGINT
-
 save_bcmcmd() {
     local start_t=$(date +%s%3N)
     local end_t=0
@@ -1036,7 +1028,6 @@ handle_error() {
 #  None
 ###############################################################################
 main() {
-    trap 'handle_error $? $LINENO' ERR
     local start_t=0
     local end_t=0
     if [ `whoami` != root ] && ! $NOOP;
@@ -1218,7 +1209,9 @@ main() {
         fi
     fi
     
-    nohup /usr/local/bin/techsupport_cleanup ${TARFILE} &
+    # Invoke the TechSupport Cleanup Hook
+    setsid $(echo > /tmp/techsupport_cleanup.log;
+             python3 /usr/local/bin/techsupport_cleanup.py ${TARFILE} &>> /tmp/techsupport_cleanup.log) &
     
     echo ${TARFILE}
 }
