@@ -116,8 +116,8 @@ def get_v_r_map(r, single_dict, vid_cache):
     v_r_map = {}
     asic_obj_ptrn = "ASIC_STATE:.*:oid:0x\w{1,14}"
 
-    if "ASIC_DB" in single_dict and 'keys' in single_dict["ASIC_DB"]:
-        for redis_key in single_dict["ASIC_DB"]['keys']:
+    if "ASIC_DB" in single_dict and "keys" in single_dict["ASIC_DB"]:
+        for redis_key in single_dict["ASIC_DB"]["keys"]:
             if re.match(asic_obj_ptrn, redis_key):
                 matches = re.findall(r"oid:0x\w{1,14}", redis_key)
                 if matches:
