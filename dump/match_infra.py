@@ -243,7 +243,7 @@ class ConnectionPool:
             self.cache[ns]["connected_to"].add(db_name)
         return self.cache[ns]["conn"]
 
-    def clear(namespace=None):
+    def clear(self, namespace=None):
         if not namespace:
             self.cache.clear()
         elif namespace in self.cache:
@@ -263,7 +263,7 @@ class MatchEngine:
         else:
             self.conn_pool = pool
 
-    def clear_cache(ns):
+    def clear_cache(self, ns):
         self.conn_pool(ns)
 
     def __get_source_adapter(self, req):
