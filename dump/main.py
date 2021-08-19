@@ -1,5 +1,3 @@
-from dump.match_infra import RedisSource, JsonSource
-import plugins
 import os
 import sys
 import json
@@ -8,9 +6,8 @@ import click
 from tabulate import tabulate
 from sonic_py_common import multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
-from utilities_common.general import load_db_config
-
-sys.path.append(os.path.dirname(__file__))
+from dump.match_infra import RedisSource, JsonSource, ConnectionPool
+from dump import plugins
 
 
 # Autocompletion Helper
@@ -59,9 +56,6 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
         click.echo("Namespace option is not valid for a single-ASIC device")
         ctx.exit()
 
-    # Load database config files
-    load_db_config()
-
     if multi_asic.is_multi_asic() and (namespace != DEFAULT_NAMESPACE and namespace not in multi_asic.get_namespace_list()):
         click.echo("Namespace option is not valid. Choose one of {}".format(multi_asic.get_namespace_list()))
         ctx.exit()
@@ -107,29 +101,33 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
 
 
 def extract_rid(info, ns):
-    r = RedisSource()
+    r = RedisSource(ConnectionPool())
     r.connect("ASIC_DB", ns)
     vidtorid = {}
+    vid_cache = {}  # Cache Entries to reduce number of Redis Calls
     for arg in info.keys():
-        mp = get_v_r_map(r, info[arg])
+        mp = get_v_r_map(r, info[arg], vid_cache)
         if mp:
             vidtorid[arg] = mp
     return vidtorid
 
 
-def get_v_r_map(r, single_dict):
+def get_v_r_map(r, single_dict, vid_cache):
     v_r_map = {}
-    asic_obj_ptrn = r"ASIC_STATE:.*:oid:0x\w{1,14}"
+    asic_obj_ptrn = "ASIC_STATE:.*:oid:0x\w{1,14}"
 
-    if "ASIC_DB" in single_dict and "keys" in single_dict["ASIC_DB"]:
-        for redis_key in single_dict["ASIC_DB"]["keys"]:
+    if "ASIC_DB" in single_dict and 'keys' in single_dict["ASIC_DB"]:
+        for redis_key in single_dict["ASIC_DB"]['keys']:
             if re.match(asic_obj_ptrn, redis_key):
                 matches = re.findall(r"oid:0x\w{1,14}", redis_key)
                 if matches:
                     vid = matches[0]
-                    v_r_map[vid] = r.hget("ASIC_DB", "VIDTORID", vid)
-                    if not v_r_map[vid]:
-                        v_r_map[vid] = "Real ID Not Found"
+                    if vid in vid_cache:
+                        rid = vid_cache[vid]
+                    else:
+                        rid = r.hget("ASIC_DB", "VIDTORID", vid)
+                        vid_cache[vid] = rid
+                    v_r_map[vid] = rid if rid else "Real ID Not Found"
     return v_r_map
 
 
@@ -150,14 +148,13 @@ def populate_fv(info, module, namespace):
         for db_name in info[id].keys():
             all_dbs.add(db_name)
 
-    db_dict = {}
+    db_cfg_file = JsonSource()
+    db_conn = ConnectionPool().initialize_connector(namespace)
     for db_name in all_dbs:
         if db_name is "CONFIG_FILE":
-            db_dict[db_name] = JsonSource()
-            db_dict[db_name].connect(plugins.dump_modules[module].CONFIG_FILE, namespace)
+            db_cfg_file.connect(plugins.dump_modules[module].CONFIG_FILE, namespace)
         else:
-            db_dict[db_name] = RedisSource()
-            db_dict[db_name].connect(db_name, namespace)
+            db_conn.connect(db_name)
 
     final_info = {}
     for id in info.keys():
@@ -167,7 +164,11 @@ def populate_fv(info, module, namespace):
             final_info[id][db_name]["keys"] = []
             final_info[id][db_name]["tables_not_found"] = info[id][db_name]["tables_not_found"]
             for key in info[id][db_name]["keys"]:
-                final_info[id][db_name]["keys"].append({key: db_dict[db_name].get(db_name, key)})
+                if db_name is "CONFIG_FILE":
+                    fv = db_dict[db_name].get(db_name, key)
+                else:
+                    fv = db_conn.get_all(db_name, key)
+                final_info[id][db_name]["keys"].append({key: fv})
 
     return final_info
 

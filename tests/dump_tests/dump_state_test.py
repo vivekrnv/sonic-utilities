@@ -10,7 +10,6 @@ from importlib import reload
 from utilities_common.db import Db
 import traceback
 from utilities_common.constants import DEFAULT_NAMESPACE
-from .module_tests import mock_sonicv2connector
 
 
 def compare_json_output(exp_json, rec, exclude_paths=None):
