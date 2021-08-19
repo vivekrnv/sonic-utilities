@@ -97,12 +97,20 @@ def AUTO_TECHSUPPORT_global(db):
         {'name': 'since', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
     ),
 ]
-
     body.append(row)
     click.echo(tabulate.tabulate(body, header))
 
 
-
+@AUTO_TECHSUPPORT.command(name="history")
+@clicommon.pass_db
+def AUTO_TECHSUPPORT_history(db):
+    fv = db.db.get_all("STATE_DB", "AUTO_TECHSUPPORT|TS_CORE_MAP")
+    header = ["Techsupport Dump", "Triggered By", "Critical Process"]
+    body = []
+    for field, value in fv.items():
+        core_dump, _, supervisor_crit_proc = value.split(";")
+        body.append([field, core_dump, supervisor_crit_proc])
+    click.echo(tabulate.tabulate(body, header))
 
 
 def register(cli):
