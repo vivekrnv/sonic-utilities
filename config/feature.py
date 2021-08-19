@@ -102,13 +102,13 @@ def feature_autorestart(db, name, autorestart):
         cfgdb.mod_entry('FEATURE', name, {'auto_restart': autorestart})
 
 #
-# 'auto_techsupport' command ('config feature auto_techsupport ...')
+# 'auto_techsupport' command ('config feature autotechsupport ...')
 #
-@feature.command(name='auto_techsupport', short_help="Enable/disable auto_techsupport capability for the processes running inside of this feature")
+@feature.command(name='autotechsupport', short_help="Enable/disable auto_techsupport capability for the processes running inside of this feature")
 @click.argument('name', metavar='<feature-name>', required=True)
-@click.argument('auto_techsupport', metavar='<auto_techsupport>', required=True, type=click.Choice(["enabled", "disabled"]))
+@click.argument('autotechsupport', metavar='<autotechsupport>', required=True, type=click.Choice(["enabled", "disabled"]))
 @pass_db
-def feature_auto_techsupport(db, name, auto_techsupport):
+def feature_autotechsupport(db, name, autotechsupport):
     """Enable/disable auto_techsupport capability for the processes running inside of this feature"""
     entry_data_set = set()
 
@@ -124,14 +124,14 @@ def feature_auto_techsupport(db, name, auto_techsupport):
         sys.exit(1)
 
     for ns, cfgdb in db.cfgdb_clients.items():
-        cfgdb.mod_entry('FEATURE', name, {'auto_techsupport': auto_techsupport})
+        cfgdb.mod_entry('FEATURE', name, {'auto_techsupport': autotechsupport})
 
 #
 # 'cooloff' command ('config feature cooloff ...')
 #
 @feature.command(name='cooloff', short_help="Set the cooloff period in seconds for the auto_techsupport capability")
 @click.argument('name', metavar='<feature-name>', required=True)
-@click.argument('auto_techsupport', metavar='<auto_techsupport>', required=True, type=int)
+@click.argument('cooloff', metavar='<cooloff>', required=True, type=int)
 @pass_db
 def feature_cooloff(db, name, cooloff):
     """Set the cooloff period in seconds for the auto_techsupport capability"""

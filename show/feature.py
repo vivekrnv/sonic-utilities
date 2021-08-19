@@ -162,3 +162,26 @@ def feature_autorestart(db, feature_name):
         for name in natsorted(list(feature_table.keys())):
             body.append([name, feature_table[name]['auto_restart']])
     click.echo(tabulate(body, header))
+
+#
+# 'auto_techsupport' subcommand (show feature auto_techsupport)
+#
+@feature.command('autotechsupport', short_help="Show auto_techsupport state and cooloff for a feature")
+@click.argument('feature_name', required=False)
+@pass_db
+def feature_autotechsupport(db, feature_name):
+    header = ['Feature', 'Auto Techsupport', 'Cooloff (Sec)']
+    body = []
+    feature_table = db.cfgdb.get_table('FEATURE')
+    if feature_name:
+        if feature_table and feature_name in feature_table:
+            body.append([feature_name, feature_table.get(feature_name, {}).get('auto_techsupport',  ""),
+                        feature_table.get(feature_name, {}).get('cooloff',  "")])
+        else:
+            click.echo("Can not find feature {}".format(feature_name))
+            sys.exit(1)
+    else:
+        for name in natsorted(list(feature_table.keys())):
+            body.append([name, feature_table.get(name, {}).get('auto_techsupport',  ""),
+                        feature_table.get(name, {}).get('cooloff', "")])
+    click.echo(tabulate(body, header))

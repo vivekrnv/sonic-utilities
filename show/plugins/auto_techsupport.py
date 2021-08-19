@@ -1,16 +1,11 @@
 """
 Auto-generated show CLI plugin.
-
-
 """
 
 import click
 import tabulate
 import natsort
 import utilities_common.cli as clicommon
-
-
-
 
 
 def format_attr_value(entry, attr):
@@ -48,43 +43,28 @@ def format_group_value(entry, attrs):
 
 
 
-
-
-
-
-
-
-
-
-
 @click.group(name="auto-techsupport",
              cls=clicommon.AliasedGroup)
 def AUTO_TECHSUPPORT():
     """ AUTO_TECHSUPPORT part of config_db.json """
-
     pass
-
 
 
 @AUTO_TECHSUPPORT.command(name="global")
 @clicommon.pass_db
 def AUTO_TECHSUPPORT_global(db):
     """  """
-
     header = [
-
-"AUTO INVOKE TS",
-"COREDUMP CLEANUP",
-"TECHSUPPORT CLEANUP",
-"COOLOFF",
-"MAX TECHSUPPORT SIZE",
-"CORE USAGE",
-"SINCE",
-
-]
+        "AUTO INVOKE TS",
+        "COREDUMP CLEANUP",
+        "TECHSUPPORT CLEANUP",
+        "COOLOFF",
+        "MAX TECHSUPPORT SIZE",
+        "CORE USAGE",
+        "SINCE",
+    ]
 
     body = []
-
     table = db.cfgdb.get_table("AUTO_TECHSUPPORT")
     entry = table.get("global", {})
     row = [

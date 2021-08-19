@@ -688,84 +688,106 @@
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "enabled",
+        "cooloff": "300",
         "set_owner": "local"
     },
     "FEATURE|database": {
         "state": "always_enabled",
         "auto_restart": "always_enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "enabled",
+        "cooloff": "300",
         "set_owner": "local"
     },
     "FEATURE|dhcp_relay": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "enabled",
+        "cooloff": "300",
         "set_owner": "kube"
     },
     "FEATURE|lldp": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "enabled",
+        "cooloff": "300",
         "set_owner": "kube"
     },
     "FEATURE|nat": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "enabled",
+        "cooloff": "300",
         "set_owner": "local"
     },
     "FEATURE|pmon": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "enabled",
+        "cooloff": "120",
         "set_owner": "kube"
     },
     "FEATURE|radv": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "disabled",
+        "cooloff": "120",
         "set_owner": "kube"
     },
     "FEATURE|restapi": {
         "state": "disabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "cooloff": "80",
         "set_owner": "local"
     },
     "FEATURE|sflow": {
         "state": "disabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "disabled",
         "set_owner": "local"
     },
     "FEATURE|snmp": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "disabled",
         "set_owner": "kube"
     },
     "FEATURE|swss": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "disabled",
         "set_owner": "local"
     },
     "FEATURE|syncd": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "disabled",
         "set_owner": "local"
     },
     "FEATURE|teamd": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "disabled",
         "set_owner": "local"
     },
     "FEATURE|telemetry": {
         "state": "enabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
+        "auto_techsupport": "disabled",
+        "cooloff": "120",
         "set_owner": "kube"
     },
     "DEVICE_METADATA|localhost": {

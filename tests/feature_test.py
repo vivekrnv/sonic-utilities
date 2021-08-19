@@ -153,6 +153,31 @@ config_feature_bgp_inconsistent_autorestart_output="""\
 Feature 'bgp' auto-restart is not consistent across namespaces
 """
 
+config_auto_techsupport="""\
+Feature    Auto Techsupport      Cooloff (Sec)
+---------  ------------------  ---------------
+telemetry  enabled                         200
+"""
+
+show_auto_techsupport="""\
+Feature     Auto Techsupport    Cooloff (Sec)
+----------  ------------------  ---------------
+bgp         enabled             300
+database    enabled             300
+dhcp_relay  enabled             300
+lldp        enabled             300
+nat         enabled             300
+pmon        enabled             120
+radv        disabled            120
+restapi                         80
+sflow       disabled
+snmp        disabled
+swss        disabled
+syncd       disabled
+teamd       disabled
+telemetry   disabled            120
+"""
+
 class TestFeature(object):
     @classmethod
     def setup_class(cls):
@@ -382,6 +407,31 @@ class TestFeature(object):
         print(result.output)
         print(result.exit_code)
         assert result.exit_code == 1
+
+    def test_config_auto_techsupport(self, get_cmd_module):
+        (config, show) = get_cmd_module
+        db = Db()
+        runner = CliRunner()
+        result = runner.invoke(config.config.commands["feature"].commands["autotechsupport"], ["telemetry", "enabled"], obj=db)
+        print(result.exit_code)
+        print(result.output)
+        assert result.exit_code == 0
+        result = runner.invoke(config.config.commands["feature"].commands["cooloff"], ["telemetry", "200"], obj=db)
+        print(result.exit_code)
+        print(result.output)
+        assert result.exit_code == 0
+        result = runner.invoke(show.cli.commands["feature"].commands["autotechsupport"], ["telemetry"],  obj=db)
+        print(result.output)
+        assert result.exit_code == 0
+        assert result.output == config_auto_techsupport
+
+    def test_show_auto_techsupport(self, get_cmd_module):
+        (config, show) = get_cmd_module
+        runner = CliRunner()
+        result = runner.invoke(show.cli.commands["feature"].commands["autotechsupport"], [])
+        print(result.output)
+        assert result.exit_code == 0
+        assert result.output == show_auto_techsupport
 
     @classmethod
     def teardown_class(cls):
