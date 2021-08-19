@@ -39,6 +39,14 @@ USER=${USER:-root}
 TIMEOUT_MIN="5"
 SKIP_BCMCMD=0
 
+handle_signal()
+{
+    echo "Generate Dump received interrupt" >&2
+    $RM $V -rf $TARDIR
+    exit 1
+}
+trap 'handle_signal' SIGINT
+
 save_bcmcmd() {
     local start_t=$(date +%s%3N)
     local end_t=0
@@ -1010,14 +1018,6 @@ save_counter_snapshot() {
     save_cmd_all_ns "ifconfig -a" "ifconfig.counters_$idx"
 }
 
-handle_error() {
-  if [ "$1" != "0" ]; then
-    echo "ERR: RC:-$1 observed on line $2" >&2
-    RETURN_CODE=1
-  fi
-  return $1
-}
-
 ###############################################################################
 # Main generate_dump routine
 # Globals:
@@ -1208,11 +1208,11 @@ main() {
             echo "WARNING: gzip operation appears to have failed." >&2
         fi
     fi
-    
+
     # Invoke the TechSupport Cleanup Hook
     setsid $(echo > /tmp/techsupport_cleanup.log;
              python3 /usr/local/bin/techsupport_cleanup.py ${TARFILE} &>> /tmp/techsupport_cleanup.log) &
-    
+
     echo ${TARFILE}
 }
 
@@ -1273,7 +1273,7 @@ OPTIONS
 EOF
 }
 
-while getopts ":xnvhzas:t:" opt; do    
+while getopts ":xnvhzas:t:" opt; do
     case $opt in
         x)
             # enable bash debugging
