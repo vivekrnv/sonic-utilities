@@ -17,7 +17,15 @@ from utilities_common.auto_techsupport_helper import *
 
 
 def handle_coredump_cleanup(dump_name, db):
+    file_path = os.path.join(CORE_DUMP_DIR, dump_name)
+    if not verify_recent_file_creation(file_path):
+        return
+
+    _, num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
+
     if db.get(CFG_DB, AUTO_TS, CFG_CORE_CLEANUP) != "enabled":
+        msg = "coredump_cleanup is disabled. No cleanup is performed. current size occupied : {}"
+        syslog.syslog(syslog.LOG_NOTICE, msg.format(pretty_size(num_bytes)))
         return
 
     core_usage = db.get(CFG_DB, AUTO_TS, CFG_CORE_USAGE)
@@ -27,8 +35,8 @@ def handle_coredump_cleanup(dump_name, db):
         core_usage = 0.0
 
     if not core_usage:
-        _, num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
-        syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
+        msg = "core-usage argument is not set. No cleanup is performed, current size occupied: {}"
+        syslog.syslog(syslog.LOG_NOTICE, msg.format(pretty_size(num_bytes)))
         return
 
     cleanup_process(core_usage, CORE_DUMP_PTRN, CORE_DUMP_DIR)
@@ -53,6 +61,7 @@ class CriticalProcCoreDumpHandle():
             return
 
         if self.db.get(CFG_DB, AUTO_TS, CFG_INVOC_TS) != "enabled":
+            syslog.syslog(syslog.LOG_NOTICE, "auto_invoke_ts is disabled. No cleanup is performed: core {}".format(self.core_name))
             return
 
         container_name, process_name = self.fetch_exit_event()

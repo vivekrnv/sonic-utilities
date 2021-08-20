@@ -28,8 +28,11 @@ def handle_techsupport_creation_event(dump_name, db):
     if not verify_recent_file_creation(file_path):
         return
     curr_list = get_ts_dumps()
+    _ , num_bytes = get_stats(os.path.join(TS_DIR, TS_PTRN))
 
     if db.get(CFG_DB, AUTO_TS, CFG_TS_CLEANUP) != "enabled":
+        msg = "techsupport_cleanup is disabled. No cleanup is performed. current size occupied : {}"
+        syslog.syslog(syslog.LOG_NOTICE, msg.format(pretty_size(num_bytes)))
         return
 
     max_ts = db.get(CFG_DB, AUTO_TS, CFG_MAX_TS)
@@ -39,8 +42,8 @@ def handle_techsupport_creation_event(dump_name, db):
         max_ts = 0.0
 
     if not max_ts:
-        _ , num_bytes = get_stats(os.path.join(TS_DIR, TS_PTRN))
-        syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
+        msg = "max-techsupport-size argument is not set. No cleanup is performed, current size occupied: {}"
+        syslog.syslog(syslog.LOG_NOTICE, msg.format(pretty_size(num_bytes)))
         return
 
     removed_files = cleanup_process(max_ts, TS_PTRN, TS_DIR)

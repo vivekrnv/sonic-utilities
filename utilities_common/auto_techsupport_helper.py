@@ -40,14 +40,14 @@ sonic_dump_sonic_20210412_223645 = orchagent.1599047232.39.core;1599047233;orcha
 sonic_dump_sonic_20210405_202756 = python3.1617684247.17.core;1617684249;snmp-subagent
 """
 
-CRITICAL_PROC = "AUTO_TECHSUPPORT|PROC_EXIT_EVENTS"
+CRITICAL_PROC = "AUTO_TECHSUPPORT|FEATURE_PROC_INFO"
 """
-key = "AUTO_TECHSUPPORT|PROC_EXIT_EVENTS"
-<executable_name:pid> = <feature_name;supervisor_proc_name>
+key = "AUTO_TECHSUPPORT|FEATURE_PROC_INFO"
+<feature_name;supervisor_proc_name> = <executable_name:pid>
 Eg:
-<orchagent:20> = "swss;orchagent"
-<python3:22>   = "snmp;snmp-subagent"
-<python2:33>   = "lldp;lldp_syncd"
+<swss;orchagent> = <orchagent;20>
+<snmp;snmp-subagent> = <python3;22>
+<lldp;lldp_syncd> = <python2;33>
 """
 
 TIME_BUF = 20
