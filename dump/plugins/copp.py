@@ -1,7 +1,7 @@
 import re
-from dump.match_infra import MatchEngine, MatchRequest
-from dump.helper import create_template_dict, handle_multiple_keys_matched_error
-from dump.helper import handle_error
+from dump.match_infra import MatchRequest
+from dump.helper import create_template_dict
+from dump.helper import handle_error, handle_multiple_keys_matched_error
 from .executor import Executor
 
 TRAP_ID_MAP = {
@@ -65,8 +65,8 @@ class Copp(Executor):
     ARG_NAME = "trap_id"
     CONFIG_FILE = "/etc/sonic/copp_cfg.json"
 
-    def __init__(self):
-        self.match_engine = MatchEngine()
+    def __init__(self, match_engine=None):
+        super().__init__(match_engine)
         self.copp_trap_cfg_key = ""
         self.trap_group = ""
         self.trap_id = ""
@@ -127,7 +127,10 @@ class Copp(Executor):
         tg = ""
         if not ret["error"] and len(ret["keys"]) > 0:
             if len(ret["keys"]) > 1:
-                err_str = "ERROR: Multiple COPP_TABLE Keys found for the trap_id {} in the APPL_DB, keys found: {}".format(self.trap_id, str(ret["keys"]))
+                err_str_tup = ("ERROR: Multiple COPP_TABLE Keys found for the trap_id {} in",
+                               "the APPL_DB, keys found: {}")
+                err_str = " ".join(err_str_tup)
+                err_str = err_str.format(self.trap_id, str(ret["keys"]))
                 handle_multiple_keys_matched_error(err_str, ret["keys"][0])
             self.ret_temp["APPL_DB"]["keys"].append(ret["keys"][0])
             tg = ret["return_values"][ret["keys"][0]]["trap_group"]
@@ -135,8 +138,12 @@ class Copp(Executor):
             self.ret_temp["APPL_DB"]["tables_not_found"].append(APP_COPP_TABLE_NAME)
 
         if tg != self.trap_group and not self.trap_group and not tg:
-            err_str = "The Associated Trap_group for the trap_id found in APPL and CONFIG_DB/CONFIG_FILE did not match. In APPL_DB: {}, CONFIG_DB: {}".format(tg, self.trap_group)
-            err_str += "\n Proceding with the trap group found in APPL DB"
+            err_str_tup = ("The Associated Trap_group for the trap_id found in APPL",
+                           "and CONFIG_DB/CONFIG_FILE did not match.",
+                           "In APPL_DB: {}, CONFIG_DB: {}",
+                           "\n Proceding with the trap group found in APPL DB")
+            err_str = " ".join(err_str_tup)
+            err_str = err_str.format(tg, self.trap_group)
             handle_error(err_str, False)
 
         if tg:
@@ -144,7 +151,8 @@ class Copp(Executor):
 
     def handle_asic_db(self):
         if self.trap_id not in TRAP_ID_MAP:
-            handle_error("Invalid Trap Id {} is provided, no corresponding SAI_TRAP_OBJ is found".format(self.trap_id), False)
+            err_str = "Invalid Trap Id {} is provided, no corresponding SAI_TRAP_OBJ is found"
+            handle_error(err_str.format(self.trap_id), False)
             sai_trap_id = ""
         else:
             sai_trap_id = TRAP_ID_MAP[self.trap_id]
@@ -230,7 +238,7 @@ class Copp(Executor):
             return sai_hostif_vid
 
     def __get_asic_hostif_obj(self, sai_hostif_vid):
-         # Not adding tp tables_not_found because of the type of reason specified for policer obj
+        # Not adding tp tables_not_found because of the type of reason specified for policer obj
         if not sai_hostif_vid:
             return
         req = MatchRequest(db="ASIC_DB", table=ASIC_HOSTIF, key_pattern=sai_hostif_vid, ns=self.ns)

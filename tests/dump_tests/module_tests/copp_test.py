@@ -8,16 +8,17 @@ from deepdiff import DeepDiff
 from mock import patch
 from dump.helper import create_template_dict, sort_lists
 from dump.plugins.copp import Copp
-from .mock_sonicv2connector import MockSonicV2Connector
+from dump.match_infra import MatchEngine, ConnectionPool
+from swsscommon.swsscommon import SonicV2Connector
 
+# Location for dedicated db's used for UT
 module_tests_path = os.path.dirname(__file__)
 dump_tests_path = os.path.join(module_tests_path, "../")
 tests_path = os.path.join(dump_tests_path, "../")
 dump_test_input = os.path.join(tests_path, "dump_input")
-
-# Location for dedicated db's used for UT
 copp_files_path = os.path.join(dump_test_input, "copp")
 
+# Define the mock files to read from
 dedicated_dbs = {}
 dedicated_dbs['CONFIG_DB'] = os.path.join(copp_files_path, "config_db.json")
 dedicated_dbs['APPL_DB'] = os.path.join(copp_files_path, "appl_db.json")
@@ -25,31 +26,58 @@ dedicated_dbs['ASIC_DB'] = os.path.join(copp_files_path, "asic_db.json")
 dedicated_dbs['STATE_DB'] = os.path.join(copp_files_path, "state_db.json")
 
 
-def mock_connector(namespace, use_unix_socket_path=True):
-    return MockSonicV2Connector(dedicated_dbs, namespace=namespace, use_unix_socket_path=use_unix_socket_path)
+def populate_mock(db, db_names):
+    for db_name in db_names:
+        db.connect(db_name)
+        # Delete any default data
+        db.delete_all_by_pattern(db_name, "*")
+        with open(dedicated_dbs[db_name]) as f:
+            mock_json = json.load(f)
+        for key in mock_json:
+            for field, value in mock_json[key].items():
+                db.set(db_name, key, field, value)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def verbosity_setup():
+@pytest.fixture(scope="class", autouse=True)
+def match_engine():
+
     print("SETUP")
     os.environ["VERBOSE"] = "1"
-    yield
+
+    # Monkey Patch the SonicV2Connector Object
+    from ...mock_tables import dbconnector
+    db = SonicV2Connector()
+
+    # popualate the db with mock data
+    db_names = list(dedicated_dbs.keys())
+    try:
+        populate_mock(db, db_names)
+    except Exception as e:
+        assert False, "Mock initialization failed: " + str(e)
+
+    # Initialize connection pool
+    conn_pool = ConnectionPool()
+    DEF_NS = ''  # Default Namespace
+    conn_pool.cache = {DEF_NS: {'conn': db,
+                               'connected_to': set(db_names)}}
+
+    # Initialize match_engine
+    match_engine = MatchEngine(conn_pool)
+    yield match_engine
     print("TEARDOWN")
     os.environ["VERBOSE"] = "0"
 
 
-@patch("dump.match_infra.SonicV2Connector", mock_connector)
+@pytest.mark.usefixtures("match_engine")
 @patch("dump.plugins.copp.Copp.CONFIG_FILE", os.path.join(dump_test_input, "copp_cfg.json"))
-class TestCoppModule(unittest.TestCase):
+class TestCoppModule:
 
-    def test_usr_cfg_trap_and_copp_cfg_file_grp(self):
+    def test_usr_cfg_trap_and_copp_cfg_file_grp(self, match_engine):
         '''
         Scenario: A custom COPP_TRAP table entry is defined by the user and the relevant Trap Group is configured through the copp_cfg file
         '''
-        params = {}
-        params[Copp.ARG_NAME] = "snmp"
-        params["namespace"] = ""
-        m_copp = Copp()
+        params = {Copp.ARG_NAME: "snmp", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(returned)
         expect = create_template_dict(dbs=["CONFIG_FILE", "CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -62,14 +90,12 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_copp_cfg_file_trap_and_copp_cfg_file_grp(self):
+    def test_copp_cfg_file_trap_and_copp_cfg_file_grp(self, match_engine):
         '''
         Scenario: Both the Trap ID and Trap Group are configured through copp_cfg file
         '''
-        params = {}
-        params[Copp.ARG_NAME] = "arp_resp"
-        params["namespace"] = ""
-        m_copp = Copp()
+        params = {Copp.ARG_NAME: "arp_resp", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(returned)
         expect = create_template_dict(dbs=["CONFIG_FILE", "CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -81,15 +107,13 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_copp_cfg_file_trap_and_copp_cfg_file_grp_with_diff(self):
+    def test_copp_cfg_file_trap_and_copp_cfg_file_grp_with_diff(self, match_engine):
         '''
         Scenario: Both the Trap ID and Trap Group are configured through copp_cfg file.
                   In addition, User also provided a diff for the COPP_GROUP entry
         '''
-        params = {}
-        params[Copp.ARG_NAME] = "sample_packet"
-        params["namespace"] = ""
-        m_copp = Copp()
+        params = {Copp.ARG_NAME: "sample_packet", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(json.dumps(returned, indent=2))
         expect = create_template_dict(dbs=["CONFIG_FILE", "CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -103,14 +127,12 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_usr_cfg_trap_with_missing_group(self):
+    def test_usr_cfg_trap_with_missing_group(self, match_engine):
         '''
         Scenario: A custom COPP_TRAP table entry is defined by the user, but the relevant COPP_GROUP entry is missing
         '''
-        params = {}
-        params[Copp.ARG_NAME] = "vrrpv6"
-        params["namespace"] = ""
-        m_copp = Copp()
+        params = {Copp.ARG_NAME: "vrrpv6", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(returned)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB", "CONFIG_FILE"])
@@ -122,15 +144,13 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_copp_cfg_file_group_and_copp_cfg_file_trap_with_diff(self):
+    def test_copp_cfg_file_group_and_copp_cfg_file_trap_with_diff(self, match_engine):
         '''
         Scenario: User has added a trap_id to a COPP_TRAP entry. The COPP_TRAP entry is already present in copp_cfg file (i.e diff)
                   and the relevant trap group is in copp_cfg file
         '''
-        params = {}
-        params[Copp.ARG_NAME] = "ospfv6"
-        params["namespace"] = ""
-        m_copp = Copp()
+        params = {Copp.ARG_NAME: "ospfv6", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(returned)
         expect = create_template_dict(dbs=["CONFIG_FILE", "CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -143,11 +163,9 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_invalid_trap_id(self):
-        params = {}
-        params[Copp.ARG_NAME] = "random"
-        params["namespace"] = ""
-        m_copp = Copp()
+    def test_invalid_trap_id(self, match_engine):
+        params = {Copp.ARG_NAME: "random", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(returned)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB", "CONFIG_FILE"])
@@ -159,11 +177,9 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_missing_asic_dump(self):
-        params = {}
-        params[Copp.ARG_NAME] = "ospf"
-        params["namespace"] = ""
-        m_copp = Copp()
+    def test_missing_asic_dump(self, match_engine):
+        params = {Copp.ARG_NAME: "ospf", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(returned)
         expect = create_template_dict(dbs=["CONFIG_FILE", "CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -175,11 +191,9 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_missing_appl(self):
-        params = {}
-        params[Copp.ARG_NAME] = "lldp"
-        params["namespace"] = ""
-        m_copp = Copp()
+    def test_missing_appl(self, match_engine):
+        params = {Copp.ARG_NAME: "lldp", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(returned)
         expect = create_template_dict(dbs=["CONFIG_FILE", "CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
@@ -190,11 +204,9 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_missing_state(self):
-        params = {}
-        params[Copp.ARG_NAME] = "src_nat_miss"
-        params["namespace"] = ""
-        m_copp = Copp()
+    def test_missing_state(self, match_engine):
+        params = {Copp.ARG_NAME: "src_nat_miss", "namespace": ""}
+        m_copp = Copp(match_engine)
         returned = m_copp.execute(params)
         print(returned)
         expect = create_template_dict(dbs=["CONFIG_FILE", "APPL_DB", "ASIC_DB", "STATE_DB", "CONFIG_DB"])
@@ -206,9 +218,9 @@ class TestCoppModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_all_args(self):
+    def test_all_args(self, match_engine):
         params = {}
-        m_copp = Copp()
+        m_copp = Copp(match_engine)
         returned = m_copp.get_all_args("")
         expect = ["bgp", "bgpv6", "lacp", "arp_req", "arp_resp", "neigh_discovery", "lldp", "dhcp", "dhcpv6", "udld", "ip2me", "src_nat_miss", "dest_nat_miss", "sample_packet", "snmp", "bfd", "vrrpv6", "ospf", "ospfv6"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
