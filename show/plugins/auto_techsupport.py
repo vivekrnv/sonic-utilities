@@ -42,7 +42,6 @@ def format_group_value(entry, attrs):
     return tabulate.tabulate(data, tablefmt="plain")
 
 
-
 @click.group(name="auto-techsupport",
              cls=clicommon.AliasedGroup)
 def AUTO_TECHSUPPORT():
@@ -68,35 +67,35 @@ def AUTO_TECHSUPPORT_global(db):
     table = db.cfgdb.get_table("AUTO_TECHSUPPORT")
     entry = table.get("global", {})
     row = [
-    format_attr_value(
-        entry,
-        {'name': 'auto_invoke_ts', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'coredump_cleanup', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'techsupport_cleanup', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'cooloff', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'max_techsupport_size', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'core_usage', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'since', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-]
+        format_attr_value(
+            entry,
+            {'name': 'auto_invoke_ts', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'coredump_cleanup', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'techsupport_cleanup', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'cooloff', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'max_techsupport_size', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'core_usage', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'since', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+    ]
     body.append(row)
     click.echo(tabulate.tabulate(body, header))
 

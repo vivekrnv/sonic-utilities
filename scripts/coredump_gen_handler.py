@@ -31,13 +31,14 @@ def handle_coredump_cleanup(dump_name, db):
         syslog.syslog(syslog.LOG_INFO, "No Cleanup is performed, current size occupied: {}".format(pretty_size(num_bytes)))
         return
 
-    cleanup_process(core_usage, CORE_DUMP_PTRN,  CORE_DUMP_DIR)
+    cleanup_process(core_usage, CORE_DUMP_PTRN, CORE_DUMP_DIR)
 
 
 class CriticalProcCoreDumpHandle():
     """
     Class to handle coredump creation event for critical processes
     """
+
     def __init__(self, core_name, db):
         self.core_name = core_name
         self.db = db
@@ -71,12 +72,12 @@ class CriticalProcCoreDumpHandle():
 
         try:
             global_cooloff = float(global_cooloff)
-        except:
+        except BaseException:
             global_cooloff = 0.0
 
         try:
             proc_cooloff = float(proc_cooloff)
-        except:
+        except BaseException:
             proc_cooloff = 0.0
 
         cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, process_name)
@@ -180,6 +181,7 @@ def main():
     cls = CriticalProcCoreDumpHandle(args.name, db)
     cls.handle_core_dump_creation_event()
     handle_coredump_cleanup(args.name, db)
+
 
 if __name__ == "__main__":
     main()

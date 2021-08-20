@@ -1,4 +1,5 @@
-import os, re
+import os
+import re
 import sys
 import glob
 import time
@@ -56,7 +57,7 @@ WAIT_BUFFER = 40
 SLEEP_FOR = 5
 
 
-##### Helper methods
+# Helper methods
 def subprocess_exec(cmd, env=None):
     output = subprocess.run(
         cmd,
@@ -81,7 +82,7 @@ def verify_recent_file_creation(file_path, in_last_sec=TIME_BUF):
     curr = time.time()
     try:
         was_created_on = os.path.getmtime(file_path)
-    except:
+    except BaseException:
         return False
     if curr - was_created_on < in_last_sec:
         return True
@@ -141,7 +142,7 @@ def cleanup_process(limit, file_ptrn, dir):
     fs_stats, curr_size = get_stats(os.path.join(dir, file_ptrn))
     orig_dumps = len(fs_stats)
     disk_stats = shutil.disk_usage(dir)
-    max_limit_bytes = math.floor((limit*disk_stats.total/100))
+    max_limit_bytes = math.floor((limit * disk_stats.total / 100))
 
     if curr_size <= max_limit_bytes:
         return

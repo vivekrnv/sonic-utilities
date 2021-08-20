@@ -125,49 +125,12 @@ def clear_list_entry_validated(db, table, key, attr):
     update_entry_validated(db, table, key, {attr: None})
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 @click.group(name="auto-techsupport",
              cls=clicommon.AliasedGroup)
 def AUTO_TECHSUPPORT():
     """ AUTO_TECHSUPPORT part of config_db.json """
 
     pass
-
-
 
 
 @AUTO_TECHSUPPORT.group(name="global",
@@ -179,10 +142,7 @@ def AUTO_TECHSUPPORT_global(db):
     pass
 
 
-
-
 @AUTO_TECHSUPPORT_global.command(name="auto-invoke-ts")
-
 @click.argument(
     "auto-invoke-ts",
     nargs=1,
@@ -203,9 +163,7 @@ def AUTO_TECHSUPPORT_global_auto_invoke_ts(db, auto_invoke_ts):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-
 @AUTO_TECHSUPPORT_global.command(name="coredump-cleanup")
-
 @click.argument(
     "coredump-cleanup",
     nargs=1,
@@ -226,9 +184,7 @@ def AUTO_TECHSUPPORT_global_coredump_cleanup(db, coredump_cleanup):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-
 @AUTO_TECHSUPPORT_global.command(name="techsupport-cleanup")
-
 @click.argument(
     "techsupport-cleanup",
     nargs=1,
@@ -249,9 +205,7 @@ def AUTO_TECHSUPPORT_global_techsupport_cleanup(db, techsupport_cleanup):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-
 @AUTO_TECHSUPPORT_global.command(name="cooloff")
-
 @click.argument(
     "cooloff",
     nargs=1,
@@ -272,9 +226,7 @@ def AUTO_TECHSUPPORT_global_cooloff(db, cooloff):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-
 @AUTO_TECHSUPPORT_global.command(name="max-techsupport-size")
-
 @click.argument(
     "max-techsupport-size",
     nargs=1,
@@ -295,9 +247,7 @@ def AUTO_TECHSUPPORT_global_max_techsupport_size(db, max_techsupport_size):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-
 @AUTO_TECHSUPPORT_global.command(name="core-usage")
-
 @click.argument(
     "core-usage",
     nargs=1,
@@ -318,9 +268,7 @@ def AUTO_TECHSUPPORT_global_core_usage(db, core_usage):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-
 @AUTO_TECHSUPPORT_global.command(name="since")
-
 @click.argument(
     "since",
     nargs=1,
@@ -339,32 +287,6 @@ def AUTO_TECHSUPPORT_global_since(db, since):
         update_entry_validated(db.cfgdb, table, key, data, create_if_not_exists=True)
     except Exception as err:
         exit_with_error(f"Error: {err}", fg="red")
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def register(cli):

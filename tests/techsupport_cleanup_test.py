@@ -1,3 +1,4 @@
+import techsupport_cleanup as ts_mod
 import os
 import sys
 import pyfakefs
@@ -9,7 +10,6 @@ from utilities_common.db import Db
 from .mock_tables import dbconnector
 
 sys.path.append("scripts")
-import techsupport_cleanup as ts_mod
 
 
 def set_auto_ts_cfg(redis_mock, ts_cleanup="disabled", max_ts="0"):

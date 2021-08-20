@@ -1,4 +1,5 @@
-import os, time
+import os
+import time
 import sys
 import pyfakefs
 import unittest
@@ -13,10 +14,10 @@ import coredump_gen_handler as cdump_mod
 
 
 def set_auto_ts_cfg(redis_mock, auto_invoke_ts="disabled",
-                                core_cleanup="disabled",
-                                cooloff="0",
-                                core_usage="0",
-                                since_cfg="None"):
+                    core_cleanup="disabled",
+                    cooloff="0",
+                    core_usage="0",
+                    since_cfg="None"):
     redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.CFG_INVOC_TS, auto_invoke_ts)
     redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.COOLOFF, cooloff)
     redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.CFG_CORE_USAGE, core_usage)
