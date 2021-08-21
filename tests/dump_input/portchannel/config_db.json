@@ -17,6 +17,10 @@
 	  "min_links": "1",
 	  "mtu": "9100"
 	},
-	"PORTCHANNEL_MEMBER|PortChannel001|Ethernet0": {},
-	"PORTCHANNEL_MEMBER|PortChannel001|Ethernet4": {}
+	"PORTCHANNEL_MEMBER|PortChannel001|Ethernet0": {
+		"NULL" : "NULL"
+	},
+	"PORTCHANNEL_MEMBER|PortChannel001|Ethernet4": {
+		"NULL" : "NULL"
+	}
 }

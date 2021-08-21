@@ -6,53 +6,85 @@ from deepdiff import DeepDiff
 from mock import patch
 from dump.helper import create_template_dict, sort_lists
 from dump.plugins.portchannel import PortChannel
+from dump.match_infra import MatchEngine, ConnectionPool
+from swsscommon.swsscommon import SonicV2Connector
 
-from .mock_sonicv2connector import MockSonicV2Connector
 
+# Location for dedicated db's used for UT
 module_tests_path = os.path.dirname(__file__)
 dump_tests_path = os.path.join(module_tests_path, "../")
 tests_path = os.path.join(dump_tests_path, "../")
 dump_test_input = os.path.join(tests_path, "dump_input")
-
-
-# Location for dedicated db's used for UT
 port_files_path = os.path.join(dump_test_input, "portchannel")
 
+# Define the mock files to read from
 dedicated_dbs = {}
 dedicated_dbs['CONFIG_DB'] = os.path.join(port_files_path, "config_db.json") 
 dedicated_dbs['APPL_DB'] = os.path.join(port_files_path, "appl_db.json") 
 dedicated_dbs['ASIC_DB'] = os.path.join(port_files_path, "asic_db.json")
 dedicated_dbs['STATE_DB'] = os.path.join(port_files_path, "state_db.json")
 
-def mock_connector(namespace, use_unix_socket_path=True):
-    return MockSonicV2Connector(dedicated_dbs, namespace=namespace, use_unix_socket_path=use_unix_socket_path)
 
-@pytest.fixture(scope="module", autouse=True)
-def verbosity_setup():
+def populate_mock(db, db_names):
+    for db_name in db_names:
+        db.connect(db_name)
+        # Delete any default data
+        db.delete_all_by_pattern(db_name, "*")
+        with open(dedicated_dbs[db_name]) as f:
+            mock_json = json.load(f)
+        for key in mock_json:
+            for field, value in mock_json[key].items():
+                db.set(db_name, key, field, value)
+
+
+@pytest.fixture(scope="class", autouse=True)
+def match_engine():
+
     print("SETUP")
     os.environ["VERBOSE"] = "1"
-    yield
+
+    # Monkey Patch the SonicV2Connector Object
+    from ...mock_tables import dbconnector
+    db = SonicV2Connector()
+
+    # popualate the db with mock data
+    db_names = list(dedicated_dbs.keys())
+    try:
+        populate_mock(db, db_names)
+    except Exception as e:
+        assert False, "Mock initialization failed: " + str(e)
+
+    # Initialize connection pool
+    conn_pool = ConnectionPool()
+    DEF_NS = ''  # Default Namespace
+    conn_pool.cache = {DEF_NS: {'conn': db,
+                               'connected_to': set(db_names)}}
+
+    # Initialize match_engine
+    match_engine = MatchEngine(conn_pool)
+    yield match_engine
     print("TEARDOWN")
     os.environ["VERBOSE"] = "0"
 
-@patch("dump.match_infra.SonicV2Connector", mock_connector)
-class TestPortChannelModule(unittest.TestCase):
-    def test_get_all_args(self):
+
+@pytest.mark.usefixtures("match_engine")
+class TestPortChannelModule:
+    def test_get_all_args(self, match_engine):
         """
         Scenario: Verify Whether the get_all_args method is working as expected
         """
-        m_lag = PortChannel()
+        m_lag = PortChannel(match_engine)
         returned = m_lag.get_all_args("")
         expect = ["PortChannel001", "PortChannel002", "PortChannel003"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
-        assert not ddiff, ddiff 
-    
-    def test_missing_appl_state(self):
+        assert not ddiff, ddiff
+
+    def test_missing_appl_state(self, match_engine):
         '''
         Scenario: When the LAG is configured but the Change is not propagated
         '''
         params = {PortChannel.ARG_NAME:"PortChannel003", "namespace":""}
-        m_lag = PortChannel()
+        m_lag = PortChannel(match_engine)
         returned = m_lag.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
         expect["CONFIG_DB"]["keys"].append("PORTCHANNEL|PortChannel003")
@@ -65,14 +97,14 @@ class TestPortChannelModule(unittest.TestCase):
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
-    def test_lag_with_no_members(self):
+
+    def test_lag_with_no_members(self, match_engine):
         '''
         Scenario: When the PortChannel doesn't have any members, 
                   it is not possible to uniquely identify ASIC LAG Related Key
         '''
         params = {PortChannel.ARG_NAME:"PortChannel002", "namespace":""}
-        m_lag = PortChannel()
+        m_lag = PortChannel(match_engine)
         returned = m_lag.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
         expect["CONFIG_DB"]["keys"].append("PORTCHANNEL|PortChannel002")
@@ -86,13 +118,13 @@ class TestPortChannelModule(unittest.TestCase):
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_lag_with_members(self):
+    def test_lag_with_members(self, match_engine):
         '''
         Scenario: It should be possible to uniquely identify ASIC LAG Related Keys,
                   when the LAG has members
         '''
         params = {PortChannel.ARG_NAME:"PortChannel001", "namespace":""}
-        m_lag = PortChannel()
+        m_lag = PortChannel(match_engine)
         returned = m_lag.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
         expect["CONFIG_DB"]["keys"].append("PORTCHANNEL|PortChannel001")
@@ -107,5 +139,6 @@ class TestPortChannelModule(unittest.TestCase):
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG:oid:0x2000000000d17")
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:oid:0x1b000000000d18")
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:oid:0x1b000000000d1a")
-        ddiff = DeepDiff(returned, expect, ignore_order=True)
+        ddiff = DeepDiff(expect, returned, ignore_order=True)
+        print(returned, expect, ddiff)
         assert not ddiff, ddiff
