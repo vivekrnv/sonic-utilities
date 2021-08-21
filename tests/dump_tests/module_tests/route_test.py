@@ -19,8 +19,8 @@ Route_files_path = os.path.join(dump_test_input, "route")
 
 # Define the mock files to read from
 dedicated_dbs = {}
-dedicated_dbs['CONFIG_DB'] = os.path.join(Route_files_path, "config_db.json") 
-dedicated_dbs['APPL_DB'] = os.path.join(Route_files_path, "appl_db.json") 
+dedicated_dbs['CONFIG_DB'] = os.path.join(Route_files_path, "config_db.json")
+dedicated_dbs['APPL_DB'] = os.path.join(Route_files_path, "appl_db.json")
 dedicated_dbs['ASIC_DB'] = os.path.join(Route_files_path, "asic_db.json")
 
 
@@ -57,7 +57,7 @@ def match_engine():
     conn_pool = ConnectionPool()
     DEF_NS = ''  # Default Namespace
     conn_pool.cache = {DEF_NS: {'conn': db,
-                               'connected_to': set(db_names)}}
+                                'connected_to': set(db_names)}}
 
     # Initialize match_engine
     match_engine = MatchEngine(conn_pool)
@@ -68,7 +68,8 @@ def match_engine():
 
 def get_asic_route_key(dest):
     return "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:{\"dest\":\"" + dest + \
-            "\",\"switch_id\":\"oid:0x21000000000000\",\"vr\":\"oid:0x3000000000002\"}"
+        "\",\"switch_id\":\"oid:0x21000000000000\",\"vr\":\"oid:0x3000000000002\"}"
+
 
 @pytest.mark.usefixtures("match_engine")
 class TestRouteModule:
@@ -79,7 +80,7 @@ class TestRouteModule:
                   2) SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID = SAI_OBJECT_TYPE_NEXT_HOP here
                   For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h
         """
-        params = {Route.ARG_NAME : "20.0.0.0/24", "namespace" : ""}
+        params = {Route.ARG_NAME: "20.0.0.0/24", "namespace": ""}
         m_route = Route(match_engine)
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB"])
@@ -91,7 +92,7 @@ class TestRouteModule:
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-        
+
     def test_ip2me_route(self, match_engine):
         """
         Scenario: Fetch the keys related to a ip2me route from APPL & ASIC DB.
@@ -99,9 +100,9 @@ class TestRouteModule:
                   2) APPL is straightforward
                   3) SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID = SAI_OBJECT_TYPE_PORT (CPU Port)
                   4) Thus, no SAI_OBJECT_TYPE_ROUTER_INTERFACE entry for this route
-                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h 
+                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h
         """
-        params = {Route.ARG_NAME : "fe80::/64", "namespace" : ""}
+        params = {Route.ARG_NAME: "fe80::/64", "namespace": ""}
         m_route = Route(match_engine)
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
@@ -111,16 +112,16 @@ class TestRouteModule:
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_directly_connected_route(self, match_engine):
         """
         Scenario: Fetch the keys related to a directly connected route from APPL & ASIC DB.
                   1) CONF DB doesn't have this route entry
                   2) APPL is straightforward
                   3) SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID = SAI_OBJECT_TYPE_ROUTER_INTERFACE
-                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h 
+                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h
         """
-        params = {Route.ARG_NAME : "1.1.1.0/24", "namespace" : ""}
+        params = {Route.ARG_NAME: "1.1.1.0/24", "namespace": ""}
         m_route = Route(match_engine)
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
@@ -130,16 +131,16 @@ class TestRouteModule:
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_route_with_next_hop(self, match_engine):
         """
         Scenario: Fetch the keys related to a route with next hop.
                   1) CONF DB doesn't have this route entry
                   2) APPL is straightforward
                   3) SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID = SAI_OBJECT_TYPE_NEXT_HOP
-                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h 
+                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h
         """
-        params = {Route.ARG_NAME : "10.212.0.0/16", "namespace" : ""}
+        params = {Route.ARG_NAME: "10.212.0.0/16", "namespace": ""}
         m_route = Route(match_engine)
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
@@ -161,25 +162,25 @@ class TestRouteModule:
                   "fe80::/64", "20c0:e6e0:0:80::/64", "192.168.0.4/24"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def test_no_next_hop_id(self, match_engine):
         """
         Scenario: Fetch the keys related to a route with no next hop id
                   1) CONF DB doesn't have this route entry
                   2) APPL is straightforward
                   3) SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID = EMPTY
-                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h 
+                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h
         """
-        params = {Route.ARG_NAME : "0.0.0.0/0", "namespace" : ""}
+        params = {Route.ARG_NAME: "0.0.0.0/0", "namespace": ""}
         m_route = Route(match_engine)
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["tables_not_found"].append("ROUTE_TABLE")
         expect["ASIC_DB"]["keys"].append(get_asic_route_key("0.0.0.0/0"))
         expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER:oid:0x3000000000002")
-        ddiff = DeepDiff(returned, expect, ignore_order=True) 
+        ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
-    
+
     def get_asic_nh_group_expected(self, asic_route_key):
         expect = []
         expect.append(asic_route_key)
@@ -188,7 +189,7 @@ class TestRouteModule:
                             "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068b",
                             "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068c",
                             "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER:oid:0x2d00000000068d"]
-        exp_nh = ["ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x400000000066f", 
+        exp_nh = ["ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x400000000066f",
                   "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x400000000067f",
                   "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x4000000000665",
                   "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP:oid:0x4000000000667"]
@@ -209,9 +210,9 @@ class TestRouteModule:
                   1) CONF DB doesn't have this route entry
                   2) APPL is straightforward
                   3) SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID = SAI_OBJECT_TYPE_NEXT_HOP_GROUP
-                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h 
+                  For More details about SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID, check the SAI header in sairoute.h
         """
-        params = {Route.ARG_NAME : "20c0:e6e0:0:80::/64", "namespace" : ""}
+        params = {Route.ARG_NAME: "20c0:e6e0:0:80::/64", "namespace": ""}
         m_route = Route(match_engine)
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
@@ -225,14 +226,14 @@ class TestRouteModule:
         Scenario: Test the caching mechanism which reduces number of redis calls
         """
         m_route = Route(match_engine)
-        params = {Route.ARG_NAME : "20c0:e6e0:0:80::/64", "namespace" : ""}
+        params = {Route.ARG_NAME: "20c0:e6e0:0:80::/64", "namespace": ""}
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["keys"].append("ROUTE_TABLE:20c0:e6e0:0:80::/64")
         expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("20c0:e6e0:0:80::/64")))
         ddiff = DeepDiff(returned, expect, ignore_order=True)
 
-        params = {Route.ARG_NAME : "192.168.0.4/24", "namespace" : ""}
+        params = {Route.ARG_NAME: "192.168.0.4/24", "namespace": ""}
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["keys"].append("ROUTE_TABLE:192.168.0.4/24")
@@ -240,7 +241,7 @@ class TestRouteModule:
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-        params = {Route.ARG_NAME : "192.168.0.10/22", "namespace" : ""}
+        params = {Route.ARG_NAME: "192.168.0.10/22", "namespace": ""}
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["keys"].append("ROUTE_TABLE:192.168.0.10/22")
@@ -252,12 +253,12 @@ class TestRouteModule:
         """
         Scenario: Fetch the keys related to a non-exitent route
         """
-        params = {Route.ARG_NAME : "192.168.19.45/28", "namespace" : ""}
+        params = {Route.ARG_NAME: "192.168.19.45/28", "namespace": ""}
         m_route = Route(match_engine)
         returned = m_route.execute(params)
         expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
         expect["APPL_DB"]["tables_not_found"].append("ROUTE_TABLE")
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER")
-        ddiff = DeepDiff(returned, expect, ignore_order=True) 
+        ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
