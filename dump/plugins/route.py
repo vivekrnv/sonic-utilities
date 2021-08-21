@@ -32,7 +32,7 @@ class NextHopGroupMatchOptimizer():
     Note: Caches all the kv pairs for a key
     """
     def __init__(self, m_engine):
-        self.key_cache = dict() 
+        self.key_cache = dict()
         self.m_engine = m_engine
     
     def mutate_request(self, req):
@@ -95,8 +95,8 @@ class Route(Executor):
     """
     ARG_NAME = "destination_network"
     
-    def __init__(self):
-        self.match_engine = MatchEngine()
+    def __init__(self, match_engine=None):
+        super().__init__(match_engine)
         self.nhgrp_match_engine = NextHopGroupMatchOptimizer(self.match_engine)
         self.ret_temp = {}
         self.ns = ''
