@@ -175,7 +175,7 @@ def cli(ctx):
 
 # Add groups from other modules
 cli.add_command(acl.acl)
-cli.add_command(chassis_modules.chassis_modules)
+cli.add_command(chassis_modules.chassis)
 cli.add_command(dropcounters.dropcounters)
 cli.add_command(feature.feature)
 cli.add_command(fgnhg.fgnhg)
@@ -904,6 +904,35 @@ elif routing_stack == "frr":
     ip.add_command(bgp)
     from .bgp_frr_v6 import bgp
     ipv6.add_command(bgp)
+
+#
+# 'link-local-mode' subcommand ("show ipv6 link-local-mode")
+#
+
+@ipv6.command('link-local-mode')
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+def link_local_mode(verbose):
+    """show ipv6 link-local-mode"""
+    header = ['Interface Name', 'Mode']
+    body = []
+    interfaces = ['INTERFACE', 'PORTCHANNEL_INTERFACE', 'VLAN_INTERFACE']
+    config_db = ConfigDBConnector()
+    config_db.connect()
+
+    for i in interfaces:
+        interface_dict = config_db.get_table(i)
+        link_local_data = {}
+
+        if interface_dict:
+          for interface,value in interface_dict.items():
+             if 'ipv6_use_link_local_only' in value:
+                 link_local_data[interface] = interface_dict[interface]['ipv6_use_link_local_only']
+                 if link_local_data[interface] == 'enable':
+                     body.append([interface, 'Enabled'])
+                 else:
+                     body.append([interface, 'Disabled'])
+
+    click.echo(tabulate(body, header, tablefmt="grid"))
 
 #
 # 'lldp' group ("show lldp ...")
