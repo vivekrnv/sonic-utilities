@@ -1,5 +1,7 @@
 """
 Auto-generated show CLI plugin.
+
+
 """
 
 import click
@@ -46,69 +48,63 @@ def format_group_value(entry, attrs):
              cls=clicommon.AliasedGroup)
 def AUTO_TECHSUPPORT():
     """ AUTO_TECHSUPPORT part of config_db.json """
+
     pass
 
 
 @AUTO_TECHSUPPORT.command(name="global")
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global(db):
+def AUTO_TECHSUPPORT_GLOBAL(db):
     """  """
+
     header = [
+
         "AUTO INVOKE TS",
         "COREDUMP CLEANUP",
         "TECHSUPPORT CLEANUP",
-        "COOLOFF",
+        "RATE LIMIT INTERVAL",
         "MAX TECHSUPPORT SIZE",
-        "CORE USAGE",
+        "MAX CORE SIZE",
         "SINCE",
+
     ]
 
     body = []
+
     table = db.cfgdb.get_table("AUTO_TECHSUPPORT")
-    entry = table.get("global", {})
+    entry = table.get("GLOBAL", {})
     row = [
         format_attr_value(
             entry,
-            {'name': 'auto_invoke_ts', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            {'name': 'auto_invoke_ts', 'description': 'Knob to make techsupport invocation event-driven based on core-dump generation', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
         ),
         format_attr_value(
             entry,
-            {'name': 'coredump_cleanup', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            {'name': 'coredump_cleanup', 'description': 'Knob to enable coredump cleanup', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
         ),
         format_attr_value(
             entry,
-            {'name': 'techsupport_cleanup', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            {'name': 'techsupport_cleanup', 'description': 'Knob to enable techsupport dump cleanup', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
         ),
         format_attr_value(
             entry,
-            {'name': 'cooloff', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            {'name': 'rate_limit_interval', 'description': 'Minimum time in seconds between two successive techsupport invocations. Configure 0 to explicitly disable', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
         ),
         format_attr_value(
             entry,
-            {'name': 'max_techsupport_size', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            {'name': 'max_techsupport_size', 'description': 'Maximum Size to which the techsupport dumps in /var/dump directory can be grown until', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
         ),
         format_attr_value(
             entry,
-            {'name': 'core_usage', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            {'name': 'max_core_size', 'description': 'Maximum Size to which the core dumps in /var/core directory can be grown until', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
         ),
         format_attr_value(
             entry,
-            {'name': 'since', 'description': '', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            {'name': 'since', 'description': 'Limits the auto-invoked techsupport to only collect the logs & core-dumps generated since the time provided', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
         ),
     ]
+
     body.append(row)
-    click.echo(tabulate.tabulate(body, header))
-
-
-@AUTO_TECHSUPPORT.command(name="history")
-@clicommon.pass_db
-def AUTO_TECHSUPPORT_history(db):
-    fv = db.db.get_all("STATE_DB", "AUTO_TECHSUPPORT|TS_CORE_MAP")
-    header = ["Techsupport Dump", "Triggered By", "Critical Process"]
-    body = []
-    for field, value in fv.items():
-        core_dump, _, supervisor_crit_proc = value.split(";")
-        body.append([field, core_dump, supervisor_crit_proc])
     click.echo(tabulate.tabulate(body, header))
 
 

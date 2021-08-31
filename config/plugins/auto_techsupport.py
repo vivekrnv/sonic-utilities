@@ -136,24 +136,24 @@ def AUTO_TECHSUPPORT():
 @AUTO_TECHSUPPORT.group(name="global",
                         cls=clicommon.AliasedGroup)
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global(db):
+def AUTO_TECHSUPPORT_GLOBAL(db):
     """  """
 
     pass
 
 
-@AUTO_TECHSUPPORT_global.command(name="auto-invoke-ts")
+@AUTO_TECHSUPPORT_GLOBAL.command(name="auto-invoke-ts")
 @click.argument(
     "auto-invoke-ts",
     nargs=1,
     required=True,
 )
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global_auto_invoke_ts(db, auto_invoke_ts):
-    """  """
+def AUTO_TECHSUPPORT_GLOBAL_auto_invoke_ts(db, auto_invoke_ts):
+    """ Knob to make techsupport invocation event-driven based on core-dump generation """
 
     table = "AUTO_TECHSUPPORT"
-    key = "global"
+    key = "GLOBAL"
     data = {
         "auto_invoke_ts": auto_invoke_ts,
     }
@@ -163,18 +163,18 @@ def AUTO_TECHSUPPORT_global_auto_invoke_ts(db, auto_invoke_ts):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-@AUTO_TECHSUPPORT_global.command(name="coredump-cleanup")
+@AUTO_TECHSUPPORT_GLOBAL.command(name="coredump-cleanup")
 @click.argument(
     "coredump-cleanup",
     nargs=1,
     required=True,
 )
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global_coredump_cleanup(db, coredump_cleanup):
-    """  """
+def AUTO_TECHSUPPORT_GLOBAL_coredump_cleanup(db, coredump_cleanup):
+    """ Knob to enable coredump cleanup """
 
     table = "AUTO_TECHSUPPORT"
-    key = "global"
+    key = "GLOBAL"
     data = {
         "coredump_cleanup": coredump_cleanup,
     }
@@ -184,18 +184,18 @@ def AUTO_TECHSUPPORT_global_coredump_cleanup(db, coredump_cleanup):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-@AUTO_TECHSUPPORT_global.command(name="techsupport-cleanup")
+@AUTO_TECHSUPPORT_GLOBAL.command(name="techsupport-cleanup")
 @click.argument(
     "techsupport-cleanup",
     nargs=1,
     required=True,
 )
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global_techsupport_cleanup(db, techsupport_cleanup):
-    """  """
+def AUTO_TECHSUPPORT_GLOBAL_techsupport_cleanup(db, techsupport_cleanup):
+    """ Knob to enable techsupport dump cleanup """
 
     table = "AUTO_TECHSUPPORT"
-    key = "global"
+    key = "GLOBAL"
     data = {
         "techsupport_cleanup": techsupport_cleanup,
     }
@@ -205,20 +205,20 @@ def AUTO_TECHSUPPORT_global_techsupport_cleanup(db, techsupport_cleanup):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-@AUTO_TECHSUPPORT_global.command(name="cooloff")
+@AUTO_TECHSUPPORT_GLOBAL.command(name="rate-limit-interval")
 @click.argument(
-    "cooloff",
+    "rate-limit-interval",
     nargs=1,
     required=True,
 )
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global_cooloff(db, cooloff):
-    """  """
+def AUTO_TECHSUPPORT_GLOBAL_rate_limit_interval(db, rate_limit_interval):
+    """ Minimum time in seconds between two successive techsupport invocations. Configure 0 to explicitly disable """
 
     table = "AUTO_TECHSUPPORT"
-    key = "global"
+    key = "GLOBAL"
     data = {
-        "cooloff": cooloff,
+        "rate_limit_interval": rate_limit_interval,
     }
     try:
         update_entry_validated(db.cfgdb, table, key, data, create_if_not_exists=True)
@@ -226,18 +226,18 @@ def AUTO_TECHSUPPORT_global_cooloff(db, cooloff):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-@AUTO_TECHSUPPORT_global.command(name="max-techsupport-size")
+@AUTO_TECHSUPPORT_GLOBAL.command(name="max-techsupport-size")
 @click.argument(
     "max-techsupport-size",
     nargs=1,
     required=True,
 )
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global_max_techsupport_size(db, max_techsupport_size):
-    """  """
+def AUTO_TECHSUPPORT_GLOBAL_max_techsupport_size(db, max_techsupport_size):
+    """ Maximum Size to which the techsupport dumps in /var/dump directory can be grown until """
 
     table = "AUTO_TECHSUPPORT"
-    key = "global"
+    key = "GLOBAL"
     data = {
         "max_techsupport_size": max_techsupport_size,
     }
@@ -247,20 +247,20 @@ def AUTO_TECHSUPPORT_global_max_techsupport_size(db, max_techsupport_size):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-@AUTO_TECHSUPPORT_global.command(name="core-usage")
+@AUTO_TECHSUPPORT_GLOBAL.command(name="max-core-size")
 @click.argument(
-    "core-usage",
+    "max-core-size",
     nargs=1,
     required=True,
 )
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global_core_usage(db, core_usage):
-    """  """
+def AUTO_TECHSUPPORT_GLOBAL_max_core_size(db, max_core_size):
+    """ Maximum Size to which the core dumps in /var/core directory can be grown until """
 
     table = "AUTO_TECHSUPPORT"
-    key = "global"
+    key = "GLOBAL"
     data = {
-        "core_usage": core_usage,
+        "max_core_size": max_core_size,
     }
     try:
         update_entry_validated(db.cfgdb, table, key, data, create_if_not_exists=True)
@@ -268,18 +268,18 @@ def AUTO_TECHSUPPORT_global_core_usage(db, core_usage):
         exit_with_error(f"Error: {err}", fg="red")
 
 
-@AUTO_TECHSUPPORT_global.command(name="since")
+@AUTO_TECHSUPPORT_GLOBAL.command(name="since")
 @click.argument(
     "since",
     nargs=1,
     required=True,
 )
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_global_since(db, since):
-    """  """
+def AUTO_TECHSUPPORT_GLOBAL_since(db, since):
+    """ Limits the auto-invoked techsupport to only collect the logs & core-dumps generated since the time provided """
 
     table = "AUTO_TECHSUPPORT"
-    key = "global"
+    key = "GLOBAL"
     data = {
         "since": since,
     }
