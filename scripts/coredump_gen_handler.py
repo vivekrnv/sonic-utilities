@@ -77,7 +77,7 @@ class CriticalProcCoreDumpHandle():
             return
 
         global_cooloff = self.db.get(CFG_DB, AUTO_TS, COOLOFF)
-        proc_cooloff = self.db.get(CFG_DB, FEATURE_KEY, COOLOFF)
+        proc_cooloff = self.db.get(CFG_DB, AUTO_TS_RATE_INTV, container_name)
 
         try:
             global_cooloff = float(global_cooloff)
@@ -133,7 +133,6 @@ class CriticalProcCoreDumpHandle():
 
         ts_map = self.db.get_all(STATE_DB, TS_MAP)
         self.parse_ts_map(ts_map)
-        print(self.core_ts_map)
         if proc_cooloff and proc in self.core_ts_map:
             last_creation_time = self.core_ts_map[proc][0][0]
             if time.time() - last_creation_time < proc_cooloff:

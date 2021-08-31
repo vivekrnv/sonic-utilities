@@ -15,19 +15,19 @@ import coredump_gen_handler as cdump_mod
 
 def set_auto_ts_cfg(redis_mock, auto_invoke_ts="disabled",
                     core_cleanup="disabled",
-                    cooloff="0",
-                    core_usage="0",
+                    rate_limit_interval="0",
+                    max_core_size="0",
                     since_cfg="None"):
     redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.CFG_INVOC_TS, auto_invoke_ts)
-    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.COOLOFF, cooloff)
-    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.CFG_CORE_USAGE, core_usage)
+    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.COOLOFF, rate_limit_interval)
+    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.CFG_CORE_USAGE, max_core_size)
     redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.CFG_CORE_CLEANUP, core_cleanup)
     redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.CFG_SINCE, since_cfg)
 
 
-def set_feature_table_cfg(redis_mock, ts="disabled", cooloff="0", container_name="swss"):
+def set_feature_table_cfg(redis_mock, ts="disabled", rate_limit_interval="0", container_name="swss"):
     redis_mock.set(cdump_mod.CFG_DB, cdump_mod.FEATURE.format(container_name), cdump_mod.TS, ts)
-    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.FEATURE.format(container_name), cdump_mod.COOLOFF, cooloff)
+    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS_RATE_INTV, container_name, rate_limit_interval)
 
 
 def populate_state_db(redis_mock,
@@ -48,7 +48,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
 
     def test_invoc_ts_state_db_update(self):
         """
-        Scenario: CFG_INVOC_TS is enabled. CFG_CORE_CLEANUP is disabled and no cooloff is provided
+        Scenario: CFG_INVOC_TS is enabled. CFG_CORE_CLEANUP is disabled and no rate_limit_interval is provided
                   Check if techsupport is invoked, file is created and State DB is updated
         """
         db_wrap = Db()
@@ -80,14 +80,14 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         assert "sonic_dump_random3.tar.gz" in final_state
         assert "orchagent" in final_state["sonic_dump_random3.tar.gz"]
 
-    def test_global_cooloff(self):
+    def test_global_rate_limit_interval(self):
         """
         Scenario: CFG_INVOC_TS is enabled. CFG_CORE_CLEANUP is enabled
-                  Global cooloff is not passed yet.  Check if techsupport isn't invoked.
+                  Global rate_limit_interval is not passed yet.  Check if techsupport isn't invoked.
         """
         db_wrap = Db()
         redis_mock = db_wrap.db
-        set_auto_ts_cfg(redis_mock, auto_invoke_ts="enabled", cooloff="1")
+        set_auto_ts_cfg(redis_mock, auto_invoke_ts="enabled", rate_limit_interval="1")
         set_feature_table_cfg(redis_mock, ts="enabled")
         populate_state_db(redis_mock)
         with Patcher() as patcher:
@@ -113,15 +113,15 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         assert "sonic_dump_random2.tar.gz" in final_state
         assert "sonic_dump_random3.tar.gz" not in final_state
 
-    def test_per_proc_cooloff(self):
+    def test_per_proc_rate_limit_interval(self):
         """
         Scenario: CFG_INVOC_TS is enabled. CFG_CORE_CLEANUP is disabled. Global Cooloff is passed
-                  But Per Proc cooloff is not passed yet. Check if techsupport isn't invoked
+                  But Per Proc rate_limit_interval is not passed yet. Check if techsupport isn't invoked
         """
         db_wrap = Db()
         redis_mock = db_wrap.db
-        set_auto_ts_cfg(redis_mock, auto_invoke_ts="enabled", cooloff="0.25")
-        set_feature_table_cfg(redis_mock, ts="enabled", cooloff="10")
+        set_auto_ts_cfg(redis_mock, auto_invoke_ts="enabled", rate_limit_interval="0.25")
+        set_feature_table_cfg(redis_mock, ts="enabled", rate_limit_interval="10")
         populate_state_db(redis_mock, ts_map={"sonic_dump_random1.tar.gz":
                                               "orchagent;{};orchagent".format(int(time.time()))})
         with Patcher() as patcher:
@@ -136,7 +136,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
             patcher.fs.create_file("/var/dump/sonic_dump_random1.tar.gz")
             patcher.fs.create_file("/var/core/orchagent.12345.123.core.gz")
             cls = cdump_mod.CriticalProcCoreDumpHandle("orchagent.12345.123.core.gz", redis_mock)
-            time.sleep(0.25)  # wait for global cooloff to pass
+            time.sleep(0.25)  # wait for global rate_limit_interval to pass
             cls.handle_core_dump_creation_event()
             assert "sonic_dump_random1.tar.gz" in os.listdir(cdump_mod.TS_DIR)
             assert "sonic_dump_random3.tar.gz" not in os.listdir(cdump_mod.TS_DIR)
@@ -144,15 +144,15 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         assert "sonic_dump_random1.tar.gz" in final_state
         assert "sonic_dump_random3.tar.gz" not in final_state
 
-    def test_invoc_ts_after_cooloff(self):
+    def test_invoc_ts_after_rate_limit_interval(self):
         """
         Scenario: CFG_INVOC_TS is enabled. CFG_CORE_CLEANUP is disabled.
-                  All the cooloff's are passed. Check if techsupport is invoked
+                  All the rate_limit_interval's are passed. Check if techsupport is invoked
         """
         db_wrap = Db()
         redis_mock = db_wrap.db
-        set_auto_ts_cfg(redis_mock, auto_invoke_ts="enabled", cooloff="0.1")
-        set_feature_table_cfg(redis_mock, ts="enabled", cooloff="0.25")
+        set_auto_ts_cfg(redis_mock, auto_invoke_ts="enabled", rate_limit_interval="0.1")
+        set_feature_table_cfg(redis_mock, ts="enabled", rate_limit_interval="0.25")
         populate_state_db(redis_mock, ts_map={"sonic_dump_random1.tar.gz":
                                               "orchagent;{};orchagent".format(int(time.time()))})
         with Patcher() as patcher:
@@ -168,7 +168,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
             patcher.fs.create_file("/var/dump/sonic_dump_random2.tar.gz")
             patcher.fs.create_file("/var/core/orchagent.12345.123.core.gz")
             cls = cdump_mod.CriticalProcCoreDumpHandle("orchagent.12345.123.core.gz", redis_mock)
-            time.sleep(0.25)  # wait for all the cooloff's to pass
+            time.sleep(0.25)  # wait for all the rate_limit_interval's to pass
             cls.handle_core_dump_creation_event()
             assert "sonic_dump_random1.tar.gz" in os.listdir(cdump_mod.TS_DIR)
             assert "sonic_dump_random3.tar.gz" in os.listdir(cdump_mod.TS_DIR)
@@ -337,7 +337,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         """
         db_wrap = Db()
         redis_mock = db_wrap.db
-        set_auto_ts_cfg(redis_mock, core_cleanup="enabled", core_usage="6.0")
+        set_auto_ts_cfg(redis_mock, core_cleanup="enabled", max_core_size="6.0")
         with Patcher() as patcher:
             patcher.fs.set_disk_usage(1000, path="/var/core/")
             patcher.fs.create_file("/var/core/orchagent.12345.123.core.gz", st_size=25)
@@ -350,14 +350,14 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
             assert "lldpmgrd.12345.22.core.gz" in current_fs
             assert "python3.12345.21.core.gz" in current_fs
 
-    def test_core_usage_limit_not_crossed(self):
+    def test_max_core_size_limit_not_crossed(self):
         """
         Scenario: CFG_CORE_CLEANUP is enabled. core-dump limit is crossed
                   Verify Whether is cleanup is performed
         """
         db_wrap = Db()
         redis_mock = db_wrap.db
-        set_auto_ts_cfg(redis_mock, core_cleanup="enabled", core_usage="5.0")
+        set_auto_ts_cfg(redis_mock, core_cleanup="enabled", max_core_size="5.0")
         with Patcher() as patcher:
             def mock_cmd(cmd):
                 cmd_str = " ".join(cmd)

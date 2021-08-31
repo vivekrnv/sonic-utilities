@@ -9,21 +9,36 @@ import shutil
 import math
 import syslog
 
-CFG_DB = "CONFIG_DB"
-AUTO_TS = "AUTO_TECHSUPPORT|global"
-CFG_INVOC_TS = "auto_invoke_ts"
-CFG_CORE_CLEANUP = "coredump_cleanup"
-CFG_TS_CLEANUP = "techsupport_cleanup"
-CFG_MAX_TS = "max_techsupport_size"
-COOLOFF = "cooloff"
-CFG_CORE_USAGE = "core_usage"
-CFG_SINCE = "since"
-
+# MISC
 CORE_DUMP_DIR = "/var/core"
 CORE_DUMP_PTRN = "*.core.gz"
 
 TS_DIR = "/var/dump"
 TS_PTRN = "sonic_dump_*.tar*"
+
+# CONFIG DB Attributes
+CFG_DB = "CONFIG_DB"
+
+# AUTO_TECHSUPPORT|GLOBAL table attributes
+AUTO_TS = "AUTO_TECHSUPPORT|GLOBAL"
+CFG_INVOC_TS = "auto_invoke_ts"
+CFG_CORE_CLEANUP = "coredump_cleanup"
+CFG_TS_CLEANUP = "techsupport_cleanup"
+CFG_MAX_TS = "max_techsupport_size"
+COOLOFF = "rate_limit_interval"
+CFG_CORE_USAGE = "max_core_size"
+CFG_SINCE = "since"
+
+# AUTO_TECHSUPPORT|RATE_LIMIT_INTERVAL table attributes
+AUTO_TS_RATE_INTV = "AUTO_TECHSUPPORT|RATE_INTERVAL"
+"""
+key = "AUTO_TECHSUPPORT|RATE_INTERVAL"
+<feature_name> =  <time in sec>;
+Eg:
+bgp = 600
+swss = 600
+snmp = 600
+"""
 
 # FEATURE Table fields
 FEATURE = "FEATURE|{}"
