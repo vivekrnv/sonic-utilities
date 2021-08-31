@@ -722,7 +722,6 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "enabled",
-        
         "set_owner": "local"
     },
     "FEATURE|pmon": {
@@ -737,7 +736,6 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "disabled",
-        
         "set_owner": "kube"
     },
     "FEATURE|restapi": {
