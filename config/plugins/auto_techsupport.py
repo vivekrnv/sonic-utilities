@@ -134,79 +134,41 @@ def AUTO_TECHSUPPORT():
     pass
 
 
+
+
 @AUTO_TECHSUPPORT.group(name="global",
                         cls=clicommon.AliasedGroup)
 @clicommon.pass_db
 def AUTO_TECHSUPPORT_GLOBAL(db):
     """  """
-
     pass
 
 
-@AUTO_TECHSUPPORT_GLOBAL.command(name="auto-invoke-ts")
+
+@AUTO_TECHSUPPORT_GLOBAL.command(name="state")
 @click.argument(
-    "auto-invoke-ts",
+    "state",
     nargs=1,
     required=True,
 )
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_GLOBAL_auto_invoke_ts(db, auto_invoke_ts):
+def AUTO_TECHSUPPORT_GLOBAL_state(db, state):
     """ Knob to make techsupport invocation event-driven based on core-dump generation """
 
     table = "AUTO_TECHSUPPORT"
     key = "GLOBAL"
     data = {
-        "auto_invoke_ts": auto_invoke_ts,
+        "state": state,
     }
     try:
         update_entry_validated(db.cfgdb, table, key, data, create_if_not_exists=True)
     except Exception as err:
         exit_with_error(f"Error: {err}", fg="red")
 
-
-@AUTO_TECHSUPPORT_GLOBAL.command(name="coredump-cleanup")
-@click.argument(
-    "coredump-cleanup",
-    nargs=1,
-    required=True,
-)
-@clicommon.pass_db
-def AUTO_TECHSUPPORT_GLOBAL_coredump_cleanup(db, coredump_cleanup):
-    """ Knob to enable coredump cleanup """
-
-    table = "AUTO_TECHSUPPORT"
-    key = "GLOBAL"
-    data = {
-        "coredump_cleanup": coredump_cleanup,
-    }
-    try:
-        update_entry_validated(db.cfgdb, table, key, data, create_if_not_exists=True)
-    except Exception as err:
-        exit_with_error(f"Error: {err}", fg="red")
-
-
-@AUTO_TECHSUPPORT_GLOBAL.command(name="techsupport-cleanup")
-@click.argument(
-    "techsupport-cleanup",
-    nargs=1,
-    required=True,
-)
-@clicommon.pass_db
-def AUTO_TECHSUPPORT_GLOBAL_techsupport_cleanup(db, techsupport_cleanup):
-    """ Knob to enable techsupport dump cleanup """
-
-    table = "AUTO_TECHSUPPORT"
-    key = "GLOBAL"
-    data = {
-        "techsupport_cleanup": techsupport_cleanup,
-    }
-    try:
-        update_entry_validated(db.cfgdb, table, key, data, create_if_not_exists=True)
-    except Exception as err:
-        exit_with_error(f"Error: {err}", fg="red")
 
 
 @AUTO_TECHSUPPORT_GLOBAL.command(name="rate-limit-interval")
+
 @click.argument(
     "rate-limit-interval",
     nargs=1,
@@ -227,7 +189,9 @@ def AUTO_TECHSUPPORT_GLOBAL_rate_limit_interval(db, rate_limit_interval):
         exit_with_error(f"Error: {err}", fg="red")
 
 
+
 @AUTO_TECHSUPPORT_GLOBAL.command(name="max-techsupport-size")
+
 @click.argument(
     "max-techsupport-size",
     nargs=1,
@@ -235,7 +199,7 @@ def AUTO_TECHSUPPORT_GLOBAL_rate_limit_interval(db, rate_limit_interval):
 )
 @clicommon.pass_db
 def AUTO_TECHSUPPORT_GLOBAL_max_techsupport_size(db, max_techsupport_size):
-    """ Maximum Size to which the techsupport dumps in /var/dump directory can be grown until """
+    """ Max Size to which the dumps in /var/dump dir can be grown until. No cleanup is performed if the value is not congiured or set to 0.0 """
 
     table = "AUTO_TECHSUPPORT"
     key = "GLOBAL"
@@ -248,7 +212,9 @@ def AUTO_TECHSUPPORT_GLOBAL_max_techsupport_size(db, max_techsupport_size):
         exit_with_error(f"Error: {err}", fg="red")
 
 
+
 @AUTO_TECHSUPPORT_GLOBAL.command(name="max-core-size")
+
 @click.argument(
     "max-core-size",
     nargs=1,
@@ -256,7 +222,7 @@ def AUTO_TECHSUPPORT_GLOBAL_max_techsupport_size(db, max_techsupport_size):
 )
 @clicommon.pass_db
 def AUTO_TECHSUPPORT_GLOBAL_max_core_size(db, max_core_size):
-    """ Maximum Size to which the core dumps in /var/core directory can be grown until """
+    """ Max Size to which the coredumps in /var/core directory can be grown until. No cleanup is performed if the value is not congiured or set to 0.0 """
 
     table = "AUTO_TECHSUPPORT"
     key = "GLOBAL"
@@ -269,7 +235,9 @@ def AUTO_TECHSUPPORT_GLOBAL_max_core_size(db, max_core_size):
         exit_with_error(f"Error: {err}", fg="red")
 
 
+
 @AUTO_TECHSUPPORT_GLOBAL.command(name="since")
+
 @click.argument(
     "since",
     nargs=1,
@@ -277,7 +245,7 @@ def AUTO_TECHSUPPORT_GLOBAL_max_core_size(db, max_core_size):
 )
 @clicommon.pass_db
 def AUTO_TECHSUPPORT_GLOBAL_since(db, since):
-    """ Limits the auto-invoked techsupport to only collect the logs & core-dumps generated since the time provided """
+    """ Only collect the logs & core-dumps generated since the time provided. A default value of '2 days ago' is used if this value is not set explicitly or a non-valid string is provided """
 
     table = "AUTO_TECHSUPPORT"
     key = "GLOBAL"
