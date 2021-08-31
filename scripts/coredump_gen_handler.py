@@ -158,7 +158,7 @@ class CriticalProcCoreDumpHandle():
         feature_name, supervisor_proc_name = "", ""
         start = time.time()
         while time.time() - start <= WAIT_BUFFER:
-            data = self.db.get_all("STATE_DB", CRITICAL_PROC)
+            data = self.db.get_all(STATE_DB, CRITICAL_PROC)
             if data:
                 for field in data:
                     try:
