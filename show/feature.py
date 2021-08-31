@@ -183,3 +183,4 @@ def feature_autotechsupport(db, feature_name):
         for name in natsorted(list(feature_table.keys())):
             body.append([name, feature_table.get(name, {}).get('auto_techsupport',  "")])
     click.echo(tabulate(body, header))
+
