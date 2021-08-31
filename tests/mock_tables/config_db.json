@@ -694,7 +694,6 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "enabled",
-        "cooloff": "300",
         "set_owner": "local"
     },
     "FEATURE|database": {
@@ -702,7 +701,6 @@
         "auto_restart": "always_enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "enabled",
-        "cooloff": "300",
         "set_owner": "local"
     },
     "FEATURE|dhcp_relay": {
@@ -710,7 +708,6 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "enabled",
-        "cooloff": "300",
         "set_owner": "kube"
     },
     "FEATURE|lldp": {
@@ -718,7 +715,6 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "enabled",
-        "cooloff": "300",
         "set_owner": "kube"
     },
     "FEATURE|nat": {
@@ -726,7 +722,7 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "enabled",
-        "cooloff": "300",
+        
         "set_owner": "local"
     },
     "FEATURE|pmon": {
@@ -734,7 +730,6 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "enabled",
-        "cooloff": "120",
         "set_owner": "kube"
     },
     "FEATURE|radv": {
@@ -742,14 +737,13 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "disabled",
-        "cooloff": "120",
+        
         "set_owner": "kube"
     },
     "FEATURE|restapi": {
         "state": "disabled",
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
-        "cooloff": "80",
         "set_owner": "local"
     },
     "FEATURE|sflow": {
@@ -792,7 +786,6 @@
         "auto_restart": "enabled",
         "high_mem_alert": "disabled",
         "auto_techsupport": "disabled",
-        "cooloff": "120",
         "set_owner": "kube"
     },
     "DEVICE_METADATA|localhost": {

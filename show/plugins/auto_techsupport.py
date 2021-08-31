@@ -1,7 +1,10 @@
 """
 Auto-generated show CLI plugin.
 
-
+Auto generated for AUTO_TECHSUPPORT|GLOBAL table
+Manually updated to add the correspondig cli
+1) show auto-techsupport rate_limit_interval
+2) show auto-techsupport history
 """
 
 import click
@@ -105,6 +108,27 @@ def AUTO_TECHSUPPORT_GLOBAL(db):
     ]
 
     body.append(row)
+    click.echo(tabulate.tabulate(body, header))
+
+@AUTO_TECHSUPPORT.command(name="history")
+@clicommon.pass_db
+def AUTO_TECHSUPPORT_history(db):
+    fv = db.db.get_all("STATE_DB", "AUTO_TECHSUPPORT|TS_CORE_MAP")
+    header = ["TECHSUPPORT DUMP", "TRIGGERED BY", "CORE DUMP"]
+    body = []
+    for field, value in fv.items():
+        core_dump, _, supervisor_crit_proc = value.split(";")
+        body.append([field, supervisor_crit_proc, core_dump])
+    click.echo(tabulate.tabulate(body, header))
+
+@AUTO_TECHSUPPORT.command(name="rate_limit_interval")
+@clicommon.pass_db
+def AUTO_TECHSUPPORT_RATE_LIMIT_INTERVAL(db):
+    fv = db.db.get_all("CONFIG_DB", "AUTO_TECHSUPPORT|RATE_LIMIT_INTERVAL")
+    header = ["FEATURE", "RATE LIMIT INTERVAL"]
+    body = []
+    for field, value in fv.items():
+        body.append([field, value])
     click.echo(tabulate.tabulate(body, header))
 
 

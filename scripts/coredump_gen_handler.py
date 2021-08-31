@@ -90,7 +90,6 @@ class CriticalProcCoreDumpHandle():
             proc_cooloff = 0.0
 
         cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, process_name)
-        print(cooloff_passed)
         if cooloff_passed:
             since_cfg = self.get_since_arg()
             new_file = self.invoke_ts_cmd(since_cfg)

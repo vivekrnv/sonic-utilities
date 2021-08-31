@@ -154,28 +154,28 @@ Feature 'bgp' auto-restart is not consistent across namespaces
 """
 
 config_auto_techsupport="""\
-Feature    Auto Techsupport      Cooloff (Sec)
----------  ------------------  ---------------
-telemetry  enabled                         200
+Feature    Auto Techsupport
+---------  ------------------
+telemetry  enabled
 """
 
 show_auto_techsupport="""\
-Feature     Auto Techsupport    Cooloff (Sec)
-----------  ------------------  ---------------
-bgp         enabled             300
-database    enabled             300
-dhcp_relay  enabled             300
-lldp        enabled             300
-nat         enabled             300
-pmon        enabled             120
-radv        disabled            120
-restapi                         80
+Feature     Auto Techsupport
+----------  ------------------
+bgp         enabled
+database    enabled
+dhcp_relay  enabled
+lldp        enabled
+nat         enabled
+pmon        enabled
+radv        disabled
+restapi
 sflow       disabled
 snmp        disabled
 swss        disabled
 syncd       disabled
 teamd       disabled
-telemetry   disabled            120
+telemetry   disabled
 """
 
 class TestFeature(object):
@@ -413,10 +413,6 @@ class TestFeature(object):
         db = Db()
         runner = CliRunner()
         result = runner.invoke(config.config.commands["feature"].commands["autotechsupport"], ["telemetry", "enabled"], obj=db)
-        print(result.exit_code)
-        print(result.output)
-        assert result.exit_code == 0
-        result = runner.invoke(config.config.commands["feature"].commands["cooloff"], ["telemetry", "200"], obj=db)
         print(result.exit_code)
         print(result.output)
         assert result.exit_code == 0
