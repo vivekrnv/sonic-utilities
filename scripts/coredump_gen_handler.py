@@ -23,7 +23,7 @@ def handle_coredump_cleanup(dump_name, db):
 
     _, num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
 
-    if db.get(CFG_DB, AUTO_TS, CFG_CORE_CLEANUP) != "enabled":
+    if db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
         msg = "coredump_cleanup is disabled. No cleanup is performed. current size occupied : {}"
         syslog.syslog(syslog.LOG_NOTICE, msg.format(pretty_size(num_bytes)))
         return
@@ -60,7 +60,7 @@ class CriticalProcCoreDumpHandle():
             syslog.syslog(syslog.LOG_INFO, "Spurious Invocation. {} is not created within last {} sec".format(file_path, TIME_BUF))
             return
 
-        if self.db.get(CFG_DB, AUTO_TS, CFG_INVOC_TS) != "enabled":
+        if self.db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
             syslog.syslog(syslog.LOG_NOTICE, "auto_invoke_ts is disabled. No cleanup is performed: core {}".format(self.core_name))
             return
 
@@ -89,14 +89,21 @@ class CriticalProcCoreDumpHandle():
         except BaseException:
             proc_cooloff = 0.0
 
-        cooloff_passed = self.verify_cooloff(global_cooloff, proc_cooloff, process_name)
+        cooloff_passed = self.verify_rate_limit_intervals(global_cooloff, proc_cooloff, process_name)
         if cooloff_passed:
             since_cfg = self.get_since_arg()
             new_file = self.invoke_ts_cmd(since_cfg)
+            print(new_file)
             if new_file:
-                field = os.path.basename(new_file[0])
-                value = "{};{};{}".format(self.core_name, int(time.time()), process_name)
-                self.db.set(STATE_DB, TS_MAP, field, value)
+                self.write_to_state_db(int(time.time()), process_name, new_file[0])
+
+    def write_to_state_db(self, timestamp, crit_proc_name, ts_dump):
+        name = strip_ts_ext(ts_dump)
+        key = TS_MAP + "|" + name
+        self.db.set(STATE_DB, key, CORE_DUMP, self.core_name)
+        self.db.set(STATE_DB, key, TIMESTAMP, timestamp)
+        self.db.set(STATE_DB, key, CRIT_PROC, crit_proc_name)
+        print(self.db.get_all(STATE_DB, key))
 
     def get_since_arg(self):
         since_cfg = self.db.get(CFG_DB, AUTO_TS, CFG_SINCE)
@@ -109,7 +116,7 @@ class CriticalProcCoreDumpHandle():
 
     def invoke_ts_cmd(self, since_cfg):
         since_cfg = "'" + since_cfg + "'"
-        cmd = " ".join(["show", "techsupport", "--since", since_cfg])
+        cmd  = " ".join(["show", "techsupport", "--since", since_cfg])
         _, _, _ = subprocess_exec(["show", "techsupport", "--since", since_cfg])
         new_list = get_ts_dumps(True)
         diff = list(set(new_list).difference(set(self.curr_ts_list)))
@@ -120,8 +127,8 @@ class CriticalProcCoreDumpHandle():
             syslog.syslog(syslog.LOG_INFO, "{} is successful, {} is created".format(cmd, diff))
         return diff
 
-    def verify_cooloff(self, global_cooloff, proc_cooloff, proc):
-        """Verify both the global cooloff and per-proc cooloff has passed"""
+    def verify_rate_limit_intervals(self, global_cooloff, proc_cooloff, proc):
+        """Verify both the global and per-proc rate_limit_intervals have passed"""
         self.curr_ts_list = get_ts_dumps(True)
         if global_cooloff and self.curr_ts_list:
             last_ts_dump_creation = os.path.getmtime(self.curr_ts_list[-1])
@@ -130,34 +137,44 @@ class CriticalProcCoreDumpHandle():
                 syslog.syslog(syslog.LOG_INFO, msg.format(self.core_name))
                 return False
 
-        ts_map = self.db.get_all(STATE_DB, TS_MAP)
-        self.parse_ts_map(ts_map)
+        self.parse_ts_map()
         if proc_cooloff and proc in self.core_ts_map:
             last_creation_time = self.core_ts_map[proc][0][0]
+            print(last_creation_time, time.time(), proc_cooloff)
             if time.time() - last_creation_time < proc_cooloff:
                 msg = "Process Cooloff period for {} has not passed. Techsupport Invocation is skipped. Core: {}"
                 syslog.syslog(syslog.LOG_INFO, msg.format(proc, self.core_name))
                 return False
         return True
 
-    def parse_ts_map(self, ts_map):
+    def parse_ts_map(self):
         """Create proc_name, ts_dump & creation_time map"""
-        if not ts_map:
+        ts_keys = self.db.keys(STATE_DB, TS_MAP+"*")
+        if not ts_keys:
             return
-        for ts_dump, tup in ts_map.items():
-            core_dump, creation_time, proc_name = tup.split(";")
-            if proc_name not in self.core_ts_map:
+        for ts_key in ts_keys:
+            data = self.db.get_all(STATE_DB, ts_key)
+            if not data:
+                continue
+            proc_name = data.get(CRIT_PROC, "")
+            creation_time = data.get(TIMESTAMP, "")
+            ts_dump = ts_key.split("|")[-1]
+            if proc_name and proc_name not in self.core_ts_map:
                 self.core_ts_map[proc_name] = []
             self.core_ts_map[proc_name].append((int(creation_time), ts_dump))
         for proc_name in self.core_ts_map:
             self.core_ts_map[proc_name].sort()
+        print(self.core_ts_map)
 
     def fetch_exit_event(self):
         """Fetch the relevant entry in the AUTO_TECHSUPPORT|PROC_EXIT_EVENTS table"""
         comm, _, pid, _, _ = self.core_name.split(".")
         feature_name, supervisor_proc_name = "", ""
         start = time.time()
+        sleep_time = INIT_SLEEP
         while time.time() - start <= WAIT_BUFFER:
+            # It is seen in the experiments that the data almost always arrives late
+            time.sleep(sleep_time)  # Wait for the data to arrive
             data = self.db.get_all(STATE_DB, CRITICAL_PROC)
             if data:
                 for field in data:
@@ -173,7 +190,9 @@ class CriticalProcCoreDumpHandle():
                         continue
             if feature_name and supervisor_proc_name:
                 break
-            time.sleep(SLEEP_FOR)
+            # Increase the time to sleep as the likelihood of seeing
+            # the notification decreases as we wait longer
+            sleep_time = sleep_time * EXP_FACTOR
         return feature_name, supervisor_proc_name
 
 

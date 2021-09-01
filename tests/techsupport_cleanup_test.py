@@ -1,4 +1,3 @@
-import techsupport_cleanup as ts_mod
 import os
 import sys
 import pyfakefs
@@ -10,11 +9,19 @@ from utilities_common.db import Db
 from .mock_tables import dbconnector
 
 sys.path.append("scripts")
+import techsupport_cleanup as ts_mod
 
 
-def set_auto_ts_cfg(redis_mock, ts_cleanup="disabled", max_ts="0"):
-    redis_mock.set(ts_mod.CFG_DB, ts_mod.AUTO_TS, ts_mod.CFG_TS_CLEANUP, ts_cleanup)
+def set_auto_ts_cfg(redis_mock, auto_ts_state="disabled", max_ts="0"):
+    redis_mock.set(ts_mod.CFG_DB, ts_mod.AUTO_TS, ts_mod.CFG_STATE, auto_ts_state)
     redis_mock.set(ts_mod.CFG_DB, ts_mod.AUTO_TS, ts_mod.CFG_MAX_TS, max_ts)
+
+
+def set_auto_ts_dump_info(redis_mock, ts_dump, core_dump, timestamp, crit_proc):
+    key = ts_mod.TS_MAP + "|" + ts_dump
+    redis_mock.set(ts_mod.STATE_DB, key, ts_mod.CORE_DUMP, core_dump)
+    redis_mock.set(ts_mod.STATE_DB, key, ts_mod.TIMESTAMP, timestamp)
+    redis_mock.set(ts_mod.STATE_DB, key, ts_mod.CRIT_PROC, crit_proc)
 
 
 class TestTechsupportCreationEvent(unittest.TestCase):
@@ -47,7 +54,7 @@ class TestTechsupportCreationEvent(unittest.TestCase):
         """
         db_wrap = Db()
         redis_mock = db_wrap.db
-        set_auto_ts_cfg(redis_mock, ts_cleanup="enabled", max_ts="10")
+        set_auto_ts_cfg(redis_mock, auto_ts_state="enabled", max_ts="10")
         with Patcher() as patcher:
             patcher.fs.set_disk_usage(1000, path="/var/dump/")
             patcher.fs.create_file("/var/dump/sonic_dump_random1.tar.gz", st_size=30)
@@ -68,7 +75,7 @@ class TestTechsupportCreationEvent(unittest.TestCase):
         """
         db_wrap = Db()
         redis_mock = db_wrap.db
-        set_auto_ts_cfg(redis_mock, ts_cleanup="enabled", max_ts="5")
+        set_auto_ts_cfg(redis_mock, auto_ts_state="enabled", max_ts="5")
         with Patcher() as patcher:
             patcher.fs.set_disk_usage(1000, path="/var/dump/")
             patcher.fs.create_file("/var/dump/sonic_dump_random1.tar.gz", st_size=25)
@@ -88,9 +95,9 @@ class TestTechsupportCreationEvent(unittest.TestCase):
         """
         db_wrap = Db()
         redis_mock = db_wrap.db
-        set_auto_ts_cfg(redis_mock, ts_cleanup="enabled", max_ts="5")
-        redis_mock.set(ts_mod.STATE_DB, ts_mod.TS_MAP, "sonic_dump_random1.tar.gz", "orchagent;1575985;orchagent")
-        redis_mock.set(ts_mod.STATE_DB, ts_mod.TS_MAP, "sonic_dump_random2.tar.gz", "syncd;1575988;syncd")
+        set_auto_ts_cfg(redis_mock, auto_ts_state="enabled", max_ts="5")
+        set_auto_ts_dump_info(redis_mock, "sonic_dump_random1", "orchagent", "1575985", "orchagent")
+        set_auto_ts_dump_info(redis_mock, "sonic_dump_random2", "syncd", "1575988", "syncd")
         with Patcher() as patcher:
             patcher.fs.set_disk_usage(1000, path="/var/dump/")
             patcher.fs.create_file("/var/dump/sonic_dump_random1.tar.gz", st_size=25)
@@ -103,6 +110,6 @@ class TestTechsupportCreationEvent(unittest.TestCase):
             assert "sonic_dump_random1.tar.gz" not in current_fs
             assert "sonic_dump_random2.tar.gz" in current_fs
             assert "sonic_dump_random3.tar.gz" in current_fs
-        final_state = redis_mock.get_all(ts_mod.STATE_DB, ts_mod.TS_MAP)
-        assert "sonic_dump_random2.tar.gz" in final_state
-        assert "sonic_dump_random1.tar.gz" not in final_state
+        final_state = redis_mock.keys(ts_mod.STATE_DB, ts_mod.TS_MAP + "*")
+        assert ts_mod.TS_MAP + "|sonic_dump_random2" in final_state
+        assert ts_mod.TS_MAP + "|sonic_dump_random1" not in final_state

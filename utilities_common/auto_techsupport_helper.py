@@ -8,6 +8,7 @@ import subprocess
 import shutil
 import math
 import syslog
+from os.path import basename, splitext
 
 # MISC
 CORE_DUMP_DIR = "/var/core"
@@ -21,9 +22,7 @@ CFG_DB = "CONFIG_DB"
 
 # AUTO_TECHSUPPORT|GLOBAL table attributes
 AUTO_TS = "AUTO_TECHSUPPORT|GLOBAL"
-CFG_INVOC_TS = "auto_invoke_ts"
-CFG_CORE_CLEANUP = "coredump_cleanup"
-CFG_TS_CLEANUP = "techsupport_cleanup"
+CFG_STATE = "state"
 CFG_MAX_TS = "max_techsupport_size"
 COOLOFF = "rate_limit_interval"
 CFG_CORE_USAGE = "max_core_size"
@@ -46,15 +45,14 @@ TS = "auto_techsupport"
 
 # State DB Attributes
 STATE_DB = "STATE_DB"
-TS_MAP = "AUTO_TECHSUPPORT|TS_CORE_MAP"
-"""
-key = "AUTO_TECHSUPPORT|TS_CORE_MAP"
-<dump_name> = <core_dump_name;timestamp_as_epoch;crit_proc_name>
-Eg:
-sonic_dump_sonic_20210412_223645 = orchagent.1599047232.39.core;1599047233;orchagent
-sonic_dump_sonic_20210405_202756 = python3.1617684247.17.core;1617684249;snmp-subagent
-"""
 
+# AUTO_TECHSUPPORT_DUMP_INFO table info
+TS_MAP = "AUTO_TECHSUPPORT_DUMP_INFO"
+CORE_DUMP = "core_dump"
+TIMESTAMP = "timestamp"
+CRIT_PROC = "critical_process"
+
+# AUTO_TECHSUPPORT|FEATURE_PROC_INFO table
 CRITICAL_PROC = "AUTO_TECHSUPPORT|FEATURE_PROC_INFO"
 """
 key = "AUTO_TECHSUPPORT|FEATURE_PROC_INFO"
@@ -69,7 +67,8 @@ TIME_BUF = 20
 SINCE_DEFAULT = "2 days ago"
 NO_COMM = "<unknown>"
 WAIT_BUFFER = 40
-SLEEP_FOR = 5
+INIT_SLEEP = 2
+EXP_FACTOR = 2
 
 
 # Helper methods
@@ -81,6 +80,13 @@ def subprocess_exec(cmd, env=None):
         env=env
     )
     return output.returncode, output.stdout, output.stderr
+
+
+def strip_ts_ext(ts_path):
+    """ Return the basename and strip the techsupport dump of any extensions """
+    base_name = basename(ts_path)
+    name, _ = splitext(splitext(base_name)[0])  # *.tar.gz
+    return name
 
 
 def get_ts_dumps(full_path=False):

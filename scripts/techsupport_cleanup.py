@@ -11,6 +11,7 @@ import argparse
 import subprocess
 import syslog
 import shutil
+from os.path import basename, splitext
 from swsscommon.swsscommon import SonicV2Connector
 from utilities_common.auto_techsupport_helper import *
 
@@ -18,9 +19,9 @@ from utilities_common.auto_techsupport_helper import *
 def clean_state_db_entries(removed_files, db):
     if not removed_files:
         return
-    db_conn = db.get_redis_client(STATE_DB)
     for file in removed_files:
-        db_conn.hdel(TS_MAP, os.path.basename(file))
+        name = strip_ts_ext(file)
+        db.delete(STATE_DB, TS_MAP + "|" + name)
 
 
 def handle_techsupport_creation_event(dump_name, db):
@@ -30,7 +31,7 @@ def handle_techsupport_creation_event(dump_name, db):
     curr_list = get_ts_dumps()
     _ , num_bytes = get_stats(os.path.join(TS_DIR, TS_PTRN))
 
-    if db.get(CFG_DB, AUTO_TS, CFG_TS_CLEANUP) != "enabled":
+    if db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
         msg = "techsupport_cleanup is disabled. No cleanup is performed. current size occupied : {}"
         syslog.syslog(syslog.LOG_NOTICE, msg.format(pretty_size(num_bytes)))
         return
