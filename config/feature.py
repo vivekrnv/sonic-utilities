@@ -100,28 +100,3 @@ def feature_autorestart(db, name, autorestart):
 
     for ns, cfgdb in db.cfgdb_clients.items():
         cfgdb.mod_entry('FEATURE', name, {'auto_restart': autorestart})
-
-#
-# 'auto_techsupport' command ('config feature autotechsupport ...')
-#
-@feature.command(name='autotechsupport', short_help="Enable/disable auto_techsupport capability for the processes running inside of this feature")
-@click.argument('name', metavar='<feature-name>', required=True)
-@click.argument('autotechsupport', metavar='<autotechsupport>', required=True, type=click.Choice(["enabled", "disabled"]))
-@pass_db
-def feature_autotechsupport(db, name, autotechsupport):
-    """Enable/disable auto_techsupport capability for the processes running inside of this feature"""
-    entry_data_set = set()
-
-    for ns, cfgdb in db.cfgdb_clients.items():
-        entry_data = cfgdb.get_entry('FEATURE', name)
-        if not entry_data:
-            msg = "Feature '{}' doesn't exist".format(name)
-            click.get_current_context().fail(msg)
-        entry_data_set.add(entry_data['auto_techsupport'])
-
-    if len(entry_data_set) > 1:
-        msg = "Feature '{}' auto_techsupport is not consistent across namespaces".format(name)
-        click.get_current_context().fail(msg)
-
-    for ns, cfgdb in db.cfgdb_clients.items():
-        cfgdb.mod_entry('FEATURE', name, {'auto_techsupport': autotechsupport})
