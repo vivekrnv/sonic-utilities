@@ -93,7 +93,6 @@ class CriticalProcCoreDumpHandle():
         if cooloff_passed:
             since_cfg = self.get_since_arg()
             new_file = self.invoke_ts_cmd(since_cfg)
-            print(new_file)
             if new_file:
                 self.write_to_state_db(int(time.time()), process_name, new_file[0])
 
@@ -101,9 +100,8 @@ class CriticalProcCoreDumpHandle():
         name = strip_ts_ext(ts_dump)
         key = TS_MAP + "|" + name
         self.db.set(STATE_DB, key, CORE_DUMP, self.core_name)
-        self.db.set(STATE_DB, key, TIMESTAMP, timestamp)
+        self.db.set(STATE_DB, key, TIMESTAMP, str(timestamp))
         self.db.set(STATE_DB, key, CRIT_PROC, crit_proc_name)
-        print(self.db.get_all(STATE_DB, key))
 
     def get_since_arg(self):
         since_cfg = self.db.get(CFG_DB, AUTO_TS, CFG_SINCE)
@@ -140,7 +138,6 @@ class CriticalProcCoreDumpHandle():
         self.parse_ts_map()
         if proc_cooloff and proc in self.core_ts_map:
             last_creation_time = self.core_ts_map[proc][0][0]
-            print(last_creation_time, time.time(), proc_cooloff)
             if time.time() - last_creation_time < proc_cooloff:
                 msg = "Process Cooloff period for {} has not passed. Techsupport Invocation is skipped. Core: {}"
                 syslog.syslog(syslog.LOG_INFO, msg.format(proc, self.core_name))
@@ -158,13 +155,16 @@ class CriticalProcCoreDumpHandle():
                 continue
             proc_name = data.get(CRIT_PROC, "")
             creation_time = data.get(TIMESTAMP, "")
+            try:
+                creation_time = int(creation_time)
+            except:
+                continue  # if the creation time is invalid, skip the entry
             ts_dump = ts_key.split("|")[-1]
             if proc_name and proc_name not in self.core_ts_map:
                 self.core_ts_map[proc_name] = []
             self.core_ts_map[proc_name].append((int(creation_time), ts_dump))
         for proc_name in self.core_ts_map:
             self.core_ts_map[proc_name].sort()
-        print(self.core_ts_map)
 
     def fetch_exit_event(self):
         """Fetch the relevant entry in the AUTO_TECHSUPPORT|PROC_EXIT_EVENTS table"""
