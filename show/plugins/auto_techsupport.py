@@ -1,10 +1,6 @@
 """
 Auto-generated show CLI plugin.
-
-Auto generated for AUTO_TECHSUPPORT|GLOBAL table
-Manually updated to add the correspondig cli
-1) show auto-techsupport rate_limit_interval
-2) show auto-techsupport history
+Manually Edited to add show cli for "show auto_techsupport history"
 """
 
 import click
@@ -55,7 +51,6 @@ def AUTO_TECHSUPPORT():
     pass
 
 
-
 @AUTO_TECHSUPPORT.command(name="global")
 @clicommon.pass_db
 def AUTO_TECHSUPPORT_GLOBAL(db):
@@ -63,40 +58,40 @@ def AUTO_TECHSUPPORT_GLOBAL(db):
 
     header = [
 
-"STATE",
-"RATE LIMIT INTERVAL",
-"MAX TECHSUPPORT SIZE",
-"MAX CORE SIZE",
-"SINCE",
+        "STATE",
+        "RATE LIMIT INTERVAL",
+        "MAX TECHSUPPORT SIZE",
+        "MAX CORE SIZE",
+        "SINCE",
 
-]
+    ]
 
     body = []
 
     table = db.cfgdb.get_table("AUTO_TECHSUPPORT")
     entry = table.get("GLOBAL", {})
     row = [
-    format_attr_value(
-        entry,
-        {'name': 'state', 'description': 'Knob to make techsupport invocation event-driven based on core-dump generation', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'rate_limit_interval', 'description': 'Minimum time in seconds between two successive techsupport invocations. Configure 0 to explicitly disable', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'max_techsupport_size', 'description': 'Max Size to which the dumps in /var/dump dir can be grown until. No cleanup is performed if the value is not congiured or set to 0.0', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'max_core_size', 'description': 'Max Size to which the coredumps in /var/core directory can be grown until. No cleanup is performed if the value is not congiured or set to 0.0', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-    format_attr_value(
-        entry,
-        {'name': 'since', 'description': "Only collect the logs & core-dumps generated since the time provided. A default value of '2 days ago' is used if this value is not set explicitly or a non-valid string is provided", 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
-    ),
-]
+        format_attr_value(
+            entry,
+            {'name': 'state', 'description': 'Knob to make techsupport invocation event-driven based on core-dump generation', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'rate_limit_interval', 'description': 'Minimum time in seconds between two successive techsupport invocations. Configure 0 to explicitly disable', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'max_techsupport_size', 'description': 'Max Size to which the dumps in /var/dump dir can be grown until. No cleanup is performed if the value is not congiured or set to 0.0', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'max_core_size', 'description': 'Max Size to which the coredumps in /var/core directory can be grown until. No cleanup is performed if the value is not congiured or set to 0.0', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+        format_attr_value(
+            entry,
+            {'name': 'since', 'description': "Only collect the logs & core-dumps generated since the time provided. A default value of '2 days ago' is used if this value is not set explicitly or a non-valid string is provided", 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+        ),
+    ]
 
     body.append(row)
     click.echo(tabulate.tabulate(body, header))
@@ -105,24 +100,54 @@ def AUTO_TECHSUPPORT_GLOBAL(db):
 @AUTO_TECHSUPPORT.command(name="history")
 @clicommon.pass_db
 def AUTO_TECHSUPPORT_history(db):
-    fv = db.db.keys("STATE_DB", "AUTO_TECHSUPPORT_DUMP_INFO|*")
+    keys = db.db.keys("STATE_DB", "AUTO_TECHSUPPORT_DUMP_INFO|*")
     header = ["TECHSUPPORT DUMP", "TRIGGERED BY", "CORE DUMP"]
     body = []
-    for key, fv_pairs in fv.items():
+    for key in keys:
         dump = key.split("|")[-1]
+        fv_pairs = db.db.get_all("STATE_DB", key)
         core_dump = fv_pairs.get("core_dump", "")
-        supervisor_crit_proc = fv_pairs.get("crit_proc", "")
+        supervisor_crit_proc = fv_pairs.get("critical_process", "")
         body.append([dump, supervisor_crit_proc, core_dump])
     click.echo(tabulate.tabulate(body, header))
 
-@AUTO_TECHSUPPORT.command(name="rate_limit_interval")
+
+@click.group(name="auto-techsupport-feature",
+             cls=clicommon.AliasedGroup,
+             invoke_without_command=True)
 @clicommon.pass_db
-def AUTO_TECHSUPPORT_RATE_LIMIT_INTERVAL(db):
-    fv = db.db.get_all("CONFIG_DB", "AUTO_TECHSUPPORT|RATE_LIMIT_INTERVAL")
-    header = ["FEATURE", "RATE LIMIT INTERVAL"]
+def AUTO_TECHSUPPORT_FEATURE(db):
+    """  [Callable command group] """
+
+    header = [
+        "FEATURE NAME",
+
+        "STATE",
+        "RATE LIMIT INTERVAL",
+
+    ]
+
     body = []
-    for field, value in fv.items():
-        body.append([field, value])
+
+    table = db.cfgdb.get_table("AUTO_TECHSUPPORT_FEATURE")
+    for key in natsort.natsorted(table):
+        entry = table[key]
+        if not isinstance(key, tuple):
+            key = (key,)
+
+        row = [*key] + [
+            format_attr_value(
+                entry,
+                {'name': 'state', 'description': 'Enable auto techsupport invocation on the critical processes running inside this feature', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            ),
+            format_attr_value(
+                entry,
+                {'name': 'rate_limit_interval', 'description': 'Rate limit interval for the corresponding feature. Configure 0 to explicitly disable', 'is-leaf-list': False, 'is-mandatory': False, 'group': ''}
+            ),
+        ]
+
+        body.append(row)
+
     click.echo(tabulate.tabulate(body, header))
 
 
@@ -131,3 +156,7 @@ def register(cli):
     if cli_node.name in cli.commands:
         raise Exception(f"{cli_node.name} already exists in CLI")
     cli.add_command(AUTO_TECHSUPPORT)
+    cli_node = AUTO_TECHSUPPORT_FEATURE
+    if cli_node.name in cli.commands:
+        raise Exception(f"{cli_node.name} already exists in CLI")
+    cli.add_command(AUTO_TECHSUPPORT_FEATURE)
