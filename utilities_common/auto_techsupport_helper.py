@@ -39,9 +39,8 @@ swss = 600
 snmp = 600
 """
 
-# FEATURE Table fields
-FEATURE = "FEATURE|{}"
-TS = "auto_techsupport"
+# AUTO_TECHSUPPORT_FEATURE Table
+FEATURE = "AUTO_TECHSUPPORT_FEATURE|{}"
 
 # State DB Attributes
 STATE_DB = "STATE_DB"

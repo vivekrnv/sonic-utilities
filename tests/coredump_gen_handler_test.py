@@ -23,9 +23,9 @@ def set_auto_ts_cfg(redis_mock, state="disabled",
     redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS, cdump_mod.CFG_SINCE, since_cfg)
 
 
-def set_feature_table_cfg(redis_mock, ts="disabled", rate_limit_interval="0", container_name="swss"):
-    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.FEATURE.format(container_name), cdump_mod.TS, ts)
-    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.AUTO_TS_RATE_INTV, container_name, rate_limit_interval)
+def set_feature_table_cfg(redis_mock, state="disabled", rate_limit_interval="0", container_name="swss"):
+    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.FEATURE.format(container_name), cdump_mod.CFG_STATE, state)
+    redis_mock.set(cdump_mod.CFG_DB, cdump_mod.FEATURE.format(container_name), cdump_mod.COOLOFF, rate_limit_interval)
 
 
 def set_auto_ts_dump_info(redis_mock, ts_dump, core_dump, timestamp, crit_proc):
@@ -74,7 +74,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled")
-        set_feature_table_cfg(redis_mock, ts="enabled")
+        set_feature_table_cfg(redis_mock, state="enabled")
         populate_state_db(redis_mock)
         with Patcher() as patcher:
             def mock_cmd(cmd):
@@ -106,7 +106,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled", rate_limit_interval="1")
-        set_feature_table_cfg(redis_mock, ts="enabled")
+        set_feature_table_cfg(redis_mock, state="enabled")
         populate_state_db(redis_mock)
         with Patcher() as patcher:
             def mock_cmd(cmd):
@@ -138,7 +138,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled", rate_limit_interval="0.25")
-        set_feature_table_cfg(redis_mock, ts="enabled", rate_limit_interval="10")
+        set_feature_table_cfg(redis_mock, state="enabled", rate_limit_interval="10")
         populate_state_db(redis_mock, ts_map={"sonic_dump_random1":
                                               "orchagent;{};orchagent".format(int(time.time()))})
         with Patcher() as patcher:
@@ -167,7 +167,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled", rate_limit_interval="0.1")
-        set_feature_table_cfg(redis_mock, ts="enabled", rate_limit_interval="0.25")
+        set_feature_table_cfg(redis_mock, state="enabled", rate_limit_interval="0.25")
         populate_state_db(redis_mock, ts_map={"sonic_dump_random1":
                                               "orchagent;{};orchagent".format(int(time.time()))})
         with Patcher() as patcher:
@@ -198,7 +198,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled")
-        set_feature_table_cfg(redis_mock, ts="enabled", container_name="snmp")
+        set_feature_table_cfg(redis_mock, state="enabled", container_name="snmp")
         populate_state_db(redis_mock, {}, {})
         with Patcher() as patcher:
             def mock_cmd(cmd):
@@ -225,7 +225,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled")
-        set_feature_table_cfg(redis_mock, ts="enabled", container_name="snmp")
+        set_feature_table_cfg(redis_mock, state="enabled", container_name="snmp")
         populate_state_db(redis_mock, {}, {"snmp;snmp-subagent": "123;<unknown>"})
         with Patcher() as patcher:
             def mock_cmd(cmd):
@@ -254,7 +254,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled")
-        set_feature_table_cfg(redis_mock, ts="disabled", container_name="snmp")
+        set_feature_table_cfg(redis_mock, state="disabled", container_name="snmp")
         populate_state_db(redis_mock, {}, {"snmp:snmp-subagent": "123;python3"})
         with Patcher() as patcher:
             def mock_cmd(cmd):
@@ -280,7 +280,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled", since_cfg="4 days ago")
-        set_feature_table_cfg(redis_mock, ts="enabled")
+        set_feature_table_cfg(redis_mock, state="enabled")
         populate_state_db(redis_mock)
         with Patcher() as patcher:
             def mock_cmd(cmd):
@@ -315,7 +315,7 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
         db_wrap = Db()
         redis_mock = db_wrap.db
         set_auto_ts_cfg(redis_mock, state="enabled", since_cfg="whatever")
-        set_feature_table_cfg(redis_mock, ts="enabled")
+        set_feature_table_cfg(redis_mock, state="enabled")
         populate_state_db(redis_mock)
         with Patcher() as patcher:
             def mock_cmd(cmd):

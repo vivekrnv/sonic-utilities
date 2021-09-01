@@ -71,13 +71,13 @@ class CriticalProcCoreDumpHandle():
             return
 
         FEATURE_KEY = FEATURE.format(container_name)
-        if self.db.get(CFG_DB, FEATURE_KEY, TS) != "enabled":
+        if self.db.get(CFG_DB, FEATURE_KEY, CFG_STATE) != "enabled":
             msg = "auto-techsupport feature for {} is not enabled. Techsupport Invocation is skipped. core: {}"
             syslog.syslog(syslog.LOG_NOTICE, msg.format(container_name, self.core_name))
             return
 
         global_cooloff = self.db.get(CFG_DB, AUTO_TS, COOLOFF)
-        proc_cooloff = self.db.get(CFG_DB, AUTO_TS_RATE_INTV, container_name)
+        proc_cooloff = self.db.get(CFG_DB, FEATURE_KEY, COOLOFF)
 
         try:
             global_cooloff = float(global_cooloff)
