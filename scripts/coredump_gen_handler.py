@@ -131,7 +131,7 @@ class CriticalProcCoreDumpHandle():
         if global_cooloff and self.curr_ts_list:
             last_ts_dump_creation = os.path.getmtime(self.curr_ts_list[-1])
             if time.time() - last_ts_dump_creation < global_cooloff:
-                msg = "Global Cooloff period has not passed. Techsupport Invocation is skipped. Core: {}"
+                msg = "Global rate_limit_interval period has not passed. Techsupport Invocation is skipped. Core: {}"
                 syslog.syslog(syslog.LOG_INFO, msg.format(self.core_name))
                 return False
 
@@ -139,7 +139,7 @@ class CriticalProcCoreDumpHandle():
         if proc_cooloff and proc in self.core_ts_map:
             last_creation_time = self.core_ts_map[proc][0][0]
             if time.time() - last_creation_time < proc_cooloff:
-                msg = "Process Cooloff period for {} has not passed. Techsupport Invocation is skipped. Core: {}"
+                msg = "Process rate_limit_interval period for {} has not passed. Techsupport Invocation is skipped. Core: {}"
                 syslog.syslog(syslog.LOG_INFO, msg.format(proc, self.core_name))
                 return False
         return True
