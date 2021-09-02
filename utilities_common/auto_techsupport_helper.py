@@ -28,17 +28,6 @@ COOLOFF = "rate_limit_interval"
 CFG_CORE_USAGE = "max_core_size"
 CFG_SINCE = "since"
 
-# AUTO_TECHSUPPORT|RATE_LIMIT_INTERVAL table attributes
-AUTO_TS_RATE_INTV = "AUTO_TECHSUPPORT|RATE_LIMIT_INTERVAL"
-"""
-key = "AUTO_TECHSUPPORT|RATE_LIMIT_INTERVAL"
-<feature_name> =  <time in sec>;
-Eg:
-bgp = 600
-swss = 600
-snmp = 600
-"""
-
 # AUTO_TECHSUPPORT_FEATURE Table
 FEATURE = "AUTO_TECHSUPPORT_FEATURE|{}"
 
