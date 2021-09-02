@@ -50,10 +50,10 @@ handle_signal()
 trap 'handle_signal' SIGINT
 
 handle_error() {
-  if [ "$1" != "0" ]; then
-    echo "ERR: RC:-$1 observed on line $2" >&2
-    RETURN_CODE=1
-  fi
+    if [ "$1" != "0" ]; then
+        echo "ERR: RC:-$1 observed on line $2" >&2
+        RETURN_CODE=1
+    fi
 }
 
 save_bcmcmd() {
@@ -814,11 +814,8 @@ collect_mellanox() {
     local sdk_dump_path=`${CMD_PREFIX}docker exec syncd cat /tmp/sai.profile|grep "SAI_DUMP_STORE_PATH"|cut -d = -f2`
     if [[ -d $sdk_dump_path ]]; then
         copy_from_docker syncd $sdk_dump_path  /tmp/sdk-dumps
-        for file in $(find /tmp/sdk-dumps); do
-            if [[ -f $file ]]
-            then
-                save_file ${file} sai_sdk_dump false
-            fi
+        for file in $(find /tmp/sdk-dumps -type f); do
+            save_file ${file} sai_sdk_dump false
         done
         rm -rf /tmp/sdk-dumps
     fi
