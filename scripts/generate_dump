@@ -1072,6 +1072,7 @@ save_counter_snapshot() {
 # save the debug dump output
 ###############################################################################
 save_dump_state_all_ns() {
+    trap 'handle_error $? $LINENO' ERR
     MODULES="$(dump state -s | sed '1d;2d' | awk '{print $1}')"
     local UVDUMP="unified_view_dump"
     echo "DEBUG DUMP: Modules Available to Generate Debug Dump Output"
