@@ -2,6 +2,7 @@ import sys
 import syslog
 from unittest.mock import patch
 import pytest
+import subprocess
 
 sys.path.append("scripts")
 import disk_check
@@ -26,7 +27,7 @@ test_data = {
         "workdir": "/tmp/tmpy",
         "mounts": "overlay_tmpx blahblah",
         "err": "/tmpx is not read-write|READ-ONLY: Mounted ['/tmpx'] to make Read-Write",
-        "cmds": ['mount -t overlay overlay_tmpx -o lowerdir=/tmpx,upperdir=/tmp/tmpx,workdir=/tmp/tmpy /tmpx']
+        "cmds": ['mount -t overlay overlay_tmpx -o lowerdir=/tmpx,upperdir=/tmp/tmpx/tmpx,workdir=/tmp/tmpy/tmpx /tmpx']
     },
     "3": {
         "desc": "Not good as /tmpx is not read-write; mount fail as create of upper fails",
@@ -56,6 +57,7 @@ test_data = {
 }
 
 err_data = ""
+max_log_lvl = -1
 cmds = []
 current_tc = None
 
@@ -66,6 +68,11 @@ def mount_file(d):
 
 def report_err_msg(lvl, m):
     global err_data
+    global max_log_lvl
+
+    if lvl > max_log_lvl:
+        max_log_lvl = lvl
+
     if lvl == syslog.LOG_ERR:
         if err_data:
             err_data += "|"
@@ -84,8 +91,11 @@ class proc:
             self.stderr = proc_upd.get("stderr", None)
 
 
-def mock_subproc_run(cmd, shell, text, capture_output):
+def mock_subproc_run(cmd, shell, stdout):
     global cmds
+
+    assert shell == True
+    assert stdout == subprocess.PIPE
 
     upd = (current_tc["proc"][len(cmds)]
             if len(current_tc.get("proc", [])) > len(cmds) else None)
@@ -123,10 +133,15 @@ class TestDiskCheck(object):
     @patch("disk_check.syslog.syslog")
     @patch("disk_check.subprocess.run")
     def test_readonly(self, mock_proc, mock_log):
-        global err_data, cmds
+        global err_data, cmds, max_log_lvl
 
         mock_proc.side_effect = mock_subproc_run
         mock_log.side_effect = report_err_msg
+
+        with patch('sys.argv', ["", "-l", "7", "-d", "/tmp"]):
+            disk_check.main()
+            assert max_log_lvl == syslog.LOG_DEBUG
+            max_log_lvl = -1
 
         for i, tc in test_data.items():
             print("-----------Start tc {}---------".format(i))
@@ -159,3 +174,7 @@ class TestDiskCheck(object):
                 assert err_data == tc["err"]
             assert cmds == tc.get("cmds", [])
             print("-----------End tc {}-----------".format(i))
+
+            
+        assert max_log_lvl == syslog.LOG_ERR
+

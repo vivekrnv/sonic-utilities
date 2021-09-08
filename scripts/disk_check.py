@@ -21,6 +21,11 @@ How:
     Monit may be used to invoke it periodically, to help scan & fix and
     report via syslog.
 
+Tidbit:
+    If you would like to test this script, you could simulate a RO disk
+    with the following command. Reboot will revert the effect.
+        sudo bash -c "echo u > /proc/sysrq-trigger"
+
 """
 
 import argparse
@@ -33,19 +38,23 @@ UPPER_DIR = "/run/mount/upper"
 WORK_DIR = "/run/mount/work"
 MOUNTS_FILE = "/proc/mounts"
 
+chk_log_level = syslog.LOG_ERR
+
+def _log_msg(lvl, pfx, msg):
+    if lvl <= chk_log_level:
+        print("{}: {}".format(pfx, msg))
+        syslog.syslog(lvl, msg)
+
 def log_err(m):
-    print("Err: {}".format(m), file=sys.stderr)
-    syslog.syslog(syslog.LOG_ERR, m)
+    _log_msg(syslog.LOG_ERR, "Err", m)
 
 
 def log_info(m):
-    print("Info: {}".format(m))
-    syslog.syslog(syslog.LOG_INFO, m)
+    _log_msg(syslog.LOG_INFO, "Info",  m)
 
 
 def log_debug(m):
-    print("debug: {}".format(m))
-    syslog.syslog(syslog.LOG_DEBUG, m)
+    _log_msg(syslog.LOG_DEBUG, "Debug", m)
 
 
 def test_writable(dirs): 
@@ -60,7 +69,7 @@ def test_writable(dirs):
 
 
 def run_cmd(cmd):
-    proc = subprocess.run(cmd, shell=True, text=True, capture_output=True)
+    proc = subprocess.run(cmd, shell=True, stdout=subprocess.PIPE)
     ret = proc.returncode
     if ret:
         log_err("failed: ret={} cmd={}".format(ret, cmd))
@@ -68,9 +77,9 @@ def run_cmd(cmd):
         log_info("ret={} cmd: {}".format(ret, cmd))
 
     if proc.stdout:
-        log_info("stdout: {}".format(str(proc.stdout)))
+        log_info("stdout: {}".format(proc.stdout.decode("utf-8")))
     if proc.stderr:
-        log_info("stderr: {}".format(str(proc.stderr)))
+        log_info("stderr: {}".format(proc.stderr.decode("utf-8")))
     return ret
 
 
@@ -91,9 +100,15 @@ def do_mnt(dirs):
             return 1
 
     for d in dirs:
+        d_name = get_dname(d)
+        d_upper = os.path.join(UPPER_DIR, d_name)
+        d_work = os.path.join(WORK_DIR, d_name)
+        os.mkdir(d_upper)
+        os.mkdir(d_work)
+
         ret = run_cmd("mount -t overlay overlay_{} -o lowerdir={},"
         "upperdir={},workdir={} {}".format(
-            get_dname(d), d, UPPER_DIR, WORK_DIR, d))
+            d_name, d, d_upper, d_work, d))
         if ret:
             break
 
@@ -135,14 +150,19 @@ def do_check(skip_mount, dirs):
 
 
 def main():
+    global chk_log_level
+
     parser=argparse.ArgumentParser(
             description="check disk for Read-Write and mount etc & home as Read-Write")
     parser.add_argument('-s', "--skip-mount", action='store_true', default=False,
             help="Skip mounting /etc & /home as Read-Write")
     parser.add_argument('-d', "--dirs", default="/etc,/home",
             help="dirs to mount")
+    parser.add_argument('-l', "--loglvl", default=syslog.LOG_ERR, type=int,
+            help="log level")
     args = parser.parse_args()
 
+    chk_log_level = args.loglvl
     ret = do_check(args.skip_mount, args.dirs.split(","))
     return ret
 
