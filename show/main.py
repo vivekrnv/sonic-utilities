@@ -175,7 +175,7 @@ def cli(ctx):
 
 # Add groups from other modules
 cli.add_command(acl.acl)
-cli.add_command(chassis_modules.chassis_modules)
+cli.add_command(chassis_modules.chassis)
 cli.add_command(dropcounters.dropcounters)
 cli.add_command(feature.feature)
 cli.add_command(fgnhg.fgnhg)
@@ -906,6 +906,35 @@ elif routing_stack == "frr":
     ipv6.add_command(bgp)
 
 #
+# 'link-local-mode' subcommand ("show ipv6 link-local-mode")
+#
+
+@ipv6.command('link-local-mode')
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+def link_local_mode(verbose):
+    """show ipv6 link-local-mode"""
+    header = ['Interface Name', 'Mode']
+    body = []
+    interfaces = ['INTERFACE', 'PORTCHANNEL_INTERFACE', 'VLAN_INTERFACE']
+    config_db = ConfigDBConnector()
+    config_db.connect()
+
+    for i in interfaces:
+        interface_dict = config_db.get_table(i)
+        link_local_data = {}
+
+        if interface_dict:
+          for interface,value in interface_dict.items():
+             if 'ipv6_use_link_local_only' in value:
+                 link_local_data[interface] = interface_dict[interface]['ipv6_use_link_local_only']
+                 if link_local_data[interface] == 'enable':
+                     body.append([interface, 'Enabled'])
+                 else:
+                     body.append([interface, 'Disabled'])
+
+    click.echo(tabulate(body, header, tablefmt="grid"))
+
+#
 # 'lldp' group ("show lldp ...")
 #
 
@@ -1037,7 +1066,8 @@ def users(verbose):
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--allow-process-stop', is_flag=True, help="Dump additional data which may require system interruption")
 @click.option('--silent', is_flag=True, help="Run techsupport in silent mode")
-def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop, silent):
+@click.option('--debug-dump', is_flag=True, help="Collect Debug Dump Output")
+def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop, silent, debug_dump):
     """Gather information for troubleshooting"""
     cmd = "sudo timeout -s SIGTERM --foreground {}m".format(global_timeout)
 
@@ -1052,6 +1082,10 @@ def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop,
 
     if since:
         cmd += " -s '{}'".format(since)
+    
+    if debug_dump:
+        cmd += " -d "
+
     cmd += " -t {}".format(cmd_timeout)
     run_command(cmd, display_cmd=verbose)
 
