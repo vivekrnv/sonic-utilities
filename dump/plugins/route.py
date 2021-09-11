@@ -10,6 +10,13 @@ NH_GRP = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP_GROUP"
 RIF = "ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE"
 CPU_PORT = "ASIC_STATE:SAI_OBJECT_TYPE_PORT"
 
+OID_HEADERS = {
+    NH: "0x40",
+    NH_GRP: "0x50",
+    RIF: "0x60",
+    CPU_PORT: "0x10"
+}
+
 
 def get_route_pattern(dest):
     return "*\"dest\":\"" + dest + "\"*"
@@ -70,7 +77,6 @@ class NextHopGroupMatchOptimizer():
                 self.key_cache[key] = key_fv[key]
 
     def fetch_from_cache(self, key, req):
-        verbose_print("Cache Hit for Key: {}".format(key))
         new_ret = {"error": "", "keys": [], "return_values": {}}
         if not req.just_keys:
             new_ret["keys"].append(self.key_cache[key])
@@ -85,8 +91,10 @@ class NextHopGroupMatchOptimizer():
     def fetch(self, req):
         key = req.table + ":" + req.key_pattern
         if key in self.key_cache:
+            verbose_print("Cache Hit for Key: {}".format(key))
             return self.fetch_from_cache(key, req)
         else:
+            verbose_print("Cache Miss for Key: {}".format(key))
             req, fv_requested, ret_just_keys = self.mutate_request(req)
             ret = self.m_engine.fetch(req)
             if ret["error"]:
@@ -149,14 +157,14 @@ class Route(Executor):
     def init_route_appl_info(self):
         req = MatchRequest(db="APPL_DB", table="ROUTE_TABLE", key_pattern=self.dest_net, ns=self.ns)
         ret = self.match_engine.fetch(req)
-        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"], True)
+        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
     def init_asic_route_entry_info(self):
         nh_id_field = "SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID"
         req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY", key_pattern=get_route_pattern(self.dest_net),
                            ns=self.ns, return_fields=[nh_id_field])
         ret = self.match_engine.fetch(req)
-        keys = self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"], True)
+        keys = self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
         asic_route_entry = keys[0] if keys else ""
         vr = get_vr_oid(asic_route_entry)
         nh_id = ret["return_values"].get(asic_route_entry, {}).get(nh_id_field, "")
@@ -177,18 +185,10 @@ class Route(Executor):
     def get_nh_type(self):
         if not self.nh_id:
             return "DROP"
-        ret = self.nhgrp_match_engine.fetch(MatchRequest(db="ASIC_DB", table=NH_GRP, key_pattern=self.nh_id, ns=self.ns))
-        if ret["keys"]:
-            return NH_GRP
-        ret = self.nhgrp_match_engine.fetch(MatchRequest(db="ASIC_DB", table=NH, key_pattern=self.nh_id, ns=self.ns))
-        if ret["keys"]:
-            return NH
-        ret = self.nhgrp_match_engine.fetch(MatchRequest(db="ASIC_DB", table=RIF, key_pattern=self.nh_id, ns=self.ns))
-        if ret["keys"]:
-            return RIF
-        ret = self.nhgrp_match_engine.fetch(MatchRequest(db="ASIC_DB", table=CPU_PORT, key_pattern=self.nh_id, ns=self.ns))
-        if ret["keys"]:
-            return CPU_PORT
+        oid = self.nh_id.split(":")[-1]
+        for nh_type in [NH_GRP, NH, RIF, CPU_PORT]:
+            if oid.startswith(OID_HEADERS.get(nh_type, "")):
+                return nh_type
         return "DROP"
 
 
@@ -236,7 +236,7 @@ class CPUPort(NHExtractor):
     def collect(self):
         req = MatchRequest(db="ASIC_DB", table=CPU_PORT, key_pattern=self.rt.nh_id, ns=self.rt.ns)
         ret = self.rt.nhgrp_match_engine.fetch(req)
-        self.rt.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"], True)
+        self.rt.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
 
 class DirecAttachedRt(NHExtractor):

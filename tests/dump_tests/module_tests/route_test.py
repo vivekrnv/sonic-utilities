@@ -225,29 +225,55 @@ class TestRouteModule:
         """
         Scenario: Test the caching mechanism which reduces number of redis calls
         """
-        m_route = Route(match_engine)
-        params = {Route.ARG_NAME: "20c0:e6e0:0:80::/64", "namespace": ""}
-        returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
-        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:20c0:e6e0:0:80::/64")
-        expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("20c0:e6e0:0:80::/64")))
-        ddiff = DeepDiff(returned, expect, ignore_order=True)
+        global num_hits, num_miss, msgs
+        num_hits, num_miss, msgs = 0, 0, []
 
-        params = {Route.ARG_NAME: "192.168.0.4/24", "namespace": ""}
-        returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
-        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:192.168.0.4/24")
-        expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("192.168.0.4/24")))
-        ddiff = DeepDiff(returned, expect, ignore_order=True)
-        assert not ddiff, ddiff
+        def verbose_print_mock(msg):
+            global num_hits, num_miss, msgs
+            if "Cache Hit for Key:" in msg:
+                num_hits = num_hits + 1
+            elif "Cache Miss for Key:" in msg:
+                num_miss = num_miss + 1
+            else:
+                return
+            msgs.append(msg)
 
-        params = {Route.ARG_NAME: "192.168.0.10/22", "namespace": ""}
-        returned = m_route.execute(params)
-        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
-        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:192.168.0.10/22")
-        expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("192.168.0.10/22")))
-        ddiff = DeepDiff(returned, expect, ignore_order=True)
-        assert not ddiff, ddiff
+        with patch("dump.plugins.route.verbose_print", verbose_print_mock):
+            m_route = Route(match_engine)
+            params = {Route.ARG_NAME: "20c0:e6e0:0:80::/64", "namespace": ""}
+            returned = m_route.execute(params)
+            expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+            expect["APPL_DB"]["keys"].append("ROUTE_TABLE:20c0:e6e0:0:80::/64")
+            expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("20c0:e6e0:0:80::/64")))
+            ddiff = DeepDiff(returned, expect, ignore_order=True)
+            assert not ddiff, ddiff
+            print(msgs)
+            assert num_hits == 0
+            assert num_miss == 11
+            num_hits, num_miss, msgs = 0, 0, []
+
+            params = {Route.ARG_NAME: "192.168.0.4/24", "namespace": ""}
+            returned = m_route.execute(params)
+            expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+            expect["APPL_DB"]["keys"].append("ROUTE_TABLE:192.168.0.4/24")
+            expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("192.168.0.4/24")))
+            ddiff = DeepDiff(returned, expect, ignore_order=True)
+            assert not ddiff, ddiff
+            print(msgs)
+            assert num_hits == 10
+            assert num_miss == 1
+            num_hits, num_miss, msgs = 0, 0, []
+
+            params = {Route.ARG_NAME: "192.168.0.10/22", "namespace": ""}
+            returned = m_route.execute(params)
+            expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+            expect["APPL_DB"]["keys"].append("ROUTE_TABLE:192.168.0.10/22")
+            expect["ASIC_DB"]["keys"].extend(self.get_asic_nh_group_expected(get_asic_route_key("192.168.0.10/22")))
+            ddiff = DeepDiff(returned, expect, ignore_order=True)
+            assert not ddiff, ddiff
+            print(msgs)
+            assert num_hits == 10
+            assert num_miss == 1
 
     def test_no_route_entry(self, match_engine):
         """
