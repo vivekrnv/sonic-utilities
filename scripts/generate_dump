@@ -150,7 +150,6 @@ save_bcmcmd_all_ns() {
 #  cmd: The command to run. Make sure that arguments with spaces have quotes
 #  filename: the filename to save the output as in $BASE/dump
 #  do_gzip: (OPTIONAL) true or false. Should the output be gzipped
-#  save_stderr: (OPTIONAL) true or false. Should the stderr output be saved
 # Returns:
 #  None
 ###############################################################################
@@ -162,14 +161,13 @@ save_cmd() {
     local filename=$2
     local filepath="${LOGDIR}/$filename"
     local do_gzip=${3:-false}
-    local save_stderr=${4:-$SAVE_STDERR}
     local tarpath="${BASE}/dump/$filename"
     local timeout_cmd="timeout --foreground ${TIMEOUT_MIN}m"
     local redirect='&>'
     local redirect_eval='2>&1'
     [ ! -d $LOGDIR ] && $MKDIR $V -p $LOGDIR
 
-    if ! $save_stderr
+    if ! $SAVE_STDERR
     then
         redirect=">"
         redirect_eval=""
@@ -1186,7 +1184,7 @@ main() {
         local -r dump_plugins="$(find ${PLUGINS_DIR} -type f -executable)"
         for plugin in $dump_plugins; do
             # save stdout output of plugin and gzip it
-            save_cmd "$plugin" "$(basename $plugin)" true false
+            save_cmd "$plugin" "$(basename $plugin)" true
         done
     fi
 
