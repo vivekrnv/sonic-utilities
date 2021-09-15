@@ -69,3 +69,52 @@ def table_as_json(table, header):
         output[if_name] = {header[i]: line[i] for i in range(1, len(header))}
     
     return json.dumps(output, indent=4, sort_keys=True)
+
+
+def format_number_with_comma(number_in_str):
+    """
+        Format the number with comma.
+    """
+    if number_in_str.isdecimal():
+        return '{:,}'.format(int(number_in_str))
+    else:
+        return number_in_str
+
+
+def format_brate(rate):
+    """
+    Show the byte rate.
+    """
+    if rate == STATUS_NA:
+        return STATUS_NA
+    else:
+        rate = float(rate)
+        if rate > 1000*1000*10:
+            rate = "{:.2f}".format(rate/1000/1000.0)+' MB'
+        elif rate > 1000*10:
+            rate = "{:.2f}".format(rate/1000.0)+' KB'
+        else:
+            rate = "{:.2f}".format(rate)+' B'
+        return rate+'/s'
+
+
+def format_prate(rate):
+    """
+    Show the packet rate.
+    """
+    if rate == STATUS_NA:
+        return STATUS_NA
+    else:
+        return "{:.2f}".format(float(rate))+'/s'
+
+
+def format_util(brate, port_rate):
+    """
+        Calculate the util.
+    """
+    if brate == STATUS_NA or port_rate == STATUS_NA:
+        return STATUS_NA
+    else:
+        util = brate/(float(port_rate)*1000*1000/8.0)*100
+        return "{:.2f}%".format(util)
+
