@@ -86,8 +86,9 @@ save_bcmcmd() {
             if [ $ret -eq 124 ]; then
                 echo "Command: $cmd timedout after ${TIMEOUT_MIN} minutes."
             else
-                grep "polling socket timeout: Success" ${filepath} &>/dev/null
-                if [ $? -eq 0 ]; then
+                RC=0
+                grep "polling socket timeout: Success" ${filepath} &>/dev/null || RC=$?
+                if [ $RC -eq 0 ]; then
                     echo "bcmcmd command timeout. Setting SKIP_BCMCMD to true ..."
                     SKIP_BCMCMD=1
                 fi
@@ -187,8 +188,9 @@ save_cmd() {
         if $NOOP; then
             echo "${timeout_cmd} bash -c \"${cmds}\""
         else
-            eval "${timeout_cmd} bash -c \"${cmds}\""
-            if [ $? -ne 0 ]; then
+            RC=0
+            eval "${timeout_cmd} bash -c \"${cmds}\"" || RC=$?
+            if [ $RC -ne 0 ]; then
                 echo "Command: $cmds timedout after ${TIMEOUT_MIN} minutes."
             fi
         fi
