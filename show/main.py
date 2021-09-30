@@ -7,6 +7,7 @@ import re
 import click
 import utilities_common.cli as clicommon
 import utilities_common.multi_asic as multi_asic_util
+from importlib import reload
 from natsort import natsorted
 from sonic_py_common import device_info
 from swsscommon.swsscommon import SonicV2Connector, ConfigDBConnector
@@ -15,6 +16,23 @@ from utilities_common import util_base
 from utilities_common.db import Db
 import utilities_common.constants as constants
 from utilities_common.general import load_db_config
+
+# mock the redis for unit test purposes #
+try:
+    if os.environ["UTILITIES_UNIT_TESTING"] == "2":
+        modules_path = os.path.join(os.path.dirname(__file__), "..")
+        tests_path = os.path.join(modules_path, "tests")
+        sys.path.insert(0, modules_path)
+        sys.path.insert(0, tests_path)
+        import mock_tables.dbconnector
+    if os.environ["UTILITIES_UNIT_TESTING_TOPOLOGY"] == "multi_asic":
+        import mock_tables.mock_multi_asic
+        reload(mock_tables.mock_multi_asic)
+        reload(mock_tables.dbconnector)
+        mock_tables.dbconnector.load_namespace_config()
+
+except KeyError:
+    pass
 
 from . import acl
 from . import bgp_common
@@ -38,7 +56,6 @@ from . import vxlan
 from . import system_health
 from . import warm_restart
 from . import plugins
-
 
 # Global Variables
 PLATFORM_JSON = 'platform.json'
@@ -157,7 +174,7 @@ def cli(ctx):
 
 # Add groups from other modules
 cli.add_command(acl.acl)
-cli.add_command(chassis_modules.chassis_modules)
+cli.add_command(chassis_modules.chassis)
 cli.add_command(dropcounters.dropcounters)
 cli.add_command(feature.feature)
 cli.add_command(fgnhg.fgnhg)
@@ -888,6 +905,49 @@ elif routing_stack == "frr":
     ipv6.add_command(bgp)
 
 #
+# 'link-local-mode' subcommand ("show ipv6 link-local-mode")
+#
+
+@ipv6.command('link-local-mode')
+@click.option('--verbose', is_flag=True, help="Enable verbose output")
+def link_local_mode(verbose):
+    """show ipv6 link-local-mode"""
+    header = ['Interface Name', 'Mode']
+    body = []
+    tables = ['PORT', 'PORTCHANNEL', 'VLAN']
+    config_db = ConfigDBConnector()
+    config_db.connect()
+    interface = ""
+
+    for table in tables:
+        if table == "PORT":
+            interface = "INTERFACE"
+        elif table == "PORTCHANNEL":
+            interface = "PORTCHANNEL_INTERFACE"
+        elif table == "VLAN":
+            interface = "VLAN_INTERFACE"
+
+        port_dict = config_db.get_table(table)
+        interface_dict = config_db.get_table(interface)
+        link_local_data = {}
+
+        for port in port_dict.keys():
+            if port not in interface_dict:
+                body.append([port, 'Disabled'])
+            elif interface_dict:
+                value = interface_dict[port]
+                if 'ipv6_use_link_local_only' in value:
+                    link_local_data[port] = interface_dict[port]['ipv6_use_link_local_only']
+                    if link_local_data[port] == 'enable':
+                        body.append([port, 'Enabled'])
+                    else:
+                        body.append([port, 'Disabled'])
+                else:
+                    body.append([port, 'Disabled'])
+
+    click.echo(tabulate(body, header, tablefmt="grid"))
+
+#
 # 'lldp' group ("show lldp ...")
 #
 
@@ -1019,7 +1079,9 @@ def users(verbose):
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--allow-process-stop', is_flag=True, help="Dump additional data which may require system interruption")
 @click.option('--silent', is_flag=True, help="Run techsupport in silent mode")
-def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop, silent):
+@click.option('--debug-dump', is_flag=True, help="Collect Debug Dump Output")
+@click.option('--redirect-stderr', '-r', is_flag=True, help="Redirect an intermediate errors to STDERR")
+def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop, silent, debug_dump, redirect_stderr):
     """Gather information for troubleshooting"""
     cmd = "sudo timeout -s SIGTERM --foreground {}m".format(global_timeout)
 
@@ -1034,7 +1096,13 @@ def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop,
 
     if since:
         cmd += " -s '{}'".format(since)
+    
+    if debug_dump:
+        cmd += " -d "
+
     cmd += " -t {}".format(cmd_timeout)
+    if redirect_stderr:
+        cmd += " -r"
     run_command(cmd, display_cmd=verbose)
 
 
@@ -1621,12 +1689,10 @@ def ztp(status, verbose):
        cmd = cmd + " --verbose"
     run_command(cmd, display_cmd=verbose)
 
-
 # Load plugins and register them
 helper = util_base.UtilHelper()
 for plugin in helper.load_plugins(plugins):
     helper.register_plugin(plugin, cli)
-
 
 if __name__ == '__main__':
     cli()
