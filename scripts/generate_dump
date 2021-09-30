@@ -660,11 +660,11 @@ save_redis() {
 save_saidump() {
     trap 'handle_error $? $LINENO' ERR
     if [[ ( "$NUM_ASICS" == 1 ) ]] ; then
-        save_cmd "docker exec -it syncd saidump" "saidump"
+        save_cmd "docker exec syncd saidump" "saidump"
     else
         for (( i=0; i<$NUM_ASICS; i++ ))
         do
-            save_cmd "docker exec -it syncd$i saidump" "saidump$i"
+            save_cmd "docker exec syncd$i saidump" "saidump$i"
         done
     fi
 }
@@ -803,7 +803,7 @@ enable_logrotate() {
 collect_mellanox() {
     trap 'handle_error $? $LINENO' ERR
     local sai_dump_filename="/tmp/sai_sdk_dump_$(date +"%m_%d_%Y_%I_%M_%p")"
-    ${CMD_PREFIX}docker exec -it syncd saisdkdump -f $sai_dump_filename
+    ${CMD_PREFIX}docker exec syncd saisdkdump -f $sai_dump_filename
     ${CMD_PREFIX}docker exec syncd tar Ccf $(dirname $sai_dump_filename) - $(basename $sai_dump_filename) | tar Cxf /tmp/ -
     save_file $sai_dump_filename sai_sdk_dump true
 
