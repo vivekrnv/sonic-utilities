@@ -5,7 +5,7 @@ import pytest
 from deepdiff import DeepDiff
 from mock import patch
 from dump.helper import create_template_dict, sort_lists
-from dump.plugins.portchannel import Portchannel
+from dump.plugins.portchannel_member import Portchannel_Member
 from dump.match_infra import MatchEngine, ConnectionPool
 from swsscommon.swsscommon import SonicV2Connector
 
@@ -68,14 +68,14 @@ def match_engine():
 
 
 @pytest.mark.usefixtures("match_engine")
-class TestPortChannelModule:
+class TestPortChannelMemberModule:
     def test_get_all_args(self, match_engine):
         """
         Scenario: Verify Whether the get_all_args method is working as expected
         """
-        m_lag = Portchannel(match_engine)
-        returned = m_lag.get_all_args("")
-        expect = ["PortChannel001", "PortChannel002", "PortChannel003"]
+        m_lag_member = Portchannel_Member(match_engine)
+        returned = m_lag_member.get_all_args("")
+        expect = ["PortChannel001|Ethernet0", "PortChannel001|Ethernet4", "PortChannel001|Ethernet8"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
         assert not ddiff, ddiff
 
@@ -83,46 +83,25 @@ class TestPortChannelModule:
         '''
         Scenario: When the LAG is configured but the Change is not propagated
         '''
-        params = {Portchannel.ARG_NAME:"PortChannel003", "namespace":""}
-        m_lag = Portchannel(match_engine)
-        returned = m_lag.execute(params)
+        params = {Portchannel_Member.ARG_NAME:"PortChannel001|Ethernet8", "namespace":""}
+        m_lag_member = Portchannel_Member(match_engine)
+        returned = m_lag_member.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
-        expect["CONFIG_DB"]["keys"].append("PORTCHANNEL|PortChannel003")
-        expect["APPL_DB"]["tables_not_found"].append("LAG_TABLE")
-        expect["STATE_DB"]["tables_not_found"].append("LAG_TABLE")
-        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG")
+        expect["CONFIG_DB"]["keys"].append("PORTCHANNEL_MEMBER|PortChannel001|Ethernet8")
+        expect["APPL_DB"]["tables_not_found"].append("LAG_MEMBER_TABLE")
+        expect["STATE_DB"]["tables_not_found"].append("LAG_MEMBER_TABLE")
+        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_lag_with_no_members(self, match_engine):
-        '''
-        Scenario: When the PortChannel doesn't have any members, 
-                  it is not possible to uniquely identify ASIC LAG Related Key
-        '''
-        params = {Portchannel.ARG_NAME:"PortChannel002", "namespace":""}
-        m_lag = Portchannel(match_engine)
-        returned = m_lag.execute(params)
+    def test_working_config(self, match_engine):
+        params = {Portchannel_Member.ARG_NAME:"PortChannel001|Ethernet0", "namespace":""}
+        m_lag_member = Portchannel_Member(match_engine)
+        returned = m_lag_member.execute(params)
         expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
-        expect["CONFIG_DB"]["keys"].append("PORTCHANNEL|PortChannel002")
-        expect["APPL_DB"]["keys"].append("LAG_TABLE:PortChannel002")
-        expect["STATE_DB"]["keys"].append("LAG_TABLE|PortChannel002")
-        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG")
+        expect["CONFIG_DB"]["keys"].append("PORTCHANNEL_MEMBER|PortChannel001|Ethernet0")
+        expect["APPL_DB"]["keys"].append("LAG_MEMBER_TABLE:PortChannel001:Ethernet0")
+        expect["STATE_DB"]["keys"].append("LAG_MEMBER_TABLE|PortChannel001|Ethernet0")
+        expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:oid:0x1b000000000d18")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
-        assert not ddiff, ddiff
-
-    def test_lag_with_members(self, match_engine):
-        '''
-        Scenario: It should be possible to uniquely identify ASIC LAG Related Keys,
-                  when the LAG has members
-        '''
-        params = {Portchannel.ARG_NAME:"PortChannel001", "namespace":""}
-        m_lag = Portchannel(match_engine)
-        returned = m_lag.execute(params)
-        expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
-        expect["CONFIG_DB"]["keys"].append("PORTCHANNEL|PortChannel001")
-        expect["APPL_DB"]["keys"].append("LAG_TABLE:PortChannel001")
-        expect["STATE_DB"]["keys"].append("LAG_TABLE|PortChannel001")
-        expect["ASIC_DB"]["keys"].append("ASIC_STATE:SAI_OBJECT_TYPE_LAG:oid:0x2000000000d17")
-        ddiff = DeepDiff(expect, returned, ignore_order=True)
-        print(returned, expect, ddiff)
         assert not ddiff, ddiff

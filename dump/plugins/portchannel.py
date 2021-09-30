@@ -3,7 +3,7 @@ from dump.helper import create_template_dict, verbose_print
 from .executor import Executor
 
 
-class PortChannel(Executor):
+class Portchannel(Executor):
     """
     Debug Dump Plugin for PortChannel/LAG Module
     """
@@ -23,20 +23,16 @@ class PortChannel(Executor):
 
     def execute(self, params_dict):
         self.ret_temp = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
-        self.lag_name = params_dict[PortChannel.ARG_NAME]
+        self.lag_name = params_dict[Portchannel.ARG_NAME]
         self.ns = params_dict["namespace"]
         # CONFIG_DB
         lag_found = self.init_lag_config_info()
         if lag_found:
             self.init_lag_member_config_info()
         # APPL_DB
-        lag_found_appl = self.init_lag_appl_info()
-        if lag_found or lag_found_appl:
-            self.init_lag_member_appl_info()
+        self.init_lag_appl_info()
         # STATE_DB
-        lag_found_state = self.init_lag_state_info()
-        if lag_found or lag_found_appl or lag_found_state:
-            self.init_lag_member_state_info()
+        self.init_lag_state_info()
         # ASIC_DB
         lag_type_objs_asic = self.init_lag_member_type_obj_asic_info()
         self.init_lag_asic_info(lag_type_objs_asic)
@@ -60,31 +56,16 @@ class PortChannel(Executor):
         ret = self.match_engine.fetch(req)
         for key in ret["keys"]:
             self.lag_members.add(key.split("|")[-1])
-        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
     def init_lag_appl_info(self):
         req = MatchRequest(db="APPL_DB", table="LAG_TABLE", key_pattern=self.lag_name, ns=self.ns)
         ret = self.match_engine.fetch(req)
         return self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
-    def init_lag_member_appl_info(self):
-        req = MatchRequest(db="APPL_DB", table="LAG_MEMBER_TABLE", key_pattern=self.lag_name + ":*", ns=self.ns)
-        ret = self.match_engine.fetch(req)
-        for key in ret["keys"]:
-            self.lag_members.add(key.split(":")[-1])
-        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
-
     def init_lag_state_info(self):
         req = MatchRequest(db="STATE_DB", table="LAG_TABLE", key_pattern=self.lag_name, ns=self.ns)
         ret = self.match_engine.fetch(req)
         return self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
-
-    def init_lag_member_state_info(self):
-        req = MatchRequest(db="STATE_DB", table="LAG_MEMBER_TABLE", key_pattern=self.lag_name + "|*", ns=self.ns)
-        ret = self.match_engine.fetch(req)
-        for key in ret["keys"]:
-            self.lag_members.add(key.split("|")[-1])
-        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
     def init_lag_asic_info(self, lag_type_objs_asic):
         if len(lag_type_objs_asic) == 0:
@@ -96,15 +77,16 @@ class PortChannel(Executor):
             self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
     def init_lag_member_type_obj_asic_info(self):
+        """
+        Finding the relevant SAI_OBJECT_TYPE_LAG key directly from the ASIC is not possible given a LAG name
+        Thus, using the members to find SAI_LAG_MEMBER_ATTR_LAG_ID
+        """
         lag_type_objs_asic = set()
         for port_name in self.lag_members:
             port_asic_obj = self.get_port_asic_obj(port_name)
             if port_asic_obj:
                 lag_member_key, lag_oid = self.get_lag_and_member_obj(port_asic_obj)
-                self.add_to_ret_template("ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER", "ASIC_DB", [lag_member_key], "")
                 lag_type_objs_asic.add(lag_oid)
-        if not lag_type_objs_asic:
-            self.ret_temp["ASIC_DB"]["tables_not_found"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER"])
         return lag_type_objs_asic
 
     def get_port_asic_obj(self, port_name):
