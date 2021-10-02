@@ -1,5 +1,5 @@
 from dump.match_infra import MatchRequest
-from dump.helper import create_template_dict, verbose_print
+from dump.helper import create_template_dict
 from .executor import Executor
 
 class Portchannel_Member(Executor):
