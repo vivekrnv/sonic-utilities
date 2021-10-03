@@ -1157,7 +1157,7 @@ main() {
     save_cmd "show interface status -d all" "interface.status"
     save_cmd "show interface transceiver presence" "interface.xcvrs.presence"
     save_cmd "show interface transceiver eeprom --dom" "interface.xcvrs.eeprom"
-    save_cmd "show ip interface -d all" "ip.interface"
+    save_cmd "show ip interface" "ip.interface"
 
     save_cmd "lldpctl" "lldpctl"
     if [[ ( "$NUM_ASICS" > 1 ) ]]; then
