@@ -686,7 +686,7 @@ def _stop_services():
         pass
 
     click.echo("Stopping SONiC target ...")
-    clicommon.run_command("sudo systemctl stop sonic.target")
+    clicommon.run_command("sudo systemctl stop sonic.target --job-mode replace-irreversibly")
 
 
 def _get_sonic_services():
