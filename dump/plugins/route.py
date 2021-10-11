@@ -35,7 +35,7 @@ def get_vr_oid(asic_route_entry):
 
 class NextHopGroupMatchOptimizer():
     """
-    A Stateful Wrapper which optimizes the the queries by caching the redis keys.
+    A Stateful Wrapper which optimizes the queries by caching the redis keys.
     Will be used for these ASIC keys in particular
     1) SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER
     2) SAI_OBJECT_TYPE_NEXT_HOP
@@ -44,7 +44,7 @@ class NextHopGroupMatchOptimizer():
     """
 
     def __init__(self, m_engine):
-        self.key_cache = dict()
+        self.key_cache = {}
         self.m_engine = m_engine
 
     def mutate_request(self, req):
