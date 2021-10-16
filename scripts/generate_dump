@@ -1266,7 +1266,11 @@ main() {
     fi
 
     echo ${TARFILE}
-    exit $RETURN_CODE
+    
+    if ! $SAVE_STDERR
+    then
+    	exit $RETURN_CODE
+    fi
 }
 
 ###############################################################################
