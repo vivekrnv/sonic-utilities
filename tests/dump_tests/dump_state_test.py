@@ -79,6 +79,30 @@ table_display_output_no_filtering = '''\
 +-------------+-----------+-----------------------------------------------------------+
 '''
 
+table_config_file_copp='''\
++-----------+-------------+---------------------------------------------------------------+
+| trap_id   | DB_NAME     | DUMP                                                          |
++===========+=============+===============================================================+
+| bgp       | CONFIG_FILE | +--------------------------+--------------------------------+ |
+|           |             | | Keys                     | field-value pairs              | |
+|           |             | +==========================+================================+ |
+|           |             | | COPP_TRAP|bgp            | +------------+---------------+ | |
+|           |             | |                          | | field      | value         | | |
+|           |             | |                          | |------------+---------------| | |
+|           |             | |                          | | trap_ids   | bgp,bgpv6     | | |
+|           |             | |                          | | trap_group | queue4_group1 | | |
+|           |             | |                          | +------------+---------------+ | |
+|           |             | +--------------------------+--------------------------------+ |
+|           |             | | COPP_GROUP|queue4_group1 | +---------------+---------+    | |
+|           |             | |                          | | field         | value   |    | |
+|           |             | |                          | |---------------+---------|    | |
+|           |             | |                          | | trap_action   | trap    |    | |
+|           |             | |                          | | trap_priority | 4       |    | |
+|           |             | |                          | | queue         | 4       |    | |
+|           |             | |                          | +---------------+---------+    | |
+|           |             | +--------------------------+--------------------------------+ |
++-----------+-------------+---------------------------------------------------------------+
+'''
 
 class TestDumpState(object):
 
@@ -178,6 +202,14 @@ class TestDumpState(object):
         result = runner.invoke(dump.state, ["port", "Ethernet0", "--table", "--key-map", "--namespace", "asic0"])
         print(result.output)
         assert result.output == "Namespace option is not valid for a single-ASIC device\n"
+    
+    def test_populate_fv_config_file(self):
+        dump.plugins.copp.Copp.CONFIG_FILE = "/sonic/src/sonic-utilities/tests/dump_input/copp_cfg.json"
+        runner = CliRunner()
+        result = runner.invoke(dump.state, ["copp", "bgp", "--table", "--db", "CONFIG_FILE"])
+        print(result)
+        print(result.output)
+        assert result.output == table_config_file_copp
 
     @classmethod
     def teardown(cls):
