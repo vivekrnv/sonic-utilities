@@ -10,6 +10,7 @@ from importlib import reload
 from utilities_common.db import Db
 import traceback
 from utilities_common.constants import DEFAULT_NAMESPACE
+from pyfakefs.fake_filesystem_unittest import Patcher
 
 
 def compare_json_output(exp_json, rec, exclude_paths=None):
@@ -204,12 +205,29 @@ class TestDumpState(object):
         assert result.output == "Namespace option is not valid for a single-ASIC device\n"
     
     def test_populate_fv_config_file(self):
-        dump.plugins.copp.Copp.CONFIG_FILE = "/sonic/src/sonic-utilities/tests/dump_input/copp_cfg.json"
-        runner = CliRunner()
-        result = runner.invoke(dump.state, ["copp", "bgp", "--table", "--db", "CONFIG_FILE"])
-        print(result)
-        print(result.output)
-        assert result.output == table_config_file_copp
+        # dump.plugins.copp.Copp.CONFIG_FILE = "/sonic/src/sonic-utilities/tests/dump_input/copp_cfg.json"
+        test_data = {
+            "COPP_TRAP": {
+                "bgp": {
+                    "trap_ids": "bgp,bgpv6",
+                    "trap_group": "queue4_group1"
+                }
+            },
+            "COPP_GROUP": {
+                "queue4_group1": {
+                    "trap_action":"trap",
+                    "trap_priority":"4",
+                    "queue": "4"
+                }
+            }
+        }
+        with Patcher() as patcher:
+            patcher.fs.create_file("/etc/sonic/copp_cfg.json", contents=json.dumps(test_data))
+            runner = CliRunner()
+            result = runner.invoke(dump.state, ["copp", "bgp", "--table", "--db", "CONFIG_FILE"])
+            print(result)
+            print(result.output)
+            assert result.output == table_config_file_copp
 
     @classmethod
     def teardown(cls):
