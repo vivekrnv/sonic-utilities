@@ -205,7 +205,6 @@ class TestDumpState(object):
         assert result.output == "Namespace option is not valid for a single-ASIC device\n"
     
     def test_populate_fv_config_file(self):
-        # dump.plugins.copp.Copp.CONFIG_FILE = "/sonic/src/sonic-utilities/tests/dump_input/copp_cfg.json"
         test_data = {
             "COPP_TRAP": {
                 "bgp": {
