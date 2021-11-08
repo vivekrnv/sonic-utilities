@@ -6,7 +6,7 @@ from unittest import mock
 
 
 import pytest
-from sonic_py_common import device_info
+from sonic_py_common import device_info, multi_asic
 from swsscommon.swsscommon import ConfigDBConnector
 
 from .mock_tables import dbconnector
@@ -75,6 +75,18 @@ def set_mock_apis():
     config._get_device_type = mock.MagicMock(return_value="ToRRouter")
 
 @pytest.fixture
+def setup_cbf_mock_apis():
+    cwd = os.path.dirname(os.path.realpath(__file__))
+    device_info.get_paths_to_platform_and_hwsku_dirs = mock.MagicMock(
+        return_value=(
+            os.path.join(cwd, "."), os.path.join(cwd, "cbf_config_input")
+        )
+    )
+    device_info.get_sonic_version_file = mock.MagicMock(
+        return_value=os.path.join(cwd, "qos_config_input/sonic_version.yml")
+    )
+
+@pytest.fixture
 def setup_qos_mock_apis():
     cwd = os.path.dirname(os.path.realpath(__file__))
     device_info.get_paths_to_platform_and_hwsku_dirs = mock.MagicMock(
@@ -104,10 +116,14 @@ def setup_multi_broadcom_masic():
 
     set_mock_apis()
     device_info.get_num_npus = mock.MagicMock(return_value=2)
+    multi_asic.get_num_asics = mock.MagicMock(return_value=2)
+    multi_asic.is_multi_asic= mock.MagicMock(return_value=True)
 
     yield
 
     device_info.get_num_npus = mock.MagicMock(return_value=1)
+    multi_asic.get_num_asics = mock.MagicMock(return_value=1)
+    multi_asic.is_multi_asic= mock.MagicMock(return_value=False)
 
 
 @pytest.fixture
