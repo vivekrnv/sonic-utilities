@@ -1,7 +1,7 @@
 import json
 import re
 import copy
-from dump.match_infra import MatchEngine, MatchRequest
+from dump.match_infra import MatchRequest
 from dump.helper import create_template_dict, verbose_print
 from .executor import Executor
 
