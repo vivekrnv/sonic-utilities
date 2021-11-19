@@ -2,8 +2,9 @@ import json
 import os
 from enum import Enum
 from .gu_common import GenericConfigUpdaterError, ConfigWrapper, \
-                       DryRunConfigWrapper, PatchWrapper
+                       DryRunConfigWrapper, PatchWrapper, genericUpdaterLogging
 from .patch_sorter import PatchSorter
+from .change_applier import ChangeApplier
 
 CHECKPOINTS_DIR = "/etc/sonic/checkpoints"
 CHECKPOINT_EXT = ".cp.json"
@@ -17,10 +18,6 @@ class ConfigLock:
         # TODO: Implement ConfigLock
         pass
 
-class ChangeApplier:
-    def apply(self, change):
-        # TODO: Implement change applier
-        raise NotImplementedError("ChangeApplier.apply(change) is not implemented yet")
 
 class ConfigFormat(Enum):
     CONFIGDB = 1
@@ -32,97 +29,181 @@ class PatchApplier:
                  changeapplier=None,
                  config_wrapper=None,
                  patch_wrapper=None):
+        self.logger = genericUpdaterLogging.get_logger(title="Patch Applier", print_all_to_console=True)
         self.config_wrapper = config_wrapper if config_wrapper is not None else ConfigWrapper()
         self.patch_wrapper = patch_wrapper if patch_wrapper is not None else PatchWrapper()
         self.patchsorter = patchsorter if patchsorter is not None else PatchSorter(self.config_wrapper, self.patch_wrapper)
         self.changeapplier = changeapplier if changeapplier is not None else ChangeApplier()
 
     def apply(self, patch):
+        self.logger.log_notice("Patch application starting.")
+        self.logger.log_notice(f"Patch: {patch}")
+
         # validate patch is only updating tables with yang models
+        self.logger.log_notice("Validating patch is not making changes to tables without YANG models.")
         if not(self.patch_wrapper.validate_config_db_patch_has_yang_models(patch)):
             raise ValueError(f"Given patch is not valid because it has changes to tables without YANG models")
 
         # Get old config
+        self.logger.log_notice("Getting current config db.")
         old_config = self.config_wrapper.get_config_db_as_json()
 
         # Generate target config
+        self.logger.log_notice("Simulating the target full config after applying the patch.")
         target_config = self.patch_wrapper.simulate_patch(patch, old_config)
 
-        # Validate target config
+        # Validate target config does not have empty tables since they do not show up in ConfigDb
+        self.logger.log_notice("Validating target config does not have empty tables, " \
+                               "since they do not show up in ConfigDb.")
+        empty_tables = self.config_wrapper.get_empty_tables(target_config)
+        if empty_tables: # if there are empty tables
+            empty_tables_txt = ", ".join(empty_tables)
+            raise ValueError("Given patch is not valid because it will result in empty tables " \
+                             "which is not allowed in ConfigDb. " \
+                            f"Table{'s' if len(empty_tables) != 1 else ''}: {empty_tables_txt}")
+
+        # Validate target config according to YANG models
+        self.logger.log_notice("Validating target config according to YANG models.")
         if not(self.config_wrapper.validate_config_db_config(target_config)):
             raise ValueError(f"Given patch is not valid because it will result in an invalid config")
 
         # Generate list of changes to apply
+        self.logger.log_notice("Sorting patch updates.")
         changes = self.patchsorter.sort(patch)
+        changes_len = len(changes)
+        self.logger.log_notice(f"The patch was sorted into {changes_len} " \
+                             f"change{'s' if changes_len != 1 else ''}{':' if changes_len > 0 else '.'}")
+        for change in changes:
+            self.logger.log_notice(f"  * {change}")
 
         # Apply changes in order
+        self.logger.log_notice(f"Applying {changes_len} change{'s' if changes_len != 1 else ''} " \
+                               f"in order{':' if changes_len > 0 else '.'}")
         for change in changes:
+            self.logger.log_notice(f"  * {change}")
             self.changeapplier.apply(change)
 
         # Validate config updated successfully
+        self.logger.log_notice("Verifying patch updates are reflected on ConfigDB.")
         new_config = self.config_wrapper.get_config_db_as_json()
         if not(self.patch_wrapper.verify_same_json(target_config, new_config)):
             raise GenericConfigUpdaterError(f"After applying patch to config, there are still some parts not updated")
 
+        self.logger.log_notice("Patch application completed.")
+
 class ConfigReplacer:
     def __init__(self, patch_applier=None, config_wrapper=None, patch_wrapper=None):
+        self.logger = genericUpdaterLogging.get_logger(title="Config Replacer", print_all_to_console=True)
         self.patch_applier = patch_applier if patch_applier is not None else PatchApplier()
         self.config_wrapper = config_wrapper if config_wrapper is not None else ConfigWrapper()
         self.patch_wrapper = patch_wrapper if patch_wrapper is not None else PatchWrapper()
 
     def replace(self, target_config):
+        self.logger.log_notice("Config replacement starting.")
+        self.logger.log_notice(f"Target config length: {len(json.dumps(target_config))}.")
+
+        self.logger.log_notice("Validating target config according to YANG models.")
         if not(self.config_wrapper.validate_config_db_config(target_config)):
             raise ValueError(f"The given target config is not valid")
 
+        self.logger.log_notice("Getting current config db.")
         old_config = self.config_wrapper.get_config_db_as_json()
-        patch = self.patch_wrapper.generate_patch(old_config, target_config)
 
+        self.logger.log_notice("Generating patch between target config and current config db.")
+        patch = self.patch_wrapper.generate_patch(old_config, target_config)
+        self.logger.log_debug(f"Generated patch: {patch}.") # debug since the patch will printed again in 'patch_applier.apply'
+
+        self.logger.log_notice("Applying patch using 'Patch Applier'.")
         self.patch_applier.apply(patch)
 
+        self.logger.log_notice("Verifying config replacement is reflected on ConfigDB.")
         new_config = self.config_wrapper.get_config_db_as_json()
         if not(self.patch_wrapper.verify_same_json(target_config, new_config)):
             raise GenericConfigUpdaterError(f"After replacing config, there is still some parts not updated")
+
+        self.logger.log_notice("Config replacement completed.")
 
 class FileSystemConfigRollbacker:
     def __init__(self,
                  checkpoints_dir=CHECKPOINTS_DIR,
                  config_replacer=None,
                  config_wrapper=None):
+        self.logger = genericUpdaterLogging.get_logger(title="Config Rollbacker", print_all_to_console=True)
         self.checkpoints_dir = checkpoints_dir
         self.config_replacer = config_replacer if config_replacer is not None else ConfigReplacer()
         self.config_wrapper = config_wrapper if config_wrapper is not None else ConfigWrapper()
 
     def rollback(self, checkpoint_name):
+        self.logger.log_notice("Config rollbacking starting.")
+        self.logger.log_notice(f"Checkpoint name: {checkpoint_name}.")
+
+        self.logger.log_notice(f"Verifying '{checkpoint_name}' exists.")
         if not self._check_checkpoint_exists(checkpoint_name):
             raise ValueError(f"Checkpoint '{checkpoint_name}' does not exist")
 
+        self.logger.log_notice(f"Loading checkpoint into memory.")
         target_config = self._get_checkpoint_content(checkpoint_name)
 
+        self.logger.log_notice(f"Replacing config using 'Config Replacer'.")
         self.config_replacer.replace(target_config)
 
+        self.logger.log_notice("Config rollbacking completed.")
+
     def checkpoint(self, checkpoint_name):
+        self.logger.log_notice("Config checkpoint starting.")
+        self.logger.log_notice(f"Checkpoint name: {checkpoint_name}.")
+
+        self.logger.log_notice("Getting current config db.")
         json_content = self.config_wrapper.get_config_db_as_json()
 
+        # if current config are not valid, we might not be able to rollback to it. So fail early by not taking checkpoint at all.
+        self.logger.log_notice("Validating current config according to YANG models.")
         if not self.config_wrapper.validate_config_db_config(json_content):
             raise ValueError(f"Running configs on the device are not valid.")
 
+        self.logger.log_notice("Getting checkpoint full-path.")
         path = self._get_checkpoint_full_path(checkpoint_name)
 
+        self.logger.log_notice("Ensuring checkpoint directory exist.")
         self._ensure_checkpoints_dir_exists()
 
+        self.logger.log_notice(f"Saving config db content to {path}.")
         self._save_json_file(path, json_content)
 
+        self.logger.log_notice("Config checkpoint completed.")
+
     def list_checkpoints(self):
+        self.logger.log_info("Listing checkpoints starting.")
+        
+        self.logger.log_info(f"Verifying checkpoints directory '{self.checkpoints_dir}' exists.")
         if not self._checkpoints_dir_exist():
+            self.logger.log_info("Checkpoints directory is empty, returning empty checkpoints list.")
             return []
 
-        return self._get_checkpoint_names()
+        self.logger.log_info("Getting checkpoints in checkpoints directory.")
+        checkpoint_names = self._get_checkpoint_names()
+
+        checkpoints_len = len(checkpoint_names)
+        self.logger.log_info(f"Found {checkpoints_len} checkpoint{'s' if checkpoints_len != 1 else ''}{':' if checkpoints_len > 0 else '.'}")
+        for checkpoint_name in checkpoint_names:
+            self.logger.log_info(f"  * {checkpoint_name}")
+
+        self.logger.log_info("Listing checkpoints completed.")
+
+        return checkpoint_names
 
     def delete_checkpoint(self, checkpoint_name):
+        self.logger.log_notice("Deleting checkpoint starting.")
+        self.logger.log_notice(f"Checkpoint name: {checkpoint_name}.")
+
+        self.logger.log_notice(f"Checking checkpoint exists.")
         if not self._check_checkpoint_exists(checkpoint_name):
             raise ValueError(f"Checkpoint '{checkpoint_name}' does not exist")
 
+        self.logger.log_notice(f"Deleting checkpoint.")
         self._delete_checkpoint(checkpoint_name)
+
+        self.logger.log_notice("Deleting checkpoint completed.")
 
     def _ensure_checkpoints_dir_exists(self):
         os.makedirs(self.checkpoints_dir, exist_ok=True)
@@ -293,11 +374,7 @@ class GenericUpdateFactory:
         return config_rollbacker
 
     def init_verbose_logging(self, verbose):
-        # TODO: implement verbose logging
-        # Usually logs have levels such as: error, warning, info, debug.
-        # By default all log levels should show up to the user, except debug.
-        # By allowing verbose logging, debug msgs will also be shown to the user.
-        pass
+        genericUpdaterLogging.set_verbose(verbose)
 
     def get_config_wrapper(self, dry_run):
         if dry_run:

@@ -1478,10 +1478,20 @@ def aaa(db):
         'authentication': {
             'login': 'local (default)',
             'failthrough': 'False (default)'
+        },
+        'authorization': {
+            'login': 'local (default)'
+        },
+        'accounting': {
+            'login': 'disable (default)'
         }
     }
     if 'authentication' in data:
         aaa['authentication'].update(data['authentication'])
+    if 'authorization' in data:
+        aaa['authorization'].update(data['authorization'])
+    if 'accounting' in data:
+        aaa['accounting'].update(data['accounting'])
     for row in aaa:
         entry = aaa[row]
         for key in entry:
@@ -1691,8 +1701,7 @@ def ztp(status, verbose):
 
 # Load plugins and register them
 helper = util_base.UtilHelper()
-for plugin in helper.load_plugins(plugins):
-    helper.register_plugin(plugin, cli)
+helper.load_and_register_plugins(plugins, cli)
 
 if __name__ == '__main__':
     cli()

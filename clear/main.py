@@ -193,6 +193,12 @@ def dropcounters():
     command = "dropstat -c clear"
     run_command(command)
 
+@cli.command()
+def tunnelcounters():
+    """Clear Tunnel counters"""
+    command = "tunnelstat -c"
+    run_command(command)
+
 #
 # 'clear watermarks
 #
@@ -478,8 +484,7 @@ def remap_keys(dict):
 
 # Load plugins and register them
 helper = util_base.UtilHelper()
-for plugin in helper.load_plugins(plugins):
-    helper.register_plugin(plugin, cli)
+helper.load_and_register_plugins(plugins, cli)
 
 
 if __name__ == '__main__':
