@@ -1,6 +1,6 @@
 import json
 import re
-from dump.match_infra import MatchEngine, MatchRequest, MatchRequestOptimizer
+from dump.match_infra import MatchRequest, MatchRequestOptimizer
 from dump.helper import create_template_dict
 from .executor import Executor
 
