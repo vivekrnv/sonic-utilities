@@ -30,5 +30,19 @@
    "ROUTE_TABLE:192.168.0.10/22":{
        "ifname":"PortChannel0001,PortChannel0002,PortChannel0003,PortChannel0004",
        "nexthop":"fc00::72,fc00::76,fc00::7a,fc00::7e"
+   },
+   "ROUTE_TABLE:10.0.0.16/16":{
+       "nexthop_group":"testnhg" 
+   },
+   "ROUTE_TABLE:10.1.1.16/16":{
+       "nexthop_group":"testcbfnhg" 
+   },
+   "NEXTHOP_GROUP_TABLE:testnhg":{
+       "nexthop":"10.0.0.1",
+       "ifname":"Ethernet0"
+   },
+   "CLASS_BASED_NEXT_HOP_GROUP_TABLE:testcbfnhg":{
+       "members":"testnhg",
+       "selection_map":"AZURE"
    }
 }

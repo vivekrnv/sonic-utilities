@@ -1,8 +1,7 @@
 import json
 import re
-import copy
-from dump.match_infra import MatchEngine, MatchRequest
-from dump.helper import create_template_dict, verbose_print
+from dump.match_infra import MatchEngine, MatchRequest, MatchRequestOptimizer
+from dump.helper import create_template_dict
 from .executor import Executor
 
 NH = "ASIC_STATE:SAI_OBJECT_TYPE_NEXT_HOP"
@@ -23,6 +22,10 @@ def get_route_pattern(dest):
 
 
 def get_vr_oid(asic_route_entry):
+    """
+    Route Entry Format: ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:
+    {'dest':'::0','switch_id':'oid:0x21000000000000','vr':'oid:0x3000000000002'}
+    """
     matches = re.findall(r"\{.*\}", asic_route_entry)
     key_dict = {}
     if matches:
@@ -33,76 +36,6 @@ def get_vr_oid(asic_route_entry):
     return key_dict.get("vr", "")
 
 
-class NextHopGroupMatchOptimizer():
-    """
-    A Stateful Wrapper which optimizes the queries by caching the redis keys.
-    Will be used for these ASIC keys in particular
-    1) SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER
-    2) SAI_OBJECT_TYPE_NEXT_HOP
-    3) SAI_OBJECT_TYPE_ROUTER_INTERFACE
-    Note: Caches all the kv pairs for a key
-    """
-
-    def __init__(self, m_engine):
-        self.key_cache = {}
-        self.m_engine = m_engine
-
-    def mutate_request(self, req):
-        fv_requested = []
-        ret_just_keys = req.just_keys
-        fv_requested = copy.deepcopy(req.return_fields)
-        if ret_just_keys:
-            req.just_keys = False
-            req.return_fields = []
-        return req, fv_requested, ret_just_keys
-
-    def mutate_response(self, ret, fv_requested, ret_just_keys):
-        if not ret_just_keys:
-            return ret
-        new_ret = {"error": "", "keys": [], "return_values": {}}
-        for key_fv in ret["keys"]:
-            if isinstance(key_fv, dict):
-                keys = key_fv.keys()
-                new_ret["keys"].extend(keys)
-                for key in keys:
-                    new_ret["return_values"][key] = {}
-                    for field in fv_requested:
-                        new_ret["return_values"][key][field] = key_fv[key][field]
-        return new_ret
-
-    def fill_cache(self, ret):
-        for key_fv in ret["keys"]:
-            keys = key_fv.keys()
-            for key in keys:
-                self.key_cache[key] = key_fv[key]
-
-    def fetch_from_cache(self, key, req):
-        new_ret = {"error": "", "keys": [], "return_values": {}}
-        if not req.just_keys:
-            new_ret["keys"].append(self.key_cache[key])
-        else:
-            new_ret["keys"].append(key)
-            if req.return_fields:
-                new_ret["return_values"][key] = {}
-                for field in req.return_fields:
-                    new_ret["return_values"][key][field] = self.key_cache[key][field]
-        return new_ret
-
-    def fetch(self, req):
-        key = req.table + ":" + req.key_pattern
-        if key in self.key_cache:
-            verbose_print("Cache Hit for Key: {}".format(key))
-            return self.fetch_from_cache(key, req)
-        else:
-            verbose_print("Cache Miss for Key: {}".format(key))
-            req, fv_requested, ret_just_keys = self.mutate_request(req)
-            ret = self.m_engine.fetch(req)
-            if ret["error"]:
-                return ret
-            self.fill_cache(ret)
-            return self.mutate_response(ret, fv_requested, ret_just_keys)
-
-
 class Route(Executor):
     """
     Debug Dump Plugin for Route Module
@@ -111,7 +44,15 @@ class Route(Executor):
 
     def __init__(self, match_engine=None):
         super().__init__(match_engine)
-        self.nhgrp_match_engine = NextHopGroupMatchOptimizer(self.match_engine)
+        self.nhgrp_match_engine = MatchRequestOptimizer(self.match_engine)
+        """
+        MatchRequestOptimizer will be used for the keys related to these tables
+        1) SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER
+        2) SAI_OBJECT_TYPE_NEXT_HOP
+        3) SAI_OBJECT_TYPE_ROUTER_INTERFACE
+        4) CLASS_BASED_NEXT_HOP_GROUP_TABLE
+        5) NEXTHOP_GROUP_TABLE
+        """
         self.ret_temp = {}
         self.ns = ''
         self.dest_net = ''
@@ -132,7 +73,8 @@ class Route(Executor):
         if not self.init_route_config_info():
             del self.ret_temp["CONFIG_DB"]
         # APPL DB
-        self.init_route_appl_info()
+        nhgrp_field = self.init_route_appl_info()
+        self.init_nhgrp_cbf_appl_info(nhgrp_field)
         # ASIC DB - ROUTE ENTRY
         self.nh_id, vr = self.init_asic_route_entry_info()
         # ASIC DB - VIRTUAL ROUTER
@@ -155,9 +97,35 @@ class Route(Executor):
         return self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
     def init_route_appl_info(self):
-        req = MatchRequest(db="APPL_DB", table="ROUTE_TABLE", key_pattern=self.dest_net, ns=self.ns)
+        req = MatchRequest(db="APPL_DB", table="ROUTE_TABLE", key_pattern=self.dest_net,
+                           ns=self.ns, return_fields=["nexthop_group"])
         ret = self.match_engine.fetch(req)
         self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
+        if ret["keys"]:
+            return ret["return_values"].get(ret["keys"][0], {}).get("nexthop_group", "")
+        return ""
+
+    def init_nhgrp_cbf_appl_info(self, nhgrp_field):
+        if not nhgrp_field:
+            return
+        
+        # Verify if the nhgrp field in the route table refers to class based next_hop_group
+        req = MatchRequest(db="APPL_DB", table="CLASS_BASED_NEXT_HOP_GROUP_TABLE", key_pattern=nhgrp_field,
+                           ns=self.ns, return_fields=["members"])
+        ret = self.nhgrp_match_engine.fetch(req)
+        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"], False)
+
+        nggrp_table_key = ""
+        if not ret["keys"]:
+            nggrp_table_key = nhgrp_field
+        else:
+            nggrp_table_key = ret["return_values"].get(ret["keys"][0], {}).get("members", "")
+
+        if nggrp_table_key:
+            # Retrieve the next_hop_group key
+            req = MatchRequest(db="APPL_DB", table="NEXTHOP_GROUP_TABLE", key_pattern=nggrp_table_key, ns=self.ns)
+            ret = self.nhgrp_match_engine.fetch(req)
+            self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"], False)
 
     def init_asic_route_entry_info(self):
         nh_id_field = "SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID"
@@ -183,6 +151,9 @@ class Route(Executor):
         nh_ex.collect()
 
     def get_nh_type(self):
+        """
+        Figure out the nh_type using OID Header
+        """
         if not self.nh_id:
             return "DROP"
         oid = self.nh_id.split(":")[-1]
@@ -252,9 +223,13 @@ class SingleNextHop(NHExtractor):
 
 class MultipleNextHop(NHExtractor):
     def collect(self):
+        # Save nh_grp related keys
         self.init_asic_nh_group_info(self.rt.nh_id)
+        # Save nh_grp_members info and fetch nh_oids 
         nh_oids = self.init_asic_nh_group_members_info(self.rt.nh_id)
+        # Save the actual next_hop using the nh_oids retrieved, fetch rif oid's if any
         rif_oids = self.init_asic_next_hops_info(nh_oids)
+        # Save the rif_oid related ASIC keys
         self.init_asic_rifs_info(rif_oids)
 
     def init_asic_nh_group_info(self, oid):

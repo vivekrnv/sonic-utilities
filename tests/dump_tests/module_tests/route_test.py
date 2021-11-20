@@ -152,17 +152,6 @@ class TestRouteModule:
         ddiff = DeepDiff(returned, expect, ignore_order=True)
         assert not ddiff, ddiff
 
-    def test_all_args(self, match_engine):
-        """
-        Scenario: Verify Whether the get_all_args method is working as expected
-        """
-        m_route = Route(match_engine)
-        returned = m_route.get_all_args("")
-        expect = ["1.1.1.0/24", "10.1.0.32", "10.212.0.0/16", "20.0.0.0/24", "192.168.0.10/22",
-                  "fe80::/64", "20c0:e6e0:0:80::/64", "192.168.0.4/24"]
-        ddiff = DeepDiff(expect, returned, ignore_order=True)
-        assert not ddiff, ddiff
-
     def test_no_next_hop_id(self, match_engine):
         """
         Scenario: Fetch the keys related to a route with no next hop id
@@ -238,7 +227,7 @@ class TestRouteModule:
                 return
             msgs.append(msg)
 
-        with patch("dump.plugins.route.verbose_print", verbose_print_mock):
+        with patch("dump.match_infra.verbose_print", verbose_print_mock):
             m_route = Route(match_engine)
             params = {Route.ARG_NAME: "20c0:e6e0:0:80::/64", "namespace": ""}
             returned = m_route.execute(params)
@@ -287,4 +276,51 @@ class TestRouteModule:
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
         expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER")
         ddiff = DeepDiff(returned, expect, ignore_order=True)
+        assert not ddiff, ddiff
+
+    def test_route_with_nhgrp_appl_table(self, match_engine):
+        """
+        Scenario: Fetch the NEXTHOP_GROUP_TABLE keys, if the nexthop_group field has a NEXTHOP_GROUP_TABLE.key
+        """
+        params = {Route.ARG_NAME: "10.0.0.16/16", "namespace": ""}
+        m_route = Route(match_engine)
+        returned = m_route.execute(params)
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:10.0.0.16/16")
+        expect["APPL_DB"]["keys"].append("NEXTHOP_GROUP_TABLE:testnhg")
+        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
+        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER")
+        ddiff = DeepDiff(returned, expect, ignore_order=True)
+        print("Expected: {}".format(expect))
+        print("Returned: {}".format(returned))
+        assert not ddiff, ddiff
+
+    def test_route_with_nhgrp_appl_table(self, match_engine):
+        """
+        Scenario: Fetch the NEXTHOP_GROUP_TABLE/CLASS_BASED_NEXT_HOP_GROUP_TABLE keys,
+                  if the nexthop_group field has a CLASS_BASED_NEXT_HOP_GROUP_TABLE.key
+        """
+        params = {Route.ARG_NAME: "10.1.1.16/16", "namespace": ""}
+        m_route = Route(match_engine)
+        returned = m_route.execute(params)
+        expect = create_template_dict(dbs=["APPL_DB", "ASIC_DB"])
+        expect["APPL_DB"]["keys"].append("ROUTE_TABLE:10.1.1.16/16")
+        expect["APPL_DB"]["keys"].append("NEXTHOP_GROUP_TABLE:testnhg")
+        expect["APPL_DB"]["keys"].append("CLASS_BASED_NEXT_HOP_GROUP_TABLE:testcbfnhg")
+        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY")
+        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_VIRTUAL_ROUTER")
+        ddiff = DeepDiff(returned, expect, ignore_order=True)
+        print("Expected: {}".format(expect))
+        print("Returned: {}".format(returned))
+        assert not ddiff, ddiff
+
+    def test_all_args(self, match_engine):
+        """
+        Scenario: Verify Whether the get_all_args method is working as expected
+        """
+        m_route = Route(match_engine)
+        returned = m_route.get_all_args("")
+        expect = ["1.1.1.0/24", "10.1.0.32", "10.212.0.0/16", "20.0.0.0/24", "192.168.0.10/22",
+                  "fe80::/64", "20c0:e6e0:0:80::/64", "192.168.0.4/24", "10.1.1.16/16", "10.0.0.16/16"]
+        ddiff = DeepDiff(expect, returned, ignore_order=True)
         assert not ddiff, ddiff
