@@ -19,10 +19,6 @@ ENV_VAR["PATH"] = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:
 
 
 def handle_coredump_cleanup(dump_name, db):
-    file_path = os.path.join(CORE_DUMP_DIR, dump_name)
-    if not verify_recent_file_creation(file_path):
-        return
-
     _, num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
 
     if db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
@@ -57,11 +53,6 @@ class CriticalProcCoreDumpHandle():
         self.core_ts_map = {}
 
     def handle_core_dump_creation_event(self):
-        file_path = os.path.join(CORE_DUMP_DIR, self.core_name)
-        if not verify_recent_file_creation(file_path):
-            syslog.syslog(syslog.LOG_INFO, "Spurious Invocation. {} is not created within last {} sec".format(file_path, TIME_BUF))
-            return
-
         if self.db.get(CFG_DB, AUTO_TS, CFG_STATE) != "enabled":
             syslog.syslog(syslog.LOG_NOTICE, "auto_invoke_ts is disabled. No cleanup is performed: core {}".format(self.core_name))
             return
@@ -183,6 +174,10 @@ def main():
     db = SonicV2Connector(use_unix_socket_path=True)
     db.connect(CFG_DB)
     db.connect(STATE_DB)
+    file_path = os.path.join(CORE_DUMP_DIR, args.name)
+    if not verify_recent_file_creation(file_path):
+        syslog.syslog(syslog.LOG_INFO, "Spurious Invocation. {} is not created within last {} sec".format(file_path, TIME_BUF))
+        return
     cls = CriticalProcCoreDumpHandle(args.name, args.container, db)
     cls.handle_core_dump_creation_event()
     handle_coredump_cleanup(args.name, db)
