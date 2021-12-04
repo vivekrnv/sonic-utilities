@@ -106,7 +106,7 @@ class CriticalProcCoreDumpHandle():
         since_cfg = self.db.get(CFG_DB, AUTO_TS, CFG_SINCE)
         if not since_cfg:
             return SINCE_DEFAULT
-        rc, _, stderr = subprocess_exec(["date", "--date='{}'".format(since_cfg)], env=ENV_VAR)
+        rc, _, stderr = subprocess_exec(["date", "--date={}".format(since_cfg)], env=ENV_VAR)
         if rc == 0:
             return since_cfg
         return SINCE_DEFAULT
