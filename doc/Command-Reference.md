@@ -9897,7 +9897,7 @@ If the SONiC system was running for quite some time `show techsupport` will prod
   ```
 
 ### Debug Dumps
-	
+
 In SONiC, there usually exists a set of tables related/relevant to a particular module. All of these might have to be looked at to confirm whether any configuration update is properly applied and propagated. This utility comes in handy because it prints a unified view of the redis-state for a given module
 		
 - Usage:
