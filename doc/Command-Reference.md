@@ -170,6 +170,7 @@
   * [SONiC Installer](#sonic-installer)
 * [Troubleshooting Commands](#troubleshooting-commands)
   * [Debug Dumps](#debug-dumps)
+  * [Event Driven Techsupport Invocation](#event-driven-techsupport-invocation)
 * [Routing Stack](#routing-stack)
 * [Quagga BGP Show Commands](#Quagga-BGP-Show-Commands)
 * [ZTP Configuration And Show Commands](#ztp-configuration-and-show-commands)
@@ -9896,7 +9897,7 @@ If the SONiC system was running for quite some time `show techsupport` will prod
   ```
 
 ### Debug Dumps
-
+		
 In SONiC, there usually exists a set of tables related/relevant to a particular module. All of these might have to be looked at to confirm whether any configuration update is properly applied and propagated. This utility comes in handy because it prints a unified view of the redis-state for a given module
 		
 - Usage:
@@ -9946,8 +9947,55 @@ In SONiC, there usually exists a set of tables related/relevant to a particular 
 	    }
 	}	
   ```
+
+### Event Driven Techsupport Invocation
+
+This feature/capability makes the techsupport invocation event-driven based on core dump generation. Only applies for the processes running in the containers. More detailed explanation can be found in the HLD https://github.com/Azure/SONiC/blob/master/doc/auto_techsupport_and_coredump_mgmt.md
+
+- Usage:
+  ```
+  1) Configuration:
+  config auto-techsupport global state <enabled/disabled>
+  config auto-techsupport global rate-limit-interval <uint16>
+  config auto-techsupport global max-techsupport-limit <float upto two decimal places>
+  config auto-techsupport global max-core-limit <float upto two decimal places>
+  config auto-techsupport global since <string>
   
+  config auto-techsupport-feature add <feature_name> --state <enabled/disabled> --rate-limit-interval <uint16>
+  config auto-techsupport-feature delete <feature_name>
+  config auto-techsupport-feature update <feature_name> --state <enabled/disabled> 
+  config auto-techsupport-feature update <feature_name> --rate-limit-interval <uint16>
 		
+  2) Show CLI:
+  show auto-techsupport global
+  show auto-techsupport-feature 
+  show auto-techsupport history
+  ```
+
+- Examples:
+  ```
+  admin@sonic:~$ show auto-techsupport global
+  STATE      RATE LIMIT INTERVAL (sec)    MAX TECHSUPPORT LIMIT (%)    MAX CORE SIZE (%)       SINCE
+  -------  ---------------------------   --------------------------    ------------------  ----------
+  enabled                          180                        10.0                   5.0   2 days ago
+
+  admin@sonic:~$ show auto-techsupport-feature 
+  FEATURE NAME    STATE       RATE LIMIT INTERVAL (sec)
+  --------------  --------  --------------------------
+  bgp             enabled                          600
+  database        enabled                          600
+  dhcp_relay      enabled                          600
+  lldp            enabled                          600
+  macsec          enabled                          600
+  mgmt-framework  enabled                          600
+
+  admin@sonic:~$ show auto-techsupport history
+  TECHSUPPORT DUMP                          TRIGGERED BY    CORE DUMP
+  ----------------------------------------  --------------  -----------------------------
+  sonic_dump_r-lionfish-16_20210901_221402  bgp             bgpcfgd.1630534439.55.core.gz
+  sonic_dump_r-lionfish-16_20210901_203725  snmp            python3.1630528642.23.core.gz
+  sonic_dump_r-lionfish-16_20210901_222408  teamd           python3.1630535045.34.core.gz
+  ```
 		
 Go Back To [Beginning of the document](#) or [Beginning of this section](#troubleshooting-commands)
 
