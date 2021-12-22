@@ -9897,7 +9897,7 @@ If the SONiC system was running for quite some time `show techsupport` will prod
   ```
 
 ### Debug Dumps
-		
+	
 In SONiC, there usually exists a set of tables related/relevant to a particular module. All of these might have to be looked at to confirm whether any configuration update is properly applied and propagated. This utility comes in handy because it prints a unified view of the redis-state for a given module
 		
 - Usage:
@@ -9950,7 +9950,7 @@ In SONiC, there usually exists a set of tables related/relevant to a particular 
 
 ### Event Driven Techsupport Invocation
 
-This feature/capability makes the techsupport invocation event-driven based on core dump generation. Only applies for the processes running in the containers. More detailed explanation can be found in the HLD https://github.com/Azure/SONiC/blob/master/doc/auto_techsupport_and_coredump_mgmt.md
+This feature/capability makes the techsupport invocation event-driven based on core dump generation. This feature is only applicable for the processes running in the containers. More detailed explanation can be found in the HLD https://github.com/Azure/SONiC/blob/master/doc/auto_techsupport_and_coredump_mgmt.md
 
 - Usage:
   ```
