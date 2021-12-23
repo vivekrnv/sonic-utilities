@@ -115,8 +115,8 @@ class CriticalProcCoreDumpHandle():
         cmd_opts = ["show", "techsupport", "--silent", "--since", since_cfg]
         cmd  = " ".join(cmd_opts)
         rc, stdout, stderr = subprocess_exec(cmd_opts, env=ENV_VAR)
-        if not rc:
-            syslog.syslog(syslog.LOG_ERR, "show techsupport failed with exit code {}, stderr:{}".format(rc, stderr))
+        if rc:
+            syslog.syslog(syslog.LOG_ERR, "show techsupport failed with exit code {}, stderr: {}".format(rc, stderr))
         new_dump = self.parse_ts_dump_name(stdout)
         if not new_dump:
             syslog.syslog(syslog.LOG_ERR, "{} was run, but no techsupport dump is found".format(cmd))
