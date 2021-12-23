@@ -7,6 +7,50 @@ from unittest.mock import MagicMock, Mock
 from .gutest_helpers import create_side_effect_dict, Files
 import generic_config_updater.gu_common as gu_common
 
+class TestDryRunConfigWrapper(unittest.TestCase):
+    def test_get_config_db_as_json__returns_imitated_config_db(self):
+        # Arrange
+        config_wrapper = gu_common.DryRunConfigWrapper(Files.CONFIG_DB_AS_JSON)
+        expected = Files.CONFIG_DB_AS_JSON
+
+        # Act
+        actual = config_wrapper.get_config_db_as_json()
+
+        # Assert
+        self.assertDictEqual(expected, actual)
+
+    def test_get_sonic_yang_as_json__returns_imitated_config_db_as_yang(self):
+        # Arrange
+        config_wrapper = gu_common.DryRunConfigWrapper(Files.CONFIG_DB_AS_JSON)
+        expected = Files.SONIC_YANG_AS_JSON
+
+        # Act
+        actual = config_wrapper.get_sonic_yang_as_json()
+
+        # Assert
+        self.assertDictEqual(expected, actual)
+
+    def test_apply_change_to_config_db__multiple_calls__changes_imitated_config_db(self):
+        # Arrange
+        imitated_config_db = Files.CONFIG_DB_AS_JSON
+        config_wrapper = gu_common.DryRunConfigWrapper(imitated_config_db)
+
+        changes = [gu_common.JsonChange(jsonpatch.JsonPatch([{'op':'remove', 'path':'/VLAN'}])),
+                   gu_common.JsonChange(jsonpatch.JsonPatch([{'op':'remove', 'path':'/ACL_TABLE'}])),
+                   gu_common.JsonChange(jsonpatch.JsonPatch([{'op':'remove', 'path':'/PORT'}]))
+                  ]
+
+        expected = imitated_config_db
+        for change in changes:
+            # Act
+            config_wrapper.apply_change_to_config_db(change)
+
+            actual = config_wrapper.get_config_db_as_json()
+            expected = change.apply(expected)
+
+            # Assert
+            self.assertDictEqual(expected, actual)
+
 class TestConfigWrapper(unittest.TestCase):
     def setUp(self):
         self.config_wrapper_mock = gu_common.ConfigWrapper()
@@ -180,6 +224,82 @@ class TestConfigWrapper(unittest.TestCase):
 
         # Assert
         self.assertCountEqual(["another_table", "yet_another_table"], empty_tables)
+
+    def test_remove_empty_tables__no_empty_tables__returns_whole_config(self):
+        # Arrange
+        config_wrapper = gu_common.ConfigWrapper()
+        config = {"any_table": {"key": "value"}}
+
+        # Act
+        actual = config_wrapper.remove_empty_tables(config)
+
+        # Assert
+        self.assertDictEqual({"any_table": {"key": "value"}}, actual)
+
+    def test_remove_empty_tables__single_empty_tables__returns_config_without_empty_table(self):
+        # Arrange
+        config_wrapper = gu_common.ConfigWrapper()
+        config = {"any_table": {"key": "value"}, "another_table":{}}
+
+        # Act
+        actual = config_wrapper.remove_empty_tables(config)
+
+        # Assert
+        self.assertDictEqual({"any_table": {"key": "value"}}, actual)
+
+    def test_remove_empty_tables__multiple_empty_tables__returns_config_without_empty_tables(self):
+        # Arrange
+        config_wrapper = gu_common.ConfigWrapper()
+        config = {"any_table": {"key": "value"}, "another_table":{}, "yet_another_table":{}}
+
+        # Act
+        actual = config_wrapper.remove_empty_tables(config)
+
+        # Assert
+        self.assertDictEqual({"any_table": {"key": "value"}}, actual)
+
+    def test_create_sonic_yang_with_loaded_models__creates_new_sonic_yang_every_call(self):
+        # check yang models fields are the same or None, non-yang model fields are different
+        def check(sy1, sy2):
+            # instances are different
+            self.assertNotEqual(sy1, sy2)
+
+            # yang models fields are same or None
+            self.assertTrue(sy1.confDbYangMap is sy2.confDbYangMap)
+            self.assertTrue(sy1.ctx is sy2.ctx)
+            self.assertTrue(sy1.DEBUG is sy2.DEBUG)
+            self.assertTrue(sy1.preProcessedYang is sy2.preProcessedYang)
+            self.assertTrue(sy1.SYSLOG_IDENTIFIER is sy2.SYSLOG_IDENTIFIER)
+            self.assertTrue(sy1.yang_dir is sy2.yang_dir)
+            self.assertTrue(sy1.yangFiles is sy2.yangFiles)
+            self.assertTrue(sy1.yJson is sy2.yJson)
+            self.assertTrue(not(hasattr(sy1, 'module')) or sy1.module is None) # module is unused, might get deleted
+            self.assertTrue(not(hasattr(sy2, 'module')) or sy2.module is None)
+
+            # non yang models fields are different
+            self.assertFalse(sy1.root is sy2.root)
+            self.assertFalse(sy1.jIn is sy2.jIn)
+            self.assertFalse(sy1.tablesWithOutYang is sy2.tablesWithOutYang)
+            self.assertFalse(sy1.xlateJson is sy2.xlateJson)
+            self.assertFalse(sy1.revXlateJson is sy2.revXlateJson)
+
+        config_wrapper = gu_common.ConfigWrapper()
+        self.assertTrue(config_wrapper.sonic_yang_with_loaded_models is None)
+
+        sy1 = config_wrapper.create_sonic_yang_with_loaded_models()
+        sy2 = config_wrapper.create_sonic_yang_with_loaded_models()
+
+        # Simulating loading non-yang model fields
+        sy1.loadData(Files.ANY_CONFIG_DB)
+        sy1.getData()
+
+        # Simulating loading non-yang model fields
+        sy2.loadData(Files.ANY_CONFIG_DB)
+        sy2.getData()
+
+        check(sy1, sy2)
+        check(sy1, config_wrapper.sonic_yang_with_loaded_models)
+        check(sy2, config_wrapper.sonic_yang_with_loaded_models)
 
 class TestPatchWrapper(unittest.TestCase):
     def setUp(self):
@@ -366,7 +486,7 @@ class TestPatchWrapper(unittest.TestCase):
 
 class TestPathAddressing(unittest.TestCase):
     def setUp(self):
-        self.path_addressing = gu_common.PathAddressing()
+        self.path_addressing = gu_common.PathAddressing(gu_common.ConfigWrapper())
         self.sy_only_models = sonic_yang.SonicYang(gu_common.YANG_DIR)
         self.sy_only_models.loadYangModel()
 
@@ -666,3 +786,41 @@ class TestPathAddressing(unittest.TestCase):
               path="/PORTCHANNEL_INTERFACE/PortChannel0001|1.1.1.1~124",
               config=Files.CONFIG_DB_WITH_PORTCHANNEL_INTERFACE)
 
+    def test_has_path(self):
+        def check(config, path, expected):
+            actual=self.path_addressing.has_path(config, path)
+            self.assertEqual(expected, actual)
+
+        check(config={},
+              path="",
+              expected=True)
+        check(config={"TABLE":{}},
+              path="",
+              expected=True)
+        check(config={},
+              path="/TABLE",
+              expected=False)
+        check(config={"TABLE":{}},
+              path="/ANOTHER_TABLE",
+              expected=False)
+        check(config={"TABLE":{}},
+              path="/ANOTHER_TABLE",
+              expected=False)
+        check(config={"TABLE":{"key1":{"key11":{"key111":"value111"}}}},
+              path="/TABLE/key1/key11/key111",
+              expected=True)
+        check(config={"TABLE":{"key1":{"key11":{"key111":"value111"}}}},
+              path="/TABLE/key1",
+              expected=True)
+        check(config={"TABLE":{"key1":{"key11":{"key111":"value111"}}}},
+              path="/TABLE/key1/key1",
+              expected=False)
+        check(config={"ANOTHER_TABLE": {}, "TABLE":{"key1":{"key11":{"key111":"value111"}}}},
+              path="/TABLE/key1/key11",
+              expected=True)
+        check(config={"ANOTHER_TABLE": {}, "TABLE":{"key1":{"key11":{"key111":[1,2,3,4,5]}}}},
+              path="/TABLE/key1/key11/key111/4",
+              expected=True)
+        check(config={"ANOTHER_TABLE": {}, "TABLE":{"key1":{"key11":{"key111":[1,2,3,4,5]}}}},
+              path="/TABLE/key1/key11/key111/5",
+              expected=False)
