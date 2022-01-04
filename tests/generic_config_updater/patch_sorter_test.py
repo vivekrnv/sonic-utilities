@@ -921,8 +921,8 @@ class TestCreateOnlyMoveValidator(unittest.TestCase):
 
 class TestNoDependencyMoveValidator(unittest.TestCase):
     def setUp(self):
-        path_addressing = ps.PathAddressing()
         config_wrapper = ConfigWrapper()
+        path_addressing = ps.PathAddressing(config_wrapper)
         self.validator = ps.NoDependencyMoveValidator(path_addressing, config_wrapper)
 
     def test_validate__add_full_config_has_dependencies__failure(self):
@@ -1050,6 +1050,37 @@ class TestNoDependencyMoveValidator(unittest.TestCase):
 
         diff = ps.Diff(current_config, target_config)
         move = ps.JsonMove(diff, OperationType.REPLACE, [], [])
+
+        # Act and assert
+        self.assertTrue(self.validator.validate(move, diff))
+
+    def test_validate__replace_list_item_different_location_than_target_and_no_deps__true(self):
+        # Arrange
+        current_config = {
+            "VLAN": {
+                "Vlan100": {
+                    "vlanid": "100",
+                    "dhcp_servers": [
+                        "192.0.0.1",
+                        "192.0.0.2"
+                    ]
+                }
+            }
+        }
+        target_config = {
+            "VLAN": {
+                "Vlan100": {
+                    "vlanid": "100",
+                    "dhcp_servers": [
+                        "192.0.0.3"
+                    ]
+                }
+            }
+        }
+        diff = ps.Diff(current_config, target_config)
+        # the target tokens point to location 0 which exist in target_config
+        # but the replace operation is operating on location 1 in current_config
+        move = ps.JsonMove(diff, OperationType.REPLACE, ["VLAN", "Vlan100", "dhcp_servers", 1], ["VLAN", "Vlan100", "dhcp_servers", 0])
 
         # Act and assert
         self.assertTrue(self.validator.validate(move, diff))
@@ -1649,7 +1680,7 @@ class TestDeleteInsteadOfReplaceMoveExtender(unittest.TestCase):
 
 class DeleteRefsMoveExtender(unittest.TestCase):
     def setUp(self):
-        self.extender = ps.DeleteRefsMoveExtender(PathAddressing())
+        self.extender = ps.DeleteRefsMoveExtender(PathAddressing(ConfigWrapper()))
 
     def test_extend__non_delete_ops__no_extended_moves(self):
         self.verify(OperationType.ADD,
@@ -1723,7 +1754,8 @@ class TestSortAlgorithmFactory(unittest.TestCase):
 
     def verify(self, algo, algo_class):
         # Arrange
-        factory = ps.SortAlgorithmFactory(OperationWrapper(), ConfigWrapper(), PathAddressing())
+        config_wrapper = ConfigWrapper()
+        factory = ps.SortAlgorithmFactory(OperationWrapper(), config_wrapper, PathAddressing(config_wrapper))
         expected_generators = [ps.LowLevelMoveGenerator]
         expected_extenders = [ps.UpperLevelMoveExtender, ps.DeleteInsteadOfReplaceMoveExtender, ps.DeleteRefsMoveExtender]
         expected_validator = [ps.DeleteWholeConfigMoveValidator,
@@ -1746,6 +1778,9 @@ class TestSortAlgorithmFactory(unittest.TestCase):
         self.assertCountEqual(expected_validator, actual_validators)
 
 class TestPatchSorter(unittest.TestCase):
+    def setUp(self):
+        self.config_wrapper = ConfigWrapper()
+
     def test_patch_sorter_success(self):
         # Format of the JSON file containing the test-cases:
         #
@@ -1761,9 +1796,7 @@ class TestPatchSorter(unittest.TestCase):
         #     .
         # }
         data = Files.PATCH_SORTER_TEST_SUCCESS
-        # TODO: Investigate issue where different runs of patch-sorter generated different but correct steps
-        #       Once investigation is complete remove the flag 'skip_exact_change_list_match'
-        skip_exact_change_list_match = True
+        skip_exact_change_list_match = False
         for test_case_name in data:
             with self.subTest(name=test_case_name):
                 self.run_single_success_case(data[test_case_name], skip_exact_change_list_match)
@@ -1786,7 +1819,7 @@ class TestPatchSorter(unittest.TestCase):
         simulated_config = current_config
         for change in actual_changes:
             simulated_config = change.apply(simulated_config)
-            self.assertTrue(ConfigWrapper().validate_config_db_config(simulated_config))
+            self.assertTrue(self.config_wrapper.validate_config_db_config(simulated_config))
         self.assertEqual(target_config, simulated_config)
 
     def test_patch_sorter_failure(self):
@@ -1827,15 +1860,33 @@ class TestPatchSorter(unittest.TestCase):
             if notfound_substrings:
                 self.fail(f"Did not find the substrings {notfound_substrings} in the error: '{error}'")
 
-    def create_patch_sorter(self, config=None):
+    def test_sort__does_not_remove_tables_without_yang_unintentionally_if_generated_change_replaces_whole_config(self):
+        # Arrange
+        current_config = Files.CONFIG_DB_AS_JSON # has a table without yang named 'TABLE_WITHOUT_YANG'
+        any_patch = Files.SINGLE_OPERATION_CONFIG_DB_PATCH
+        target_config = any_patch.apply(current_config)
+        sort_algorithm = Mock()
+        sort_algorithm.sort = lambda diff: [ps.JsonMove(diff, OperationType.REPLACE, [], [])]
+        patch_sorter = self.create_patch_sorter(current_config, sort_algorithm)
+        expected = [JsonChange(jsonpatch.JsonPatch([OperationWrapper().create(OperationType.REPLACE, "", target_config)]))]
+
+        # Act
+        actual = patch_sorter.sort(any_patch)
+
+        # Assert
+        self.assertEqual(expected, actual)
+
+    def create_patch_sorter(self, config=None, sort_algorithm=None):
         if config is None:
             config=Files.CROPPED_CONFIG_DB_AS_JSON
-        config_wrapper = ConfigWrapper()
+        config_wrapper = self.config_wrapper
         config_wrapper.get_config_db_as_json = MagicMock(return_value=config)
         patch_wrapper = PatchWrapper(config_wrapper)
         operation_wrapper = OperationWrapper()
-        path_addressing= ps.PathAddressing()
+        path_addressing= ps.PathAddressing(config_wrapper)
         sort_algorithm_factory = ps.SortAlgorithmFactory(operation_wrapper, config_wrapper, path_addressing)
+        if sort_algorithm:
+            sort_algorithm_factory.create = MagicMock(return_value=sort_algorithm)
 
         return ps.PatchSorter(config_wrapper, patch_wrapper, sort_algorithm_factory)
 

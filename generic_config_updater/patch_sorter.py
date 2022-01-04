@@ -36,6 +36,13 @@ class Diff:
     def has_no_diff(self):
         return self.current_config == self.target_config
 
+    def __str__(self):
+        return f"""current_config: {self.current_config}
+target_config: {self.target_config}"""
+
+    def __repr__(self):
+        return str(self)
+
 class JsonMove:
     """
     A class similar to JsonPatch operation, but it allows the path to refer to non-existing middle elements.
@@ -544,10 +551,12 @@ class NoDependencyMoveValidator:
         simulated_config = move.apply(diff.current_config)
         deleted_paths, added_paths = self._get_paths(diff.current_config, simulated_config, [])
 
+        # For deleted paths, we check the current config has no dependencies between nodes under the removed path
         if not self._validate_paths_config(deleted_paths, diff.current_config):
             return False
 
-        if not self._validate_paths_config(added_paths, diff.target_config):
+        # For added paths, we check the simulated config has no dependencies between nodes under the added path
+        if not self._validate_paths_config(added_paths, simulated_config):
             return False
 
         return True
@@ -1013,7 +1022,7 @@ class MemoizationSorter:
         self.move_wrapper = move_wrapper
         self.mem = {}
 
-    def rec(self, diff):
+    def sort(self, diff):
         if diff.has_no_diff():
             return []
 
@@ -1119,21 +1128,21 @@ class IgnorePathsFromYangConfigSplitter:
     def __init__(self, ignore_paths_from_yang_list, config_wrapper):
         self.ignore_paths_from_yang_list = ignore_paths_from_yang_list
         self.config_wrapper = config_wrapper
+        self.path_addressing = PathAddressing(config_wrapper)
 
     def split_yang_non_yang_distinct_field_path(self, config):
         config_with_yang = copy.deepcopy(config)
         config_without_yang = {}
 
-        path_addressing = PathAddressing()
         # ignore more config from config_with_yang
         for path in self.ignore_paths_from_yang_list:
-            if not path_addressing.has_path(config_with_yang, path):
+            if not self.path_addressing.has_path(config_with_yang, path):
                 continue
             if path == '': # whole config to be ignored
                 return {}, copy.deepcopy(config)
 
             # Add to config_without_yang from config_with_yang
-            tokens = path_addressing.get_path_tokens(path)
+            tokens = self.path_addressing.get_path_tokens(path)
             add_move = JsonMove(Diff(config_without_yang, config_with_yang), OperationType.ADD, tokens, tokens)
             config_without_yang = add_move.apply(config_without_yang)
 
@@ -1325,7 +1334,7 @@ class PatchSorter:
         self.config_wrapper = config_wrapper
         self.patch_wrapper = patch_wrapper
         self.operation_wrapper = OperationWrapper()
-        self.path_addressing = PathAddressing()
+        self.path_addressing = PathAddressing(self.config_wrapper)
         self.sort_algorithm_factory = sort_algorithm_factory if sort_algorithm_factory else \
             SortAlgorithmFactory(self.operation_wrapper, config_wrapper, self.path_addressing)
 
@@ -1333,10 +1342,7 @@ class PatchSorter:
         current_config = preloaded_current_config if preloaded_current_config else self.config_wrapper.get_config_db_as_json()
         target_config = self.patch_wrapper.simulate_patch(patch, current_config)
 
-        cropped_current_config = self.config_wrapper.crop_tables_without_yang(current_config)
-        cropped_target_config = self.config_wrapper.crop_tables_without_yang(target_config)
-
-        diff = Diff(cropped_current_config, cropped_target_config)
+        diff = Diff(current_config, target_config)
 
         sort_algorithm = self.sort_algorithm_factory.create(algorithm)
         moves = sort_algorithm.sort(diff)

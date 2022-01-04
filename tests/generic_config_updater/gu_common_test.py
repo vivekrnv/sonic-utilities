@@ -1,3 +1,4 @@
+import copy
 import json
 import jsonpatch
 import sonic_yang
@@ -258,6 +259,49 @@ class TestConfigWrapper(unittest.TestCase):
         # Assert
         self.assertDictEqual({"any_table": {"key": "value"}}, actual)
 
+    def test_create_sonic_yang_with_loaded_models__creates_new_sonic_yang_every_call(self):
+        # check yang models fields are the same or None, non-yang model fields are different
+        def check(sy1, sy2):
+            # instances are different
+            self.assertNotEqual(sy1, sy2)
+
+            # yang models fields are same or None
+            self.assertTrue(sy1.confDbYangMap is sy2.confDbYangMap)
+            self.assertTrue(sy1.ctx is sy2.ctx)
+            self.assertTrue(sy1.DEBUG is sy2.DEBUG)
+            self.assertTrue(sy1.preProcessedYang is sy2.preProcessedYang)
+            self.assertTrue(sy1.SYSLOG_IDENTIFIER is sy2.SYSLOG_IDENTIFIER)
+            self.assertTrue(sy1.yang_dir is sy2.yang_dir)
+            self.assertTrue(sy1.yangFiles is sy2.yangFiles)
+            self.assertTrue(sy1.yJson is sy2.yJson)
+            self.assertTrue(not(hasattr(sy1, 'module')) or sy1.module is None) # module is unused, might get deleted
+            self.assertTrue(not(hasattr(sy2, 'module')) or sy2.module is None)
+
+            # non yang models fields are different
+            self.assertFalse(sy1.root is sy2.root)
+            self.assertFalse(sy1.jIn is sy2.jIn)
+            self.assertFalse(sy1.tablesWithOutYang is sy2.tablesWithOutYang)
+            self.assertFalse(sy1.xlateJson is sy2.xlateJson)
+            self.assertFalse(sy1.revXlateJson is sy2.revXlateJson)
+
+        config_wrapper = gu_common.ConfigWrapper()
+        self.assertTrue(config_wrapper.sonic_yang_with_loaded_models is None)
+
+        sy1 = config_wrapper.create_sonic_yang_with_loaded_models()
+        sy2 = config_wrapper.create_sonic_yang_with_loaded_models()
+
+        # Simulating loading non-yang model fields
+        sy1.loadData(Files.ANY_CONFIG_DB)
+        sy1.getData()
+
+        # Simulating loading non-yang model fields
+        sy2.loadData(Files.ANY_CONFIG_DB)
+        sy2.getData()
+
+        check(sy1, sy2)
+        check(sy1, config_wrapper.sonic_yang_with_loaded_models)
+        check(sy2, config_wrapper.sonic_yang_with_loaded_models)
+
 class TestPatchWrapper(unittest.TestCase):
     def setUp(self):
         self.config_wrapper_mock = gu_common.ConfigWrapper()
@@ -443,7 +487,7 @@ class TestPatchWrapper(unittest.TestCase):
 
 class TestPathAddressing(unittest.TestCase):
     def setUp(self):
-        self.path_addressing = gu_common.PathAddressing()
+        self.path_addressing = gu_common.PathAddressing(gu_common.ConfigWrapper())
         self.sy_only_models = sonic_yang.SonicYang(gu_common.YANG_DIR)
         self.sy_only_models.loadYangModel()
 
@@ -547,7 +591,7 @@ class TestPathAddressing(unittest.TestCase):
         actual = self.path_addressing.find_ref_paths(path, Files.CROPPED_CONFIG_DB_AS_JSON)
 
         # Assert
-        self.assertCountEqual(expected, actual)
+        self.assertEqual(expected, actual)
 
     def test_find_ref_paths__ref_is_a_part_of_key__returns_ref_paths(self):
         # Arrange
@@ -562,7 +606,7 @@ class TestPathAddressing(unittest.TestCase):
         actual = self.path_addressing.find_ref_paths(path, Files.CROPPED_CONFIG_DB_AS_JSON)
 
         # Assert
-        self.assertCountEqual(expected, actual)
+        self.assertEqual(expected, actual)
 
     def test_find_ref_paths__ref_is_in_multilist__returns_ref_paths(self):
         # Arrange
@@ -576,7 +620,7 @@ class TestPathAddressing(unittest.TestCase):
         actual = self.path_addressing.find_ref_paths(path, Files.CONFIG_DB_WITH_INTERFACE)
 
         # Assert
-        self.assertCountEqual(expected, actual)
+        self.assertEqual(expected, actual)
 
     def test_find_ref_paths__ref_is_in_leafref_union__returns_ref_paths(self):
         # Arrange
@@ -589,47 +633,59 @@ class TestPathAddressing(unittest.TestCase):
         actual = self.path_addressing.find_ref_paths(path, Files.CONFIG_DB_WITH_PORTCHANNEL_AND_ACL)
 
         # Assert
-        self.assertCountEqual(expected, actual)
+        self.assertEqual(expected, actual)
 
     def test_find_ref_paths__path_is_table__returns_ref_paths(self):
         # Arrange
         path = "/PORT"
         expected = [
-            "/ACL_TABLE/DATAACL/ports/0",
-            "/ACL_TABLE/EVERFLOW/ports/0",
-            "/ACL_TABLE/EVERFLOWV6/ports/0",
-            "/ACL_TABLE/EVERFLOWV6/ports/1",
             "/ACL_TABLE/NO-NSW-PACL-V4/ports/0",
             "/VLAN_MEMBER/Vlan1000|Ethernet0",
+            "/ACL_TABLE/DATAACL/ports/0",
+            "/ACL_TABLE/EVERFLOWV6/ports/0",
             "/VLAN_MEMBER/Vlan1000|Ethernet4",
-            "/VLAN_MEMBER/Vlan1000|Ethernet8",
+            "/ACL_TABLE/EVERFLOW/ports/0",
+            "/ACL_TABLE/EVERFLOWV6/ports/1",
+            "/VLAN_MEMBER/Vlan1000|Ethernet8"
         ]
 
         # Act
         actual = self.path_addressing.find_ref_paths(path, Files.CROPPED_CONFIG_DB_AS_JSON)
 
         # Assert
-        self.assertCountEqual(expected, actual)
+        self.assertEqual(expected, actual)
 
     def test_find_ref_paths__whole_config_path__returns_all_refs(self):
         # Arrange
         path = ""
         expected = [
-            "/ACL_TABLE/DATAACL/ports/0",
-            "/ACL_TABLE/EVERFLOW/ports/0",
-            "/ACL_TABLE/EVERFLOWV6/ports/0",
-            "/ACL_TABLE/EVERFLOWV6/ports/1",
-            "/ACL_TABLE/NO-NSW-PACL-V4/ports/0",
             "/VLAN_MEMBER/Vlan1000|Ethernet0",
             "/VLAN_MEMBER/Vlan1000|Ethernet4",
             "/VLAN_MEMBER/Vlan1000|Ethernet8",
+            "/ACL_TABLE/NO-NSW-PACL-V4/ports/0",
+            "/ACL_TABLE/DATAACL/ports/0",
+            "/ACL_TABLE/EVERFLOWV6/ports/0",
+            "/ACL_TABLE/EVERFLOW/ports/0",
+            "/ACL_TABLE/EVERFLOWV6/ports/1",
         ]
 
         # Act
         actual = self.path_addressing.find_ref_paths(path, Files.CROPPED_CONFIG_DB_AS_JSON)
 
         # Assert
-        self.assertCountEqual(expected, actual)
+        self.assertEqual(expected, actual)
+
+    def test_find_ref_paths__does_not_remove_tables_without_yang(self):
+        # Arrange
+        config = Files.CONFIG_DB_AS_JSON # This has a table without yang named 'TABLE_WITHOUT_YANG'
+        any_path = ""
+        expected_config = copy.deepcopy(config)
+
+        # Act
+        self.path_addressing.find_ref_paths(any_path, config)
+
+        # Assert
+        self.assertEqual(expected_config, config)
 
     def test_convert_path_to_xpath(self):
         def check(path, xpath, config=None):
