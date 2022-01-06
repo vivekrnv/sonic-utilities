@@ -385,7 +385,7 @@ class MatchRequestOptimizer():
                 for key in keys:
                     new_ret["return_values"][key] = {}
                     for field in fv_requested:
-                        new_ret["return_values"][key][field] = key_fv[key][field]
+                        new_ret["return_values"][key][field] = key_fv[key].get(field, "")
         return new_ret
 
     def __fill_cache(self, ret):
