@@ -415,7 +415,10 @@ class MatchRequestOptimizer():
 
     def fetch(self, req_orig):
         req = copy.deepcopy(req_orig)
-        key = req.table + ":" + req.key_pattern
+        sep = "|"
+        if req.db:
+            sep = SonicDBConfig.getSeparator(req.db)
+        key = req.table + sep + req.key_pattern
         if key in self.__key_cache:
             verbose_print("Cache Hit for Key: {}".format(key))
             return self.__fetch_from_cache(key, req)
