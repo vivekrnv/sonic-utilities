@@ -119,6 +119,8 @@
   * [Platform Component Firmware config commands](#platform-component-firmware-config-commands)
   * [Platform Component Firmware vendor specific behaviour](#platform-component-firmware-vendor-specific-behaviour)
 * [Platform Specific Commands](#platform-specific-commands)
+  * [Mellanox Platform Specific Commands](#mellanox-platform-specific-commands)
+  * [Barefoot Platform Specific Commands](#barefoot-platform-specific-commands)
 * [PortChannels](#portchannels)
   * [PortChannel Show commands](#portchannel-show-commands)
   * [PortChannel Config commands](#portchannel-config-commands)
@@ -2662,6 +2664,55 @@ This command is used to configure the priority groups on which lossless traffic 
 
   ```
   admin@sonic:~$ sudo config interface buffer priority-group lossless remove Ethernet0
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#dynamic-buffer-management)
+
+**config interface buffer queue**
+
+This command is used to configure the buffer profiles for queues.
+
+- Usage:
+
+  ```
+  config interface buffer queue add <interface_name> <queue_map> <profile>
+  config interface buffer queue set <interface_name> <queue_map> <profile>
+  config interface buffer queue remove <interface_name> <queue_map>
+  ```
+
+  The <queue_map> represents the map of queues. It can be in one of the following two forms:
+
+  - For a range of priorities, the lower bound and upper bound connected by a dash, like `3-4`
+  - For a single priority, the number, like `6`
+
+  The subcommand `add` is designed for adding a buffer profile for a group of queues. The new queue range must be disjoint with all queues with buffer profile configured.
+
+  For example, currently the buffer profile configured on queue 3-4 on port Ethernet4, to configure buffer profile on queue 4-5 will fail because it isn't disjoint with 3-4. To configure it on range 5-6 will succeed.
+
+  The `profile` parameter represents a predefined egress buffer profile to be configured on the queues.
+
+  The subcommand `set` is designed for modifying an existing group of queues.
+
+  The subcommand `remove` is designed for removing buffer profile on an existing group of queues.
+
+- Example:
+
+  To configure buffer profiles for queues on a port:
+
+  ```
+  admin@sonic:~$ sudo config interface buffer queue add Ethernet0 3-4 egress_lossless_profile
+  ```
+
+  To change the profile used for queues on a port:
+
+  ```
+  admin@sonic:~$ sudo config interface buffer queue set Ethernet0 3-4 new-profile
+  ```
+
+  To remove a group of queues from a port:
+
+  ```
+  admin@sonic:~$ sudo config interface buffer queue remove Ethernet0 3-4
   ```
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#dynamic-buffer-management)
@@ -6173,8 +6224,8 @@ This command starts PFC Watchdog
 
 - Usage:
   ```
-  config pfcwd start --action drop ports all detection-time 400 --restoration-time 400
-  config pfcwd start --action forward ports Ethernet0 Ethernet8 detection-time 400
+  config pfcwd start --action drop all 400 --restoration-time 400
+  config pfcwd start --action forward Ethernet0 Ethernet8 400
   ```
 
 **config pfcwd stop**
@@ -6535,6 +6586,8 @@ Go Back To [Beginning of the document](#) or [Beginning of this section](#platfo
 
 ## Platform Specific Commands
 
+### Mellanox Platform Specific Commands
+
 There are few commands that are platform specific. Mellanox has used this feature and implemented Mellanox specific commands as follows.
 
 **show platform mlnx sniffer**
@@ -6602,6 +6655,41 @@ In order to avoid that confirmation the -y / --yes option should be used.
   admin@sonic:~$ config platform mlnx sniffer sdk
   To change SDK sniffer status, swss service will be restarted, continue? [y/N]: y
   NOTE: In order to avoid that confirmation the -y / --yes option should be used.
+  ```
+
+### Barefoot Platform Specific Commands
+
+**show platform barefoot profile**
+
+This command displays active P4 profile and lists available ones.
+
+- Usage:
+  ```
+  show platform barefoot profile
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show platform barefoot profile
+  Current profile: x1
+  Available profile(s):
+  x1
+  x2
+  ```
+
+**config platform barefoot profile**
+
+This command sets P4 profile.
+
+- Usage:
+  ```
+  config platform barefoot profile <p4_profile> [-y|--yes]
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config platform barefoot profile x1
+  Swss service will be restarted, continue? [y/N]: y
   ```
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#platform-specific-commands)
@@ -8833,89 +8921,121 @@ This command displays the MAC (FDB) entries either in full or partial as given b
 1) show mac - displays the full table
 2) show mac -v <vlanid> - displays the MACs learnt on the particular VLAN ID.
 3) show mac -p <port>  - displays the MACs learnt on the particular port.
+4) show mac -a <mac-address> - display the MACs that match a specific mac-address
+5) show mac -t <type> - display the MACs that match a specific type (static/dynamic)
+6) show mac -c - display the count of MAC addresses
 
+To show the default MAC address aging time on the switch.
 
 - Usage:
   ```
-  show mac [-v <vlan_id>] [-p <port_name>]
+  show mac [-v <vlan_id>] [-p <port_name>] [-a <mac_address>] [-t <type>] [-c]
   ```
 
 - Example:
   ```
   admin@sonic:~$ show mac
-  No.    Vlan  MacAddress         Port
-  -----  ------  -----------------  -----------
-    1    1000  E2:8C:56:85:4A:CD  Ethernet192
-    2    1000  A0:1B:5E:47:C9:76  Ethernet192
-    3    1000  AA:54:EF:2C:EE:30  Ethernet192
-    4    1000  A4:3F:F2:17:A3:FC  Ethernet192
-    5    1000  0C:FC:01:72:29:91  Ethernet192
-    6    1000  48:6D:01:7E:C9:FD  Ethernet192
-    7    1000  1C:6B:7E:34:5F:A6  Ethernet192
-    8    1000  EE:81:D9:7B:93:A9  Ethernet192
-    9    1000  CC:F8:8D:BB:85:E2  Ethernet192
-   10    1000  0A:52:B3:9C:FB:6C  Ethernet192
-   11    1000  C6:E2:72:02:D1:23  Ethernet192
-   12    1000  8A:C9:5C:25:E9:28  Ethernet192
-   13    1000  5E:CD:34:E4:94:18  Ethernet192
-   14    1000  7E:49:1F:B5:91:B5  Ethernet192
-   15    1000  AE:DD:67:F3:09:5A  Ethernet192
-   16    1000  DC:2F:D1:08:4B:DE  Ethernet192
-   17    1000  50:96:23:AD:F1:65  Ethernet192
-   18    1000  C6:C9:5E:AE:24:42  Ethernet192
+  No.    Vlan  MacAddress         Port           Type
+  -----  ------  -----------------  -----------  -------
+    1    1000  E2:8C:56:85:4A:CD  Ethernet192    Dynamic
+    2    1000  A0:1B:5E:47:C9:76  Ethernet192    Dynamic
+    3    1000  AA:54:EF:2C:EE:30  Ethernet192    Dynamic
+    4    1000  A4:3F:F2:17:A3:FC  Ethernet192    Dynamic
+    5    1000  0C:FC:01:72:29:91  Ethernet192    Dynamic
+    6    1000  48:6D:01:7E:C9:FD  Ethernet192    Dynamic
+    7    1000  1C:6B:7E:34:5F:A6  Ethernet192    Dynamic
+    8    1000  EE:81:D9:7B:93:A9  Ethernet192    Dynamic
+    9    1000  CC:F8:8D:BB:85:E2  Ethernet192    Dynamic
+   10    1000  0A:52:B3:9C:FB:6C  Ethernet192    Dynamic
+   11    1000  C6:E2:72:02:D1:23  Ethernet192    Dynamic
+   12    1000  8A:C9:5C:25:E9:28  Ethernet192    Dynamic
+   13    1000  5E:CD:34:E4:94:18  Ethernet192    Dynamic
+   14    1000  7E:49:1F:B5:91:B5  Ethernet192    Dynamic
+   15    1000  AE:DD:67:F3:09:5A  Ethernet192    Dynamic
+   16    1000  DC:2F:D1:08:4B:DE  Ethernet192    Dynamic
+   17    1000  50:96:23:AD:F1:65  Ethernet192    Static
+   18    1000  C6:C9:5E:AE:24:42  Ethernet192    Static
   Total number of entries 18
   ```
 
-Optionally, you can specify a VLAN ID or interface name in order to display only that particular entries
+Optionally, you can specify a VLAN ID or interface name or type or mac-address in order to display only that particular entries
 
 - Examples:
   ```
   admin@sonic:~$ show mac -v 1000
-  No.    Vlan  MacAddress         Port
-  -----  ------  -----------------  -----------
-    1    1000  E2:8C:56:85:4A:CD  Ethernet192
-    2    1000  A0:1B:5E:47:C9:76  Ethernet192
-    3    1000  AA:54:EF:2C:EE:30  Ethernet192
-    4    1000  A4:3F:F2:17:A3:FC  Ethernet192
-    5    1000  0C:FC:01:72:29:91  Ethernet192
-    6    1000  48:6D:01:7E:C9:FD  Ethernet192
-    7    1000  1C:6B:7E:34:5F:A6  Ethernet192
-    8    1000  EE:81:D9:7B:93:A9  Ethernet192
-    9    1000  CC:F8:8D:BB:85:E2  Ethernet192
-   10    1000  0A:52:B3:9C:FB:6C  Ethernet192
-   11    1000  C6:E2:72:02:D1:23  Ethernet192
-   12    1000  8A:C9:5C:25:E9:28  Ethernet192
-   13    1000  5E:CD:34:E4:94:18  Ethernet192
-   14    1000  7E:49:1F:B5:91:B5  Ethernet192
-   15    1000  AE:DD:67:F3:09:5A  Ethernet192
-   16    1000  DC:2F:D1:08:4B:DE  Ethernet192
-   17    1000  50:96:23:AD:F1:65  Ethernet192
-   18    1000  C6:C9:5E:AE:24:42  Ethernet192
+  No.    Vlan  MacAddress         Port           Type
+  -----  ------  -----------------  -----------  -------
+    1    1000  E2:8C:56:85:4A:CD  Ethernet192    Dynamic
+    2    1000  A0:1B:5E:47:C9:76  Ethernet192    Dynamic
+    3    1000  AA:54:EF:2C:EE:30  Ethernet192    Dynamic
+    4    1000  A4:3F:F2:17:A3:FC  Ethernet192    Dynamic
+    5    1000  0C:FC:01:72:29:91  Ethernet192    Dynamic
+    6    1000  48:6D:01:7E:C9:FD  Ethernet192    Dynamic
+    7    1000  1C:6B:7E:34:5F:A6  Ethernet192    Dynamic
+    8    1000  EE:81:D9:7B:93:A9  Ethernet192    Dynamic
+    9    1000  CC:F8:8D:BB:85:E2  Ethernet192    Dynamic
+   10    1000  0A:52:B3:9C:FB:6C  Ethernet192    Dynamic
+   11    1000  C6:E2:72:02:D1:23  Ethernet192    Dynamic
+   12    1000  8A:C9:5C:25:E9:28  Ethernet192    Dynamic
+   13    1000  5E:CD:34:E4:94:18  Ethernet192    Dynamic
+   14    1000  7E:49:1F:B5:91:B5  Ethernet192    Dynamic
+   15    1000  AE:DD:67:F3:09:5A  Ethernet192    Dynamic
+   16    1000  DC:2F:D1:08:4B:DE  Ethernet192    Dynamic
+   17    1000  50:96:23:AD:F1:65  Ethernet192    Static
+   18    1000  C6:C9:5E:AE:24:42  Ethernet192    Static
   Total number of entries 18
   ```
   ```
   admin@sonic:~$ show mac -p Ethernet192
-  No.    Vlan  MacAddress         Port
-  -----  ------  -----------------  -----------
-    1    1000  E2:8C:56:85:4A:CD  Ethernet192
-    2    1000  A0:1B:5E:47:C9:76  Ethernet192
-    3    1000  AA:54:EF:2C:EE:30  Ethernet192
-    4    1000  A4:3F:F2:17:A3:FC  Ethernet192
-    5    1000  0C:FC:01:72:29:91  Ethernet192
-    6    1000  48:6D:01:7E:C9:FD  Ethernet192
-    7    1000  1C:6B:7E:34:5F:A6  Ethernet192
-    8    1000  EE:81:D9:7B:93:A9  Ethernet192
-    9    1000  CC:F8:8D:BB:85:E2  Ethernet192
-   10    1000  0A:52:B3:9C:FB:6C  Ethernet192
-   11    1000  C6:E2:72:02:D1:23  Ethernet192
-   12    1000  8A:C9:5C:25:E9:28  Ethernet192
-   13    1000  5E:CD:34:E4:94:18  Ethernet192
-   14    1000  7E:49:1F:B5:91:B5  Ethernet192
-   15    1000  AE:DD:67:F3:09:5A  Ethernet192
-   16    1000  DC:2F:D1:08:4B:DE  Ethernet192
-   17    1000  50:96:23:AD:F1:65  Ethernet192
-   18    1000  C6:C9:5E:AE:24:42  Ethernet192
+  No.    Vlan  MacAddress         Port           Type
+  -----  ------  -----------------  -----------  -------
+    1    1000  E2:8C:56:85:4A:CD  Ethernet192    Dynamic
+    2    1000  A0:1B:5E:47:C9:76  Ethernet192    Dynamic
+    3    1000  AA:54:EF:2C:EE:30  Ethernet192    Dynamic
+    4    1000  A4:3F:F2:17:A3:FC  Ethernet192    Dynamic
+    5    1000  0C:FC:01:72:29:91  Ethernet192    Dynamic
+    6    1000  48:6D:01:7E:C9:FD  Ethernet192    Dynamic
+    7    1000  1C:6B:7E:34:5F:A6  Ethernet192    Dynamic
+    8    1000  EE:81:D9:7B:93:A9  Ethernet192    Dynamic
+    9    1000  CC:F8:8D:BB:85:E2  Ethernet192    Dynamic
+   10    1000  0A:52:B3:9C:FB:6C  Ethernet192    Dynamic
+   11    1000  C6:E2:72:02:D1:23  Ethernet192    Dynamic
+   12    1000  8A:C9:5C:25:E9:28  Ethernet192    Dynamic
+   13    1000  5E:CD:34:E4:94:18  Ethernet192    Dynamic
+   14    1000  7E:49:1F:B5:91:B5  Ethernet192    Dynamic
+   15    1000  AE:DD:67:F3:09:5A  Ethernet192    Dynamic
+   16    1000  DC:2F:D1:08:4B:DE  Ethernet192    Dynamic
+   17    1000  50:96:23:AD:F1:65  Ethernet192    Static
+   18    1000  C6:C9:5E:AE:24:42  Ethernet192    Static
   Total number of entries 18
+  ```
+  ```
+  admin@sonic:~$ show mac -a E2:8C:56:85:4A:CD
+  No.    Vlan  MacAddress         Port           Type
+  -----  ------  -----------------  -----------  -------
+    1    1000  E2:8C:56:85:4A:CD  Ethernet192    Dynamic
+  Total number of entries 1
+  ```
+  ```
+  admin@sonic:~$ show mac -t Static
+  No.    Vlan  MacAddress         Port           Type
+  -----  ------  -----------------  -----------  -------
+    2    1000  50:96:23:AD:F1:65  Ethernet192    Static
+    2    1000  C6:C9:5E:AE:24:42  Ethernet192    Static
+  Total number of entries 2
+  ```
+  ```
+  admin@sonic:~$ show mac -c
+  Total number of entries 18
+  ```
+
+**show mac aging-time**
+
+This command displays the default mac aging time on the switch
+
+  ```
+  admin@sonic:~$ show mac aging-time
+  Aging time for switch is 600 seconds
   ```
 
 **sonic-clear fdb all**
