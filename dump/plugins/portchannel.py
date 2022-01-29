@@ -54,11 +54,7 @@ class Portchannel(Executor):
         # Fetch Lag Members from CFG DB
         _, lag_members, _ = get_lag_members_from_cfg(self.match_engine, self.lag_name, self.ns)
         # Fetch Lag Type Asic Obj from Members info
-        _, lag_type_objs_asic, _ = fetch_lag_oid(self.match_engine, lag_members, self.ns)
-        if len(lag_type_objs_asic) == 0:
-            self.ret_temp["ASIC_DB"]["tables_not_found"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_LAG"])
-            return
-        for lag_asic_obj in lag_type_objs_asic:
-            req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_LAG", key_pattern=lag_asic_obj, ns=self.ns)
-            ret = self.match_engine.fetch(req)
-            self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
+        _, lag_asic_obj, _ = fetch_lag_oid(self.match_engine, lag_members, self.ns)
+        req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_LAG", key_pattern=lag_asic_obj, ns=self.ns)
+        ret = self.match_engine.fetch(req)
+        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
