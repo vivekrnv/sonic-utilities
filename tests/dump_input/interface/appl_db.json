@@ -40,5 +40,13 @@
     "INTF_TABLE:PortChannel1234:7.7.7.1/24": {
         "family": "IPv4",
         "scope": "global"
+    },
+    "INTF_TABLE:Loopback0": {
+        "NULL": "NULL",
+        "mac_addr": "00:00:00:00:00:00"
+    },
+    "INTF_TABLE:Loopback0:10.1.0.1/32": {
+        "family": "IPv4",
+        "scope": "global"
     }
 }

@@ -132,6 +132,54 @@ class TestInterfaceModule:
         ddiff = DeepDiff(sort_lists(returned), sort_lists(expect), ignore_order=True)
         assert not ddiff, ddiff
     
+    def test_no_interface(self, match_engine):
+        """
+        Scenario: Test the flow fetching objs related to an interface which is not present
+        """
+        params = {Interface.ARG_NAME: "Ethernet160", "namespace": ""}
+        m_intf = Interface(match_engine)
+        returned = m_intf.execute(params)
+        expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
+        expect["CONFIG_DB"]["tables_not_found"].extend(["INTERFACE"])
+        expect["APPL_DB"]["tables_not_found"].extend(["INTF_TABLE"])
+        expect["STATE_DB"]["tables_not_found"].extend(["INTERFACE_TABLE"])
+        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE")
+        ddiff = DeepDiff(sort_lists(returned), sort_lists(expect), ignore_order=True)
+        assert not ddiff, ddiff
+    
+    def test_invalid_interface(self, match_engine):
+        """
+        Scenario: Test the flow fetching objs related to an interface which is invalid
+        """
+        params = {Interface.ARG_NAME: "Whatever", "namespace": ""}
+        m_intf = Interface(match_engine)
+        returned = m_intf.execute(params)
+        expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
+        expect["CONFIG_DB"]["tables_not_found"].extend(["INTERFACE",
+                                                        "PORTCHANNEL_INTERFACE",
+                                                        "VLAN_INTERFACE",
+                                                        "VLAN_SUB_INTERFACE",
+                                                        "LOOPBACK_INTERFACE"])
+        expect["APPL_DB"]["tables_not_found"].extend(["INTF_TABLE"])
+        expect["STATE_DB"]["tables_not_found"].extend(["INTERFACE_TABLE"])
+        expect["ASIC_DB"]["tables_not_found"].append("ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE")
+        ddiff = DeepDiff(sort_lists(returned), sort_lists(expect), ignore_order=True)
+        assert not ddiff, ddiff
+    
+    def test_loopback_interface(self, match_engine):
+        """
+        Scenario: Test the flow fetching objs related to loopback iface
+        """
+        params = {Interface.ARG_NAME: "Loopback0", "namespace": ""}
+        m_intf = Interface(match_engine)
+        returned = m_intf.execute(params)
+        expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
+        expect["CONFIG_DB"]["keys"].extend(["LOOPBACK_INTERFACE|Loopback0", "LOOPBACK_INTERFACE|Loopback0|10.1.0.1/32"])
+        expect["APPL_DB"]["keys"].extend(["INTF_TABLE:Loopback0", "INTF_TABLE:Loopback0:10.1.0.1/32"])
+        expect["STATE_DB"]["keys"].extend(["INTERFACE_TABLE|Loopback0", "INTERFACE_TABLE|Loopback0|10.1.0.1/32"])
+        ddiff = DeepDiff(sort_lists(returned), sort_lists(expect), ignore_order=True)
+        assert not ddiff, ddiff
+
     def test_all_args(self, match_engine):
         """
         Scenario: Verify Whether the get_all_args method is working as expected
@@ -139,6 +187,6 @@ class TestInterfaceModule:
         params = {}
         m_port = Interface(match_engine)
         returned = m_port.get_all_args("")
-        expect = ["Ethernet16", "Vlan10", "PortChannel1111", "PortChannel1234", "Eth0.1"]
+        expect = ["Ethernet16", "Vlan10", "PortChannel1111", "PortChannel1234", "Eth0.1", "Loopback0"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
         assert not ddiff, ddiff

@@ -4,6 +4,7 @@ from sonic_py_common.interface import get_interface_table_name, get_intf_longnam
 from dump.match_infra import MatchRequest, RedisSource
 from dump.helper import create_template_dict, handle_error
 from dump.match_helper import fetch_port_oid, fetch_vlan_oid, fetch_lag_oid, get_lag_members_from_cfg
+from swsscommon.swsscommon import SonicDBConfig
 from .executor import Executor
 
 
@@ -54,25 +55,32 @@ class Interface(Executor):
         self.init_intf_asic_info()
         return self.ret_temp
 
+    def get_sep(self, db):
+        return SonicDBConfig.getSeparator(db)
+
+    def add_intf_keys(self, db_name, table_name):
+        # Fetch Interface Keys
+        req = MatchRequest(db=db_name, table=table_name, key_pattern=self.intf_name, ns=self.ns)
+        ret = self.match_engine.fetch(req)
+        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
+        # Fetch IP & Interface Related keys
+        req = MatchRequest(db=db_name, table=table_name, key_pattern=self.intf_name+self.get_sep(db_name)+"*", ns=self.ns)
+        ret = self.match_engine.fetch(req)
+        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
+
     def init_intf_config_info(self):
         intf_type = get_interface_table_name(self.intf_name)
         if not intf_type:
             self.ret_temp["CONFIG_DB"]["tables_not_found"].extend(list(self.valid_cfg_tables))
         else:
-            req = MatchRequest(db="CONFIG_DB", table=intf_type, key_pattern=self.intf_name+"*", ns=self.ns)
-            ret = self.match_engine.fetch(req)
-            self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
+            self.add_intf_keys("CONFIG_DB", intf_type)
         return intf_type
     
     def init_intf_appl_info(self):
-        req = MatchRequest(db="APPL_DB", table="INTF_TABLE", key_pattern=self.intf_name+"*", ns=self.ns)
-        ret = self.match_engine.fetch(req)
-        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
+        self.add_intf_keys("APPL_DB", "INTF_TABLE")
     
     def init_intf_state_info(self):
-        req = MatchRequest(db="STATE_DB", table="INTERFACE_TABLE", key_pattern=self.intf_name+"*", ns=self.ns)
-        ret = self.match_engine.fetch(req)
-        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
+        self.add_intf_keys("STATE_DB", "INTERFACE_TABLE")
     
     def init_intf_asic_info(self):
         """
@@ -100,6 +108,7 @@ class RIF(object):
         elif intf_obj.intf_type == "VLAN_INTERFACE":
             return VlanRIF(intf_obj)
         elif intf_obj.intf_type == "LOOPBACK_INTERFACE":
+            print("REACHED_HERE")
             return LpbRIF(intf_obj)
         elif intf_obj.intf_type == "VLAN_SUB_INTERFACE":
             return SubIntfRif(intf_obj)

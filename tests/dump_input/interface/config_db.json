@@ -35,5 +35,11 @@
         },
         "VLAN_SUB_INTERFACE|Eth0.1|9.9.9.9/24": {
               "NULL": "NULL"
+        },
+        "LOOPBACK_INTERFACE|Loopback0": {
+              "NULL": "NULL"
+        },
+        "LOOPBACK_INTERFACE|Loopback0|10.1.0.1/32": {
+              "NULL": "NULL"
         }
 }
