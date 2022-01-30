@@ -71,7 +71,6 @@ def fetch_lag_oid(match_engine, lag_members, ns):
     """
     lag_type_oids = set()
     for port_name in lag_members:
-        print(port_name)
         _, port_asic_obj, _ = fetch_port_oid(match_engine, port_name, ns)
         if port_asic_obj:
             lag_member_key, lag_oid = get_lag_and_member_obj(match_engine, port_asic_obj, ns)
@@ -80,14 +79,3 @@ def fetch_lag_oid(match_engine, lag_members, ns):
     if lag_type_oids:
         lag_type_oid = lag_type_oids[-1]
     return "", lag_type_oid, ""
-
-
-
-
-
-
-
-
-
-
-

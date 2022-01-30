@@ -108,7 +108,6 @@ class RIF(object):
         elif intf_obj.intf_type == "VLAN_INTERFACE":
             return VlanRIF(intf_obj)
         elif intf_obj.intf_type == "LOOPBACK_INTERFACE":
-            print("REACHED_HERE")
             return LpbRIF(intf_obj)
         elif intf_obj.intf_type == "VLAN_SUB_INTERFACE":
             return SubIntfRif(intf_obj)
@@ -151,7 +150,7 @@ class RIF(object):
         #Sanity check to see if the TYPE is SAI_ROUTER_INTERFACE_TYPE_PORT
         if exp_type !=  recv_type:
             err_str = "TYPE Mismatch on SAI_OBJECT_TYPE_ROUTER_INTERFACE, {} oid:{}, expected type:{}, recieved type:{}"
-            handle_error(err_str.format(str_name, rif_oid, exp_type, recv_type), True)
+            handle_error(err_str.format(str_name, rif_oid, exp_type, recv_type), False)
         return
 
     def collect(self):
