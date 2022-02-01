@@ -1552,6 +1552,7 @@ if mkdir "${LOCKDIR}" &>/dev/null; then
     # Trap configured on EXIT will be triggered by the exit from handle_signal function
     trap 'handle_signal' SIGINT SIGHUP SIGQUIT SIGTERM
     echo "Lock Succesfully Accquired and Installed signal handlers"
+    # Proceed with the actual code
     main
 else
     # lock failed, check if the other PID is alive
@@ -1571,6 +1572,6 @@ else
     else
         # Lock is valid and the other instance is active. Exit Now
         echo "Accquiring lock failed, PID ${PID_PROG} is active" >&2
-        exit $ERR_LOCKFAIL
+        exit $EXT_LOCKFAIL
     fi
 fi
