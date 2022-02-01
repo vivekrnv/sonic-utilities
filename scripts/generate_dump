@@ -42,18 +42,41 @@ SAVE_STDERR=true
 RETURN_CODE=0
 DEBUG_DUMP=false
 
+EXT_SUCCESS=0; ETMP[0]="EXT_SUCCESS"
+EXT_GENERAL=1; ETMP[1]="EXT_GENERAL"
+EXT_LOCKFAIL=2; ETMP[2]="EXT_LOCKFAIL"
+EXT_RECVSIG=3; ETMP[3]="EXT_RECVSIG"
+
+# lock dirs/files
+LOCKDIR="/tmp/techsupport-lock"
+PIDFILE="${LOCKDIR}/PID"
+
+# Remove lock directory and restart
+rm_lock_and_restart()
+{
+    $RM $V -rf ${LOCKDIR}
+    echo "[generate_dump] Restarting"
+    exec "$0" "$@"
+}
+
+handle_exit()
+{
+    ECODE=$?
+    echo "Removing Lock. Exit: ${ETMP[ECODE]}($ECODE)" >&2
+    $RM $V -rf ${LOCKDIR}
+}
+
 handle_signal()
 {
     echo "Generate Dump received interrupt" >&2
     $RM $V -rf $TARDIR
-    exit 1
+    exit $EXT_RECVSIG
 }
-trap 'handle_signal' SIGINT
 
 handle_error() {
     if [ "$1" != "0" ]; then
         echo "ERR: RC:-$1 observed on line $2" >&2
-        RETURN_CODE=1
+        RETURN_CODE=$EXT_GENERAL
     fi
 }
 
@@ -1141,11 +1164,6 @@ main() {
     trap 'handle_error $? $LINENO' ERR
     local start_t=0
     local end_t=0
-    if [ `whoami` != root ] && ! $NOOP;
-    then
-        echo "$0: must be run as root (or in sudo)" >&2
-        exit 10
-    fi
     NUM_ASICS=$(get_asic_count)
     ${CMD_PREFIX}renice +5 -p $$ >> /dev/null
     ${CMD_PREFIX}ionice -c 2 -n 5 -p $$ >> /dev/null
@@ -1470,7 +1488,7 @@ while getopts ":xnvhzas:t:r:d" opt; do
             ;;
         h)
             usage
-            exit 0
+            exit $EXT_SUCCESS
             ;;
         v)
             # echo commands about to be run to stderr
@@ -1511,9 +1529,48 @@ while getopts ":xnvhzas:t:r:d" opt; do
             ;;
         /?)
             echo "Invalid option: -$OPTARG" >&2
-            exit 1
+            exit $EXT_GENERAL
             ;;
     esac
 done
 
-main
+# Check permissions before proceeding further
+if [ `whoami` != root ] && ! $NOOP;
+then
+    echo "$0: must be run as root (or in sudo)" >&2
+    exit 10
+fi
+
+##
+## Attempt Locking
+##
+
+if mkdir "${LOCKDIR}" &>/dev/null; then
+    trap 'handle_exit' EXIT
+    echo "$$" > "${PIDFILE}"
+    # This handler will exit the script upon receiving these interrupts
+    # Trap configured on EXIT will be triggered by the exit from handle_signal function
+    trap 'handle_signal' SIGINT SIGHUP SIGQUIT SIGTERM
+    echo "Lock Succesfully Accquired and Installed signal handlers"
+    main
+else
+    # lock failed, check if the other PID is alive
+    PID_PROG="$(cat "${PIDFILE}")"
+
+    if [ $? != 0 ]; then
+        # Another instance is probably about to remove the lock or PIDfile doesn't exist
+        # Wait for a few secs and restart
+        sleep "$(( $RANDOM % 2 + 1)).$(( $RANDOM % 999 ))"
+        rm_lock_and_restart
+    fi
+
+    if ! kill -0 $PID_PROG &>/dev/null; then
+        # Lock is stale
+        echo "Removing stale lock of nonexistant PID ${PID_PROG}"
+        rm_lock_and_restart
+    else
+        # Lock is valid and the other instance is active. Exit Now
+        echo "Accquiring lock failed, PID ${PID_PROG} is active" >&2
+        exit $ERR_LOCKFAIL
+    fi
+fi
