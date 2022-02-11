@@ -69,19 +69,19 @@ class Interface(Executor):
         self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
     def init_intf_config_info(self):
-        intf_type = get_interface_table_name(self.intf_name)
-        if not intf_type:
+        intf_table_name = get_interface_table_name(self.intf_name)
+        if not intf_table_name:
             self.ret_temp["CONFIG_DB"]["tables_not_found"].extend(list(self.valid_cfg_tables))
         else:
-            self.add_intf_keys("CONFIG_DB", intf_type)
-        return intf_type
-    
+            self.add_intf_keys("CONFIG_DB", intf_table_name)
+        return intf_table_name
+
     def init_intf_appl_info(self):
         self.add_intf_keys("APPL_DB", "INTF_TABLE")
-    
+
     def init_intf_state_info(self):
         self.add_intf_keys("STATE_DB", "INTERFACE_TABLE")
-    
+
     def init_intf_asic_info(self):
         """
         Fetch SAI_OBJECT_TYPE_ROUTER_INTERFACE ASIC Object for the corresponding interface
@@ -121,14 +121,6 @@ class RIF(object):
             port_oid = "INVALID"
         req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE", key_pattern="*", field="SAI_ROUTER_INTERFACE_ATTR_PORT_ID",
               value=port_oid, return_fields=rfs, ns=self.intf.ns)
-        ret = self.intf.match_engine.fetch(req)
-        return req, ret
-
-    def fetch_rif_keys_using_vlan_oid(self, vlan_oid):
-        if not vlan_oid:
-            vlan_oid = "INVALID"
-        req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE", key_pattern="*", field="SAI_ROUTER_INTERFACE_ATTR_VLAN_ID",
-              value=vlan_oid, return_fields=["SAI_ROUTER_INTERFACE_ATTR_TYPE"], ns=self.intf.ns)
         ret = self.intf.match_engine.fetch(req)
         return req, ret
 
@@ -190,6 +182,14 @@ class VlanRIF(RIF):
     """
     Handler for Vlan type Obj
     """
+    def fetch_rif_keys_using_vlan_oid(self, vlan_oid):
+        if not vlan_oid:
+            vlan_oid = "INVALID"
+        req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE", key_pattern="*", field="SAI_ROUTER_INTERFACE_ATTR_VLAN_ID",
+              value=vlan_oid, return_fields=["SAI_ROUTER_INTERFACE_ATTR_TYPE"], ns=self.intf.ns)
+        ret = self.intf.match_engine.fetch(req)
+        return req, ret
+
     def collect(self):
         # Get vlan oid from vlan name
         _, vlan_oid, _ = fetch_vlan_oid(self.intf.match_engine, self.intf.intf_name, self.intf.ns)
