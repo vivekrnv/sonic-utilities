@@ -1,6 +1,6 @@
 from dump.match_infra import MatchRequest
 from dump.helper import create_template_dict, verbose_print
-from dump.match_helper import fetch_lag_oid, get_lag_members_from_cfg
+from dump.match_helper import fetch_lag_oid
 from .executor import Executor
 
 
@@ -51,10 +51,8 @@ class Portchannel(Executor):
         return self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
     def init_lag_asic_info(self):
-        # Fetch Lag Members from CFG DB
-        _, lag_members, _ = get_lag_members_from_cfg(self.match_engine, self.lag_name, self.ns)
-        # Fetch Lag Type Asic Obj from Members info
-        _, lag_asic_obj, _ = fetch_lag_oid(self.match_engine, lag_members, self.ns)
+        # Fetch Lag Type Asic Obj from CFG DB given lag name
+        _, lag_asic_obj, _ = fetch_lag_oid(self.match_engine, self.lag_name, self.ns)
         req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_LAG", key_pattern=lag_asic_obj, ns=self.ns)
         ret = self.match_engine.fetch(req)
         self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])

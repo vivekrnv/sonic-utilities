@@ -64,11 +64,12 @@ def get_lag_and_member_obj(match_engine, port_asic_obj, ns):
             lag_oid = ret["return_values"][lag_member_key]["SAI_LAG_MEMBER_ATTR_LAG_ID"]
     return lag_member_key, lag_oid
 
-def fetch_lag_oid(match_engine, lag_members, ns):
+def fetch_lag_oid(match_engine, lag_name, ns):
     """
     Finding the relevant SAI_OBJECT_TYPE_LAG key directly from the ASIC is not possible given a LAG name
     Thus, using the members to find SAI_LAG_MEMBER_ATTR_LAG_ID
     """
+    _, lag_members, _ = get_lag_members_from_cfg(match_engine, lag_name, ns)
     lag_type_oids = set()
     for port_name in lag_members:
         _, port_asic_obj, _ = fetch_port_oid(match_engine, port_name, ns)

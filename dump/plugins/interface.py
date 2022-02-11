@@ -3,7 +3,7 @@ import re
 from sonic_py_common.interface import get_interface_table_name, get_intf_longname, VLAN_SUB_INTERFACE_SEPARATOR
 from dump.match_infra import MatchRequest, RedisSource
 from dump.helper import create_template_dict, handle_error
-from dump.match_helper import fetch_port_oid, fetch_vlan_oid, fetch_lag_oid, get_lag_members_from_cfg
+from dump.match_helper import fetch_port_oid, fetch_vlan_oid, fetch_lag_oid
 from swsscommon.swsscommon import SonicDBConfig
 from .executor import Executor
 
@@ -208,10 +208,8 @@ class LagRIF(RIF):
     Handler for PortChannel/LAG type Obj
     """
     def collect(self):
-        # Fetch Lag Members from CFG DB
-        _, lag_members, _ = get_lag_members_from_cfg(self.intf.match_engine, self.intf.intf_name, self.intf.ns)
-        # Get lag oid from lag_members 
-        _, lag_oid, _ = fetch_lag_oid(self.intf.match_engine, lag_members, self.intf.ns)
+        # Get lag oid from lag name 
+        _, lag_oid, _ = fetch_lag_oid(self.intf.match_engine, self.intf.intf_name, self.intf.ns)
         # Use vlan oid to get the RIF
         req, ret = self.fetch_rif_keys_using_port_oid(lag_oid)
         rif_oids = self.intf.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
