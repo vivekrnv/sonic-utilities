@@ -66,7 +66,7 @@ class Interface(Executor):
         # Fetch IP & Interface Related keys
         req = MatchRequest(db=db_name, table=table_name, key_pattern=self.intf_name+self.get_sep(db_name)+"*", ns=self.ns)
         ret = self.match_engine.fetch(req)
-        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
+        self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"], False)
 
     def init_intf_config_info(self):
         intf_table_name = get_interface_table_name(self.intf_name)
@@ -138,9 +138,10 @@ class RIF(object):
         else:
             return False, rif_type
 
-    def sanity_check_rif_type(self, rif_oid, exp_type, recv_type, str_name):
-        #Sanity check to see if the TYPE is SAI_ROUTER_INTERFACE_TYPE_PORT
-        if exp_type !=  recv_type:
+    def sanity_check_rif_type(self, ret, rif_oid, exp_type, str_name):
+        # Sanity check to see if the TYPE is SAI_ROUTER_INTERFACE_TYPE_PORT
+        _, recv_type = self.verify_valid_rif_type(ret, exp_type)
+        if exp_type != recv_type:
             err_str = "TYPE Mismatch on SAI_OBJECT_TYPE_ROUTER_INTERFACE, {} oid:{}, expected type:{}, recieved type:{}"
             handle_error(err_str.format(str_name, rif_oid, exp_type, recv_type), False)
         return
@@ -174,8 +175,7 @@ class PortRIF(RIF):
         if rif_oids:
             # Sanity check to see if the TYPE is SAI_ROUTER_INTERFACE_TYPE_PORT
             exp_type = "SAI_ROUTER_INTERFACE_TYPE_PORT"
-            result, recv_rif_type = self.verify_valid_rif_type(ret, exp_type)
-            self.sanity_check_rif_type(rif_oids[-1], exp_type, recv_rif_type, "PORT")
+            self.sanity_check_rif_type(ret, rif_oids[-1], exp_type, "PORT")
 
 
 class VlanRIF(RIF):
@@ -199,8 +199,7 @@ class VlanRIF(RIF):
         if rif_oids:
             # Sanity check to see if the TYPE is SAI_ROUTER_INTERFACE_TYPE_VLAN
             exp_type = "SAI_ROUTER_INTERFACE_TYPE_VLAN"
-            result, recv_rif_type = self.verify_valid_rif_type(ret, exp_type)
-            self.sanity_check_rif_type(rif_oids[-1], exp_type, recv_rif_type, "VLAN")
+            self.sanity_check_rif_type(ret, rif_oids[-1], exp_type, "VLAN")
     
 
 class LagRIF(RIF):
@@ -216,8 +215,7 @@ class LagRIF(RIF):
         if rif_oids:
             # Sanity check to see if the TYPE is SAI_ROUTER_INTERFACE_TYPE_PORT
             exp_type = "SAI_ROUTER_INTERFACE_TYPE_PORT"
-            result, recv_rif_type = self.verify_valid_rif_type(ret, exp_type)
-            self.sanity_check_rif_type(rif_oids[-1], exp_type, recv_rif_type, "LAG")
+            self.sanity_check_rif_type(ret, rif_oids[-1], exp_type, "LAG")
 
 
 class SubIntfRif(RIF):
@@ -265,7 +263,5 @@ class SubIntfRif(RIF):
 
         rif_oids = self.intf.add_to_ret_template(req.table, req.db, filtered_keys, ret["error"])
         if rif_oids:
-            # Sanity check to see if the TYPE is SAI_ROUTER_INTERFACE_TYPE_PORT
             exp_type = "SAI_ROUTER_INTERFACE_TYPE_SUB_PORT"
-            result, recv_rif_type = self.verify_valid_rif_type(ret, exp_type)
-            self.sanity_check_rif_type(rif_oids[-1], exp_type, recv_rif_type, "LAG")
+            self.sanity_check_rif_type(ret, rif_oids[-1], exp_type, "SUB_INTERFACE")

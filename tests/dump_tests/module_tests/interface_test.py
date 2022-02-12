@@ -180,6 +180,21 @@ class TestInterfaceModule:
         ddiff = DeepDiff(sort_lists(returned), sort_lists(expect), ignore_order=True)
         assert not ddiff, ddiff
 
+    def test_subintf_with_invalid_vlan(self, match_engine):
+        """
+        Scenario: Test the flow fetching objs related to a subintf with invalid vlan
+        """
+        params = {Interface.ARG_NAME: "Eth4.1", "namespace": ""}
+        m_intf = Interface(match_engine)
+        returned = m_intf.execute(params)
+        expect = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB", "STATE_DB"])
+        expect["CONFIG_DB"]["keys"].extend(["VLAN_SUB_INTERFACE|Eth4.1"])
+        expect["APPL_DB"]["keys"].extend(["INTF_TABLE:Eth4.1"])
+        expect["STATE_DB"]["tables_not_found"].extend(["INTERFACE_TABLE"])
+        expect["ASIC_DB"]["tables_not_found"].extend(["ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE"])
+        ddiff = DeepDiff(sort_lists(returned), sort_lists(expect), ignore_order=True)
+        assert not ddiff, ddiff
+
     def test_all_args(self, match_engine):
         """
         Scenario: Verify Whether the get_all_args method is working as expected
@@ -187,6 +202,6 @@ class TestInterfaceModule:
         params = {}
         m_port = Interface(match_engine)
         returned = m_port.get_all_args("")
-        expect = ["Ethernet16", "Vlan10", "PortChannel1111", "PortChannel1234", "Eth0.1", "Loopback0"]
+        expect = ["Ethernet16", "Vlan10", "PortChannel1111", "PortChannel1234", "Eth0.1", "Loopback0", "Eth4.1"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
         assert not ddiff, ddiff
