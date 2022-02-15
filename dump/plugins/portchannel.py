@@ -1,5 +1,5 @@
 from dump.match_infra import MatchRequest
-from dump.helper import create_template_dict, verbose_print
+from dump.helper import create_template_dict
 from dump.match_helper import fetch_lag_oid
 from .executor import Executor
 
