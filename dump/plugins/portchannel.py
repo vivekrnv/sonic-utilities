@@ -52,7 +52,7 @@ class Portchannel(Executor):
 
     def init_lag_asic_info(self):
         # Fetch Lag Type Asic Obj from CFG DB given lag name
-        _, lag_asic_obj, _ = fetch_lag_oid(self.match_engine, self.lag_name, self.ns)
+        lag_asic_obj = fetch_lag_oid(self.match_engine, self.lag_name, self.ns)
         req = MatchRequest(db="ASIC_DB", table="ASIC_STATE:SAI_OBJECT_TYPE_LAG", key_pattern=lag_asic_obj, ns=self.ns)
         ret = self.match_engine.fetch(req)
         self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])

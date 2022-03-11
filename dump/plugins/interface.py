@@ -1,4 +1,5 @@
 from sonic_py_common.interface import get_interface_table_name, get_intf_longname, VLAN_SUB_INTERFACE_SEPARATOR
+from sonic_py_common.multi_asic import DEFAULT_NAMESPACE
 from dump.match_infra import MatchRequest
 from dump.helper import create_template_dict, handle_error
 from dump.match_helper import fetch_port_oid, fetch_vlan_oid, fetch_lag_oid
@@ -16,7 +17,7 @@ class Interface(Executor):
 
     def __init__(self, match_engine=None):
         super().__init__(match_engine)
-        self.ns = ''
+        self.ns = DEFAULT_NAMESPACE
         self.intf_type = ""
         self.ret_temp = dict()
         self.valid_cfg_tables = set(["INTERFACE", 
@@ -25,7 +26,7 @@ class Interface(Executor):
                                     "LOOPBACK_INTERFACE",
                                     "VLAN_SUB_INTERFACE"])
         
-    def get_all_args(self, ns=""):
+    def get_all_args(self, ns=DEFAULT_NAMESPACE):
         """
         Fetch all the interfaces from the valid cfg tables
         """
@@ -206,7 +207,7 @@ class LagRIF(RIF):
     """
     def collect(self):
         # Get lag oid from lag name 
-        _, lag_oid, _ = fetch_lag_oid(self.intf.match_engine, self.intf.intf_name, self.intf.ns)
+        lag_oid = fetch_lag_oid(self.intf.match_engine, self.intf.intf_name, self.intf.ns)
         # Use vlan oid to get the RIF
         req, ret = self.fetch_rif_keys_using_port_oid(lag_oid)
         rif_oids = self.intf.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
@@ -244,7 +245,7 @@ class SubIntfRif(RIF):
         if parent_port.startswith("Eth"):
             _, intf_oid, _ = fetch_port_oid(self.intf.match_engine, parent_port, self.intf.ns)
         else:
-            _, intf_oid, _ = fetch_lag_oid(self.intf.match_engine, parent_port, self.intf.ns)
+            intf_oid = fetch_lag_oid(self.intf.match_engine, parent_port, self.intf.ns)
         
         # Use vlan oid to get the RIF
         return_fields = ["SAI_ROUTER_INTERFACE_ATTR_OUTER_VLAN_ID", "SAI_ROUTER_INTERFACE_ATTR_TYPE"]

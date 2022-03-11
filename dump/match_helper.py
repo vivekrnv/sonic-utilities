@@ -1,4 +1,5 @@
 from dump.match_infra import MatchRequest
+from dump.helper import handle_multiple_keys_matched_error
 
 # Port Helper Methods
 
@@ -76,5 +77,9 @@ def fetch_lag_oid(match_engine, lag_name, ns):
             lag_type_oids.add(lag_oid)
     lag_type_oid, lag_type_oids = "", list(lag_type_oids)
     if lag_type_oids:
+        if len(lag_type_oids) > 1:
+            # Ideally, only one associated lag_oid should be present for a portchannel
+            handle_multiple_keys_matched_error("Multipe lag_oids matched for portchannel: {}, \
+                                               lag_oids matched {}".format(lag_name, lag_type_oids), lag_type_oids[-1])
         lag_type_oid = lag_type_oids[-1]
-    return "", lag_type_oid, ""
+    return lag_type_oid
