@@ -1364,8 +1364,6 @@ main() {
 
     # Invoke the TechSupport Cleanup Hook
     setsid python3 /usr/local/bin/techsupport_cleanup.py ${TARFILE} &> /tmp/techsupport_cleanup.log &
-
-    echo ${TARFILE}
     
     if ! $SAVE_STDERR
     then
