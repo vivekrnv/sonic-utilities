@@ -233,7 +233,6 @@ def test_feature_update(mock_sonic_db, manifest):
     mock_connector = Mock()
     mock_connector.get_entry = Mock(return_value=curr_feature_config)
     mock_sonic_db.get_connectors = Mock(return_value=[mock_connector])
-
     feature_registry = FeatureRegistry(mock_sonic_db)
 
     new_manifest = copy.deepcopy(manifest)
@@ -374,7 +373,6 @@ def test_auto_ts_feature_update_flow(mock_sonic_db, manifest):
     feature_registry = FeatureRegistry(mock_sonic_db)
     feature_registry.update(manifest, new_manifest)
 
-    # fv-pairs in the respective sources should not be changed
     mock_init_cfg.set_entry.assert_has_calls(
         [
             call("AUTO_TECHSUPPORT_FEATURE", "test", None),

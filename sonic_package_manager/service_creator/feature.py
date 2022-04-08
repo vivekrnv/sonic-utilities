@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """ This module implements new feature registration/de-registration in SONiC system. """
-
+import copy
 from typing import Dict, Type
 
 from sonic_package_manager.manifest import Manifest
@@ -143,10 +143,10 @@ class FeatureRegistry:
     def infer_auto_ts_capability(self, init_cfg_conn):
         """ Determine whether to enable/disable the state for new feature
         AUTO_TS provides a compile-time knob to enable/disable this feature
-        State for the new feature follows the decision made at compile time.
+        Default State for the new feature follows the decision made at compile time.
 
         Args:
-            init_cfg_conn: PersistentConfigDbConnector
+            init_cfg_conn: PersistentConfigDbConnector for init_cfg.json
         Returns:
             Capability: Tuple: (bool, ["enabled", "disabled"])
         """
@@ -167,11 +167,11 @@ class FeatureRegistry:
         def_cfg['state'] = auto_ts_state
 
         if not auto_ts_add_cfg:
-            # Don't add any config if the table doesn't exist
+            # Don't add any config if the table itself doesn't exist
             return
 
         for conn in self._sonic_db.get_connectors():
-            new_cfg = def_cfg.copy()
+            new_cfg = copy.deepcopy(def_cfg)
             if old_name:
                 current_cfg = conn.get_entry(AUTO_TS_FEATURE, old_name)
                 conn.set_entry(AUTO_TS_FEATURE, old_name, None)
