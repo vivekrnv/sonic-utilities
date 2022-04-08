@@ -4,6 +4,7 @@
 import copy
 from typing import Dict, Type
 
+from sonic_package_manager.logger import log
 from sonic_package_manager.manifest import Manifest
 from sonic_package_manager.service_creator.sonic_db import SonicDB
 
@@ -73,7 +74,8 @@ class FeatureRegistry:
 
             conn.set_entry(FEATURE, name, new_cfg)
         
-        self.register_auto_ts(name)
+        if self.register_auto_ts(name):
+            log.info(f'{name} entry is added to {AUTO_TS_FEATURE} table')
 
     def deregister(self, name: str):
         """ Deregister feature by name.
@@ -119,7 +121,8 @@ class FeatureRegistry:
 
             conn.set_entry(FEATURE, new_name, new_cfg)
         
-        self.register_auto_ts(new_name, old_name)
+        if self.register_auto_ts(new_name, old_name):
+            log.info(f'{new_name} entry is added to {AUTO_TS_FEATURE} table')
 
     def is_feature_enabled(self, name: str) -> bool:
         """ Returns whether the feature is current enabled
@@ -150,7 +153,7 @@ class FeatureRegistry:
         Returns:
             Capability: Tuple: (bool, ["enabled", "disabled"])
         """
-        cfg = init_cfg_conn.get_entry(AUTO_TS_GLOBAL, "global")
+        cfg = init_cfg_conn.get_entry(AUTO_TS_GLOBAL, "GLOBAL")
         default_state = cfg.get(CFG_STATE, "")
         if not default_state:
             return (False, "disabled")
@@ -167,8 +170,8 @@ class FeatureRegistry:
         def_cfg['state'] = auto_ts_state
 
         if not auto_ts_add_cfg:
-            # Don't add any config if the table itself doesn't exist
-            return
+            log.debug("Skip adding AUTO_TECHSUPPORT_FEATURE table because no AUTO_TECHSUPPORT|GLOBAL entry is found")
+            return False
 
         for conn in self._sonic_db.get_connectors():
             new_cfg = copy.deepcopy(def_cfg)
@@ -178,6 +181,7 @@ class FeatureRegistry:
                 new_cfg.update(current_cfg)
             
             conn.set_entry(AUTO_TS_FEATURE, new_name, new_cfg)
+        return True
 
     @staticmethod
     def get_default_feature_entries(state=None, owner=None) -> Dict[str, str]:

@@ -299,7 +299,7 @@ class AutoTSHelp:
 
     @classmethod
     def get_entry(cls, table, key):
-        if table == "AUTO_TECHSUPPORT" and key == "global":
+        if table == "AUTO_TECHSUPPORT" and key == "GLOBAL":
             return AutoTSHelp.GLOBAL_STATE
         elif table == "AUTO_TECHSUPPORT_FEATURE" and key == "test":
             return {"state" : "enabled", "rate_limit_interval" : "600"}
