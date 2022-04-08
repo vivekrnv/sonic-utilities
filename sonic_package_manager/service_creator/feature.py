@@ -15,6 +15,15 @@ DEFAULT_FEATURE_CONFIG = {
     'set_owner': 'local'
 }
 
+AUTO_TS_GLOBAL = "AUTO_TECHSUPPORT"
+AUTO_TS_FEATURE = "AUTO_TECHSUPPORT_FEATURE"
+CFG_STATE = "state"
+# TODO: Enable available_mem_threshold once the mem_leak_auto_ts feature is available
+DEFAULT_AUTO_TS_FEATURE_CONFIG = {
+    'state': 'disabled',
+#   'available_mem_threshold': '10.0',
+    'rate_limit_interval': '600'
+}
 
 def is_enabled(cfg):
     return cfg.get('state', 'disabled').lower() == 'enabled'
@@ -25,8 +34,11 @@ def is_multi_instance(cfg):
 
 
 class FeatureRegistry:
-    """ FeatureRegistry class provides an interface to
-    register/de-register new feature persistently. """
+    """ 1) FeatureRegistry class provides an interface to
+    register/de-register new feature tables persistently.
+        2) Writes persistent configuration to FEATURE & 
+    AUTO_TECHSUPPORT_FEATURE tables
+    """
 
     def __init__(self, sonic_db: Type[SonicDB]):
         self._sonic_db = sonic_db
@@ -60,6 +72,8 @@ class FeatureRegistry:
             new_cfg = {**new_cfg, **non_cfg_entries}
 
             conn.set_entry(FEATURE, name, new_cfg)
+        
+        self.register_auto_ts(name)
 
     def deregister(self, name: str):
         """ Deregister feature by name.
@@ -103,6 +117,8 @@ class FeatureRegistry:
             new_cfg = {**new_cfg, **non_cfg_entries}
 
             conn.set_entry(FEATURE, new_name, new_cfg)
+        
+        self.register_auto_ts(new_name, old_name)
 
     def is_feature_enabled(self, name: str) -> bool:
         """ Returns whether the feature is current enabled
@@ -122,6 +138,40 @@ class FeatureRegistry:
         conn = self._sonic_db.get_initial_db_connector()
         features = conn.get_table(FEATURE)
         return [feature for feature, cfg in features.items() if is_multi_instance(cfg)]
+
+    def infer_auto_ts_capability(self, init_cfg_conn):
+        """ Determine whether to enable/disable the state for new feature
+        AUTO_TS provides a compile-time knob to enable/disable this feature
+        State for the new feature follows the decision made at compile time.
+
+        Args:
+            init_cfg_conn: PersistentConfigDbConnector
+        Returns:
+            Capability: Tuple: (bool, ["enabled", "disabled"])
+        """
+        default_state = init_cfg_conn.get_entry(AUTO_TS_GLOBAL, "global").get(CFG_STATE, "")
+        if not glob_state:
+            return (False, "disabled")
+        else:
+            return (True, default_state)
+
+    def register_auto_ts(new_name, old_name=None)
+        """ Registers auto_ts feature
+        """
+        # Infer and update default config
+        init_cfg_conn = self._sonic_db.get_initial_db_connector()
+        def_cfg = DEFAULT_AUTO_TS_FEATURE_CONFIG.copy()
+        (auto_ts_add_cfg, auto_ts_state) = self.infer_auto_ts_capability(init_cfg_conn)
+        def_cfg['state'] = auto_ts_state
+
+        for conn in self._sonic_db.get_connectors():
+            new_cfg = def_cfg.copy()
+            if old_name:
+                current_cfg = conn.get_entry(FEATURE, old_name)
+                conn.set_entry(FEATURE, old_name, None)
+                new_cfg.update(current_cfg)
+            
+            conn.set_entry(FEATURE, new_name, new_cfg)
 
     @staticmethod
     def get_default_feature_entries(state=None, owner=None) -> Dict[str, str]:
