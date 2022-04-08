@@ -87,6 +87,7 @@ class FeatureRegistry:
         db_connetors = self._sonic_db.get_connectors()
         for conn in db_connetors:
             conn.set_entry(FEATURE, name, None)
+            conn.set_entry(AUTO_TS_FEATURE, name, None)
 
     def update(self,
                old_manifest: Manifest,
@@ -149,13 +150,14 @@ class FeatureRegistry:
         Returns:
             Capability: Tuple: (bool, ["enabled", "disabled"])
         """
-        default_state = init_cfg_conn.get_entry(AUTO_TS_GLOBAL, "global").get(CFG_STATE, "")
-        if not glob_state:
+        cfg = init_cfg_conn.get_entry(AUTO_TS_GLOBAL, "global")
+        default_state = cfg.get(CFG_STATE, "")
+        if not default_state:
             return (False, "disabled")
         else:
             return (True, default_state)
 
-    def register_auto_ts(new_name, old_name=None)
+    def register_auto_ts(self, new_name, old_name=None):
         """ Registers auto_ts feature
         """
         # Infer and update default config
@@ -164,14 +166,18 @@ class FeatureRegistry:
         (auto_ts_add_cfg, auto_ts_state) = self.infer_auto_ts_capability(init_cfg_conn)
         def_cfg['state'] = auto_ts_state
 
+        if not auto_ts_add_cfg:
+            # Don't add any config if the table doesn't exist
+            return
+
         for conn in self._sonic_db.get_connectors():
             new_cfg = def_cfg.copy()
             if old_name:
-                current_cfg = conn.get_entry(FEATURE, old_name)
-                conn.set_entry(FEATURE, old_name, None)
+                current_cfg = conn.get_entry(AUTO_TS_FEATURE, old_name)
+                conn.set_entry(AUTO_TS_FEATURE, old_name, None)
                 new_cfg.update(current_cfg)
             
-            conn.set_entry(FEATURE, new_name, new_cfg)
+            conn.set_entry(AUTO_TS_FEATURE, new_name, new_cfg)
 
     @staticmethod
     def get_default_feature_entries(state=None, owner=None) -> Dict[str, str]:

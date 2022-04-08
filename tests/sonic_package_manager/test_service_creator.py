@@ -2,6 +2,7 @@
 
 import os
 import copy
+import unittest
 from unittest.mock import Mock, MagicMock, call
 
 import pytest
@@ -205,6 +206,7 @@ def test_feature_registration(mock_sonic_db, manifest):
     mock_connector = Mock()
     mock_connector.get_entry = Mock(return_value={})
     mock_sonic_db.get_connectors = Mock(return_value=[mock_connector])
+    mock_sonic_db.get_initial_db_connector = Mock(return_value=mock_connector)
     feature_registry = FeatureRegistry(mock_sonic_db)
     feature_registry.register(manifest)
     mock_connector.set_entry.assert_called_with('FEATURE', 'test', {
@@ -231,6 +233,7 @@ def test_feature_update(mock_sonic_db, manifest):
     mock_connector = Mock()
     mock_connector.get_entry = Mock(return_value=curr_feature_config)
     mock_sonic_db.get_connectors = Mock(return_value=[mock_connector])
+
     feature_registry = FeatureRegistry(mock_sonic_db)
 
     new_manifest = copy.deepcopy(manifest)
@@ -258,6 +261,7 @@ def test_feature_registration_with_timer(mock_sonic_db, manifest):
     mock_connector = Mock()
     mock_connector.get_entry = Mock(return_value={})
     mock_sonic_db.get_connectors = Mock(return_value=[mock_connector])
+    mock_sonic_db.get_initial_db_connector = Mock(return_value=mock_connector)
     feature_registry = FeatureRegistry(mock_sonic_db)
     feature_registry.register(manifest)
     mock_connector.set_entry.assert_called_with('FEATURE', 'test', {
@@ -275,6 +279,7 @@ def test_feature_registration_with_non_default_owner(mock_sonic_db, manifest):
     mock_connector = Mock()
     mock_connector.get_entry = Mock(return_value={})
     mock_sonic_db.get_connectors = Mock(return_value=[mock_connector])
+    mock_sonic_db.get_initial_db_connector = Mock(return_value=mock_connector)
     feature_registry = FeatureRegistry(mock_sonic_db)
     feature_registry.register(manifest, owner='kube')
     mock_connector.set_entry.assert_called_with('FEATURE', 'test', {
@@ -286,3 +291,108 @@ def test_feature_registration_with_non_default_owner(mock_sonic_db, manifest):
         'has_global_scope': 'True',
         'has_timer': 'False',
     })
+
+
+class AutoTSHelp:
+    """ Helper class for Auto TS Feature Registry Tests
+    """
+    GLOBAL_STATE = {}
+
+    @classmethod
+    def get_entry(cls, table, key):
+        if table == "AUTO_TECHSUPPORT" and key == "global":
+            return AutoTSHelp.GLOBAL_STATE
+        elif table == "AUTO_TECHSUPPORT_FEATURE" and key == "test":
+            return {"state" : "enabled", "rate_limit_interval" : "600"}
+        else:
+            return {}
+        
+    @classmethod
+    def get_entry_running_cfg(cls, table, key):
+        if table == "AUTO_TECHSUPPORT_FEATURE" and key == "test":
+            return {"state" : "disabled", "rate_limit_interval" : "1000"}
+        else:
+            return {}
+
+
+def test_auto_ts_global_disabled(mock_sonic_db, manifest):
+    mock_init_cfg = Mock()
+    AutoTSHelp.GLOBAL_STATE = {"state" : "disabled"}
+    mock_init_cfg.get_entry = Mock(side_effect=AutoTSHelp.get_entry)
+    mock_sonic_db.get_connectors = Mock(return_value=[mock_init_cfg])
+    mock_sonic_db.get_initial_db_connector = Mock(return_value=mock_init_cfg)
+    feature_registry = FeatureRegistry(mock_sonic_db)
+    feature_registry.register(manifest)
+    mock_init_cfg.set_entry.assert_any_call("AUTO_TECHSUPPORT_FEATURE", "test", {
+            "state" : "disabled",
+            "rate_limit_interval" : "600"
+        }
+    )
+
+
+def test_auto_ts_global_enabled(mock_sonic_db, manifest):
+    mock_init_cfg = Mock()
+    AutoTSHelp.GLOBAL_STATE = {"state" : "enabled"}
+    mock_init_cfg.get_entry = Mock(side_effect=AutoTSHelp.get_entry)
+    mock_sonic_db.get_connectors = Mock(return_value=[mock_init_cfg])
+    mock_sonic_db.get_initial_db_connector = Mock(return_value=mock_init_cfg)
+    feature_registry = FeatureRegistry(mock_sonic_db)
+    feature_registry.register(manifest)
+    mock_init_cfg.set_entry.assert_any_call("AUTO_TECHSUPPORT_FEATURE", "test", {
+            "state" : "enabled",
+            "rate_limit_interval" : "600"
+        }
+    )
+
+
+def test_auto_ts_deregister(mock_sonic_db):
+    mock_connector = Mock()
+    mock_sonic_db.get_connectors = Mock(return_value=[mock_connector])
+    feature_registry = FeatureRegistry(mock_sonic_db)
+    feature_registry.deregister("test")
+    mock_connector.set_entry.assert_any_call("AUTO_TECHSUPPORT_FEATURE", "test", None)
+
+
+def test_auto_ts_feature_update_flow(mock_sonic_db, manifest):
+    new_manifest = copy.deepcopy(manifest)
+    new_manifest['service']['name'] = 'test_new'
+    new_manifest['service']['delayed'] = True
+    
+    AutoTSHelp.GLOBAL_STATE = {"state" : "enabled"}
+    # Mock init_cfg connector
+    mock_init_cfg = Mock()
+    mock_init_cfg.get_entry = Mock(side_effect=AutoTSHelp.get_entry)
+
+    # Mock running/peristent cfg connector
+    mock_other_cfg = Mock()
+    mock_other_cfg.get_entry = Mock(side_effect=AutoTSHelp.get_entry_running_cfg)
+
+    # Setup sonic_db class
+    mock_sonic_db.get_connectors = Mock(return_value=[mock_init_cfg, mock_other_cfg])
+    mock_sonic_db.get_initial_db_connector = Mock(return_value=mock_init_cfg)
+
+    feature_registry = FeatureRegistry(mock_sonic_db)
+    feature_registry.update(manifest, new_manifest)
+
+    # fv-pairs in the respective sources should not be changed
+    mock_init_cfg.set_entry.assert_has_calls(
+        [
+            call("AUTO_TECHSUPPORT_FEATURE", "test", None),
+            call("AUTO_TECHSUPPORT_FEATURE", "test_new", {
+                    "state" : "enabled",
+                    "rate_limit_interval" : "600"
+                })
+        ],
+        any_order = True
+    )
+
+    mock_other_cfg.set_entry.assert_has_calls(
+        [
+            call("AUTO_TECHSUPPORT_FEATURE", "test", None),
+            call("AUTO_TECHSUPPORT_FEATURE", "test_new", {
+                    "state" : "disabled",
+                    "rate_limit_interval" : "1000"
+                })
+        ],
+        any_order = True
+    )
