@@ -90,6 +90,7 @@ class FeatureRegistry:
         for conn in db_connetors:
             conn.set_entry(FEATURE, name, None)
             conn.set_entry(AUTO_TS_FEATURE, name, None)
+        log.info(f'{name} entry is removed from {AUTO_TS_FEATURE} table')
 
     def update(self,
                old_manifest: Manifest,
