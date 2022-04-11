@@ -309,7 +309,14 @@ class AutoTSHelp:
     @classmethod
     def get_entry_running_cfg(cls, table, key):
         if table == "AUTO_TECHSUPPORT_FEATURE" and key == "test":
-            return {"state" : "disabled", "rate_limit_interval" : "1000"}
+            return {"state" : "disabled", "rate_limit_interval" : "600"}
+        else:
+            return {}
+
+    @classmethod
+    def get_entry_persistent_cfg(cls, table, key):
+        if table == "AUTO_TECHSUPPORT_FEATURE" and key == "test":
+            return {"state" : "disabled", "rate_limit_interval" : "1200"}
         else:
             return {}
 
@@ -345,11 +352,19 @@ def test_auto_ts_global_enabled(mock_sonic_db, manifest):
 
 
 def test_auto_ts_deregister(mock_sonic_db):
-    mock_connector = Mock()
-    mock_sonic_db.get_connectors = Mock(return_value=[mock_connector])
+    mock_conn = Mock()
+    mock_conn.get_entry = Mock(side_effect=AutoTSHelp.get_entry)
+    mock_sonic_db.get_initial_db_connector = Mock(return_value=mock_conn)
+    mock_sonic_db.get_persistent_db_connector = Mock(return_value=mock_conn)
+    mock_sonic_db.get_running_db_connector = Mock(return_value=mock_conn)
+    mock_sonic_db.get_connectors = Mock(return_value=[mock_conn, mock_conn, mock_conn])
     feature_registry = FeatureRegistry(mock_sonic_db)
     feature_registry.deregister("test")
-    mock_connector.set_entry.assert_any_call("AUTO_TECHSUPPORT_FEATURE", "test", None)
+    mock_conn.set_entry.has_calls([
+        call("AUTO_TECHSUPPORT_FEATURE", "test", None),
+        call("AUTO_TECHSUPPORT_FEATURE", "test", None),
+        call("AUTO_TECHSUPPORT_FEATURE", "test", None)
+    ])
 
 
 def test_auto_ts_feature_update_flow(mock_sonic_db, manifest):
@@ -389,8 +404,43 @@ def test_auto_ts_feature_update_flow(mock_sonic_db, manifest):
             call("AUTO_TECHSUPPORT_FEATURE", "test", None),
             call("AUTO_TECHSUPPORT_FEATURE", "test_new", {
                     "state" : "disabled",
-                    "rate_limit_interval" : "1000"
+                    "rate_limit_interval" : "600"
                 })
         ],
         any_order = True
+    )
+
+
+def test_user_cfg_auto_ts_dereg(mock_sonic_db):
+
+    AutoTSHelp.GLOBAL_STATE = {"state" : "enabled"}
+    # Mock init_cfg connector
+    mock_init_cfg = Mock()
+    mock_init_cfg.get_entry = Mock(side_effect=AutoTSHelp.get_entry)
+
+    # Mock peristent cfg connector
+    mock_cfg = Mock()
+    mock_cfg.get_entry = Mock(side_effect=AutoTSHelp.get_entry_persistent_cfg)
+
+    # Mock running cfg connector
+    mock_running_cfg = Mock()
+    mock_running_cfg.get_entry = Mock(side_effect=AutoTSHelp.get_entry_running_cfg)
+
+    # Setup sonic_db class
+    mock_sonic_db.get_initial_db_connector = Mock(return_value=mock_init_cfg)
+    mock_sonic_db.get_persistent_db_connector = Mock(return_value=mock_cfg)
+    mock_sonic_db.get_running_db_connector = Mock(return_value=mock_running_cfg)
+    mock_sonic_db.get_connectors = Mock(return_value=[])
+
+    feature_registry = FeatureRegistry(mock_sonic_db)
+    feature_registry.deregister("test")
+
+    mock_init_cfg.set_entry.assert_called_with(
+        "AUTO_TECHSUPPORT_FEATURE", "test", None
+    )
+
+    mock_cfg.set_entry.assert_not_called()
+
+    mock_running_cfg.set_entry.assert_called_with(
+        "AUTO_TECHSUPPORT_FEATURE", "test", {"state" : "disabled"}
     )
