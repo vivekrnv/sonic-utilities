@@ -412,7 +412,6 @@ def test_auto_ts_feature_update_flow(mock_sonic_db, manifest):
 
 
 def test_user_cfg_auto_ts_dereg(mock_sonic_db):
-
     AutoTSHelp.GLOBAL_STATE = {"state" : "enabled"}
     # Mock init_cfg connector
     mock_init_cfg = Mock()
