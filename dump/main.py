@@ -6,9 +6,8 @@ import click
 from tabulate import tabulate
 from sonic_py_common import multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
-from dump.match_infra import RedisSource, JsonSource, ConnectionPool
+from dump.match_infra import RedisSource, JsonSource, ConnectionPool, MatchEngine
 from dump import plugins
-
 
 # Autocompletion Helper
 def get_available_modules(ctx, args, incomplete):
@@ -28,8 +27,9 @@ def show_modules(ctx, param, value):
 
 
 @click.group()
-def dump():
-    pass
+@click.pass_context
+def dump(ctx):
+    ctx.obj = MatchEngine()
 
 
 @dump.command()
@@ -69,8 +69,7 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     else:
         os.environ["VERBOSE"] = "0"
 
-    ctx.module = module
-    obj = plugins.dump_modules[module]()
+    obj = plugins.dump_modules[module](ctx.obj)
 
     if identifier == "all":
         ids = obj.get_all_args(namespace)

@@ -26,5 +26,15 @@
                 "index": "40",
                 "lanes": "156",
                 "speed": "25000"
+        },
+        "PORT|Ethernet0": {
+                "alias": "etp1",
+                "description": "etp1",
+                "index": "0",
+                "lanes": "25,26,27,28",
+                "mtu": "9100",
+                "tpid": "0x8100",
+                "pfc_asym": "off",
+                "speed": "40000"
         }
 }

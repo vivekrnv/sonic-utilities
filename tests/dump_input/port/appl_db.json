@@ -31,5 +31,16 @@
                 "mtu": "9100",
                 "fec": "rs",
                 "admin_status": "up"
+        },
+        "PORT_TABLE:Ethernet0": {
+                "index": "0",
+                "lanes": "0",
+                "alias": "Ethernet0",
+                "description": "ARISTA01T2:Ethernet1",
+                "speed": "25000",
+                "oper_status": "down",
+                "pfc_asym": "off",
+                "mtu": "9100",
+                "fec": "rs"
         }
 }
