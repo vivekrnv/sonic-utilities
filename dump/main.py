@@ -86,10 +86,10 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     if len(db) > 0:
         collected_info = filter_out_dbs(db, collected_info)
 
-    vidtorid = extract_rid(collected_info, namespace)
+    vidtorid = extract_rid(collected_info, namespace, ctx.obj.conn_pool)
 
     if not key_map:
-        collected_info = populate_fv(collected_info, module, namespace)
+        collected_info = populate_fv(collected_info, module, namespace, ctx.obj.conn_pool)
 
     for id in vidtorid.keys():
         collected_info[id]["ASIC_DB"]["vidtorid"] = vidtorid[id]
@@ -99,8 +99,8 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     return
 
 
-def extract_rid(info, ns):
-    r = RedisSource(ConnectionPool())
+def extract_rid(info, ns, conn_pool):
+    r = RedisSource(conn_pool)
     r.connect("ASIC_DB", ns)
     vidtorid = {}
     vid_cache = {}  # Cache Entries to reduce number of Redis Calls
@@ -141,19 +141,20 @@ def filter_out_dbs(db_list, collected_info):
     return collected_info
 
 
-def populate_fv(info, module, namespace):
+def populate_fv(info, module, namespace, conn_pool):
     all_dbs = set()
     for id in info.keys():
         for db_name in info[id].keys():
             all_dbs.add(db_name)
 
     db_cfg_file = JsonSource()
-    db_conn = ConnectionPool().initialize_connector(namespace)
     for db_name in all_dbs:
-        if db_name is "CONFIG_FILE":
+        if db_name == "CONFIG_FILE":
             db_cfg_file.connect(plugins.dump_modules[module].CONFIG_FILE, namespace)
         else:
-            db_conn.connect(db_name)
+            conn_pool.get(db_name, namespace)
+    
+    db_conn = conn_pool.cache.get(namespace, {}).get('conn', None)
 
     final_info = {}
     for id in info.keys():
@@ -163,7 +164,7 @@ def populate_fv(info, module, namespace):
             final_info[id][db_name]["keys"] = []
             final_info[id][db_name]["tables_not_found"] = info[id][db_name]["tables_not_found"]
             for key in info[id][db_name]["keys"]:
-                if db_name is "CONFIG_FILE":
+                if db_name == "CONFIG_FILE":
                     fv = db_cfg_file.get(db_name, key)
                 else:
                     fv = db_conn.get_all(db_name, key)
