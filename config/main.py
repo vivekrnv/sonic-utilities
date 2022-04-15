@@ -28,6 +28,7 @@ from utilities_common.intf_filter import parse_interface_in_filter
 from utilities_common import bgp_util
 import utilities_common.cli as clicommon
 from utilities_common.general import load_db_config
+from utilities_common.helper import check_port_pbh_binding, check_port_acl_binding
 
 from .utils import log
 
@@ -1729,7 +1730,7 @@ def portchannel(ctx, namespace):
 
     config_db = ConfigDBConnector(use_unix_socket_path=True, namespace=str(namespace))
     config_db.connect()
-    ctx.obj = {'db': config_db, 'namespace': str(namespace)}
+    ctx.obj = {'db': config_db, 'namespace': str(namespace), 'db_wrap': ctx.obj}
 
 @portchannel.command('add')
 @click.argument('portchannel_name', metavar='<portchannel_name>', required=True)
@@ -1858,6 +1859,22 @@ def add_portchannel_member(ctx, portchannel_name, port_name):
         port_tpid = port_entry.get(PORT_TPID)
         if port_tpid != DEFAULT_TPID:
             ctx.fail("Port TPID of {}: {} is not at default 0x8100".format(port_name, port_tpid))
+
+    # Don't allow a port to be a member of portchannel if already has ACL bindings
+    try:
+        acl_bindings = check_port_acl_binding(ctx.obj['db_wrap'], port_name)
+        if acl_bindings:
+            ctx.fail("Port {} is already bound to following ACL_TABLES: {}".format(port_name, acl_bindings))
+    except Exception as e:
+        ctx.fail(str(e))
+
+    # Don't allow a port to be a member of portchannel if already has PBH bindings
+    try:
+        pbh_bindings = check_port_pbh_binding(ctx.obj['db_wrap'], port_name)
+        if pbh_bindings:
+            ctx.fail("Port {} is already bound to following PBH_TABLES: {}".format(port_name, pbh_bindings))
+    except Exception as e:
+        ctx.fail(str(e))
 
     db.set_entry('PORTCHANNEL_MEMBER', (portchannel_name, port_name),
             {'NULL': 'NULL'})

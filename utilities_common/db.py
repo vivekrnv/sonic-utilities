@@ -15,7 +15,7 @@ class Db(object):
         self.db = SonicV2Connector(host="127.0.0.1")
 
         # Skip connecting to chassis databases in line cards
-        db_list = list(self.db.get_db_list())
+        self.db_list = list(self.db.get_db_list())
         if not device_info.is_supervisor():
             try:
                 db_list.remove('CHASSIS_APP_DB')
@@ -23,7 +23,7 @@ class Db(object):
             except Exception:
                 pass
 
-        for db_id in db_list:
+        for db_id in self.db_list:
             self.db.connect(db_id)
 
         self.cfgdb_clients[constants.DEFAULT_NAMESPACE] = self.cfgdb
