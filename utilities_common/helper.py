@@ -1,6 +1,5 @@
 from dump.match_infra import MatchEngine, MatchRequest, ConnectionPool
 from dump.match_helper import get_matched_keys
-import pdb, os
 from .db import Db
 from .constants import DEFAULT_NAMESPACE
 
