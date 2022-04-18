@@ -22,11 +22,11 @@ def check_port_acl_binding(db_wrap, port):
     conn_pool = ConnectionPool()
     conn_pool.fill(DEFAULT_NAMESPACE, db_wrap.db, db_wrap.db_list)
     m_engine = MatchEngine(conn_pool)
-    req = MatchRequest(db="CONFIG_DB", 
-                      table=ACL, 
-                      key_pattern="*", 
-                      field="ports", 
-                      value=port, 
+    req = MatchRequest(db="CONFIG_DB",
+                      table=ACL,
+                      key_pattern="*",
+                      field="ports@",
+                      value=port,
                       match_entire_list=False)
     ret = m_engine.fetch(req)
     acl_tables, _ = get_matched_keys(ret)
@@ -53,11 +53,11 @@ def check_port_pbh_binding(db_wrap, port):
     conn_pool = ConnectionPool()
     conn_pool.fill(DEFAULT_NAMESPACE, db_wrap.db, db_wrap.db_list)
     m_engine = MatchEngine(conn_pool)
-    req = MatchRequest(db="CONFIG_DB", 
-                      table=PBH, 
-                      key_pattern="*", 
-                      field="interface_list", 
-                      value=port, 
+    req = MatchRequest(db="CONFIG_DB",
+                      table=PBH,
+                      key_pattern="*",
+                      field="interface_list@",
+                      value=port,
                       match_entire_list=False)
     ret = m_engine.fetch(req)
     pbh_tables, _ = get_matched_keys(ret)
