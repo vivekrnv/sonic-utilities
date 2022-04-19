@@ -28,7 +28,7 @@ from utilities_common.intf_filter import parse_interface_in_filter
 from utilities_common import bgp_util
 import utilities_common.cli as clicommon
 from utilities_common.general import load_db_config
-from utilities_common.helper import check_port_pbh_binding, check_port_acl_binding
+from utilities_common.helper import get_port_pbh_binding, get_port_acl_binding
 
 from .utils import log
 
@@ -1862,7 +1862,7 @@ def add_portchannel_member(ctx, portchannel_name, port_name):
 
     # Don't allow a port to be a member of portchannel if already has ACL bindings
     try:
-        acl_bindings = check_port_acl_binding(ctx.obj['db_wrap'], port_name)
+        acl_bindings = get_port_acl_binding(ctx.obj['db_wrap'], port_name)
         if acl_bindings:
             ctx.fail("Port {} is already bound to following ACL_TABLES: {}".format(port_name, acl_bindings))
     except Exception as e:
@@ -1870,7 +1870,7 @@ def add_portchannel_member(ctx, portchannel_name, port_name):
 
     # Don't allow a port to be a member of portchannel if already has PBH bindings
     try:
-        pbh_bindings = check_port_pbh_binding(ctx.obj['db_wrap'], port_name)
+        pbh_bindings = get_port_pbh_binding(ctx.obj['db_wrap'], port_name)
         if pbh_bindings:
             ctx.fail("Port {} is already bound to following PBH_TABLES: {}".format(port_name, pbh_bindings))
     except Exception as e:

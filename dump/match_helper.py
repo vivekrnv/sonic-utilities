@@ -3,7 +3,7 @@ from dump.helper import handle_multiple_keys_matched_error
 
 # Return dict helper methods
 
-def check_status(ret):
+def check_error(ret):
     """ Check if the match request failed """
     if ret["error"]:
         return True, ret["error"]
@@ -12,11 +12,11 @@ def check_status(ret):
 
 def get_matched_keys(ret):
     """ Return Matched Keys """
-    failed, err_str = check_status(ret)
+    failed, err_str = check_error(ret)
     if not failed:
-        return ret["keys"], err_str
+        return ret["keys"], ""
     else:
-        return [], ""
+        return [], err_str
 
 # Port Helper Methods
 

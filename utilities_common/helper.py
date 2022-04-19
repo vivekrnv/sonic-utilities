@@ -3,7 +3,7 @@ from dump.match_helper import get_matched_keys
 from .db import Db
 from .constants import DEFAULT_NAMESPACE
 
-def check_port_acl_binding(db_wrap, port):
+def get_port_acl_binding(db_wrap, port):
     """
     Verify if the port is not bound to any ACL Table
     
@@ -33,7 +33,7 @@ def check_port_acl_binding(db_wrap, port):
     return acl_tables
 
 
-def check_port_pbh_binding(db_wrap, port):
+def get_port_pbh_binding(db_wrap, port):
     """
     Verify if the port is not bound to any PBH Table
     
