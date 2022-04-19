@@ -89,7 +89,7 @@ class FeatureRegistry:
         db_connetors = self._sonic_db.get_connectors()
         for conn in db_connetors:
             conn.set_entry(FEATURE, name, None)
-        self.deregister_auto_ts(name)
+            conn.set_entry(AUTO_TS_FEATURE, name, None)
 
     def update(self,
                old_manifest: Manifest,
@@ -182,31 +182,6 @@ class FeatureRegistry:
             
             conn.set_entry(AUTO_TS_FEATURE, new_name, new_cfg)
         return True
-
-    def deregister_auto_ts(self, name):
-        """ de-registers auto_ts feature
-        Don't Erase user-provided config in persistent and running config
-        """
-        init_cfg_conn = self._sonic_db.get_initial_db_connector()
-        persistent_db = self._sonic_db.get_persistent_db_connector()
-        cfg_db_conn = self._sonic_db.get_running_db_connector()
-
-        init_cfg = init_cfg_conn.get_entry(AUTO_TS_FEATURE, name)
-        persistent_cfg = persistent_db.get_entry(AUTO_TS_FEATURE, name)
-        running_cfg = cfg_db_conn.get_entry(AUTO_TS_FEATURE, name)
-
-        init_cfg_conn.set_entry(AUTO_TS_FEATURE, name, None)
-        log.debug(f'{AUTO_TS_FEATURE}|{name} entry is removed from init_cfg.json')
-
-        diff_cfg = dict(set(persistent_cfg.items()) - set(init_cfg.items()))
-        if diff_cfg != persistent_cfg:
-            persistent_db.set_entry(AUTO_TS_FEATURE, name, diff_cfg)
-            log.debug(f'{AUTO_TS_FEATURE}|{name} entry is removed from config_db.json')
-
-        diff_cfg = dict(set(running_cfg.items()) - set(init_cfg.items()))
-        if diff_cfg != running_cfg:
-            cfg_db_conn.set_entry(AUTO_TS_FEATURE, name, diff_cfg)
-            log.debug(f'{AUTO_TS_FEATURE}|{name} entry is removed from CONFIG_DB')
 
     @staticmethod
     def get_default_feature_entries(state=None, owner=None) -> Dict[str, str]:
