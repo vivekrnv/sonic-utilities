@@ -160,7 +160,7 @@ class TestPortChannel(object):
     def test_add_portchannel_member_with_acl_bindngs(self):
         runner = CliRunner()
         db = Db()
-        obj = {'db':db.cfgdb, 'db_wrap':db}
+        obj = {'db':db.cfgdb, 'db_wrap':db, 'namespace':''}
 
         result = runner.invoke(config.config.commands["portchannel"].commands["member"].commands["add"], ["PortChannel0002", "Ethernet100"], obj=obj)
         print(result.exit_code)
@@ -171,7 +171,7 @@ class TestPortChannel(object):
     def test_add_portchannel_member_with_pbh_bindngs(self):
         runner = CliRunner()
         db = Db()
-        obj = {'db':db.cfgdb, 'db_wrap':db}
+        obj = {'db':db.cfgdb, 'db_wrap':db, 'namespace':''}
 
         result = runner.invoke(config.config.commands["portchannel"].commands["member"].commands["add"], ["PortChannel0002", "Ethernet60"], obj=obj)
         print(result.exit_code)
