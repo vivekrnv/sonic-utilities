@@ -118,7 +118,6 @@ def match_engine():
     os.environ["VERBOSE"] = "1"
 
     dump_port_input = os.path.join(os.path.dirname(__file__), "../dump_input/port/")
-    dump_input = os.path.join(os.path.dirname(__file__), "../dump_input/port/")
 
     dedicated_dbs = {}
     dedicated_dbs['CONFIG_DB'] = os.path.join(dump_port_input, "config_db.json")
@@ -250,23 +249,62 @@ class TestDumpState:
             print(result.output)
             assert result.output == table_config_file_copp
 
+@pytest.fixture(scope="class")
+def match_engine_masic():
+    print("SETUP")
+    os.environ["VERBOSE"] = "1"
 
+    from ..mock_tables import mock_multi_asic
+    reload(mock_multi_asic)
+    from ..mock_tables import dbconnector
+    dbconnector.load_namespace_config()
+
+    dump_input = os.path.join(os.path.dirname(__file__), "../dump_input/")
+    dedicated_dbs = {}
+
+    conn = SonicV2Connector()
+    # popualate the db ,with mock data
+    db_names = list(dedicated_dbs.keys())
+    try:
+        populate_mock(conn, db_names, dedicated_dbs)
+    except Exception as e:
+        assert False, "Mock initialization failed: " + str(e)
+
+    conn_pool = ConnectionPool()
+    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "port/config_db.json")
+    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "port/appl_db.json")
+    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "port/state_db.json")
+    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "port/asic_db.json")
+    conn_pool.cache[DEFAULT_NAMESPACE] = {"conn" : conn_pool.initialize_connector(DEFAULT_NAMESPACE),
+                                          "connected_to": list(dedicated_dbs.keys())}
+    populate_mock(conn_pool.cache[DEFAULT_NAMESPACE]["conn"], list(dedicated_dbs.keys()), dedicated_dbs)
+
+    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "masic/asic0/config_db.json")
+    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "masic/asic0/appl_db.json")
+    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "masic/asic0/state_db.json")
+    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "masic/asic0/asic_db.json")
+    conn_pool.cache["asic0"] = {"conn" : conn_pool.initialize_connector("asic0"),
+                                "connected_to": list(dedicated_dbs.keys())}
+    populate_mock(conn_pool.cache["asic0"]["conn"], list(dedicated_dbs.keys()), dedicated_dbs)
+
+    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "masic/asic1/config_db.json")
+    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "masic/asic1/appl_db.json")
+    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "masic/asic1/state_db.json")
+    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "masic/asic1/asic_db.json")
+    conn_pool.cache["asic1"] = {"conn" : conn_pool.initialize_connector("asic1"),
+                                "connected_to": list(dedicated_dbs.keys())}
+    populate_mock(conn_pool.cache["asic1"]["conn"], list(dedicated_dbs.keys()), dedicated_dbs)
+
+    match_engine = MatchEngine(conn_pool)
+    yield match_engine
+    print("TEARDOWN")
+
+@pytest.mark.usefixtures("match_engine_masic")
 class TestDumpStateMultiAsic(object):
 
-    @classmethod
-    def setup_class(cls):
-        print("SETUP")
-        os.environ["UTILITIES_UNIT_TESTING"] = "2"
-        os.environ["UTILITIES_UNIT_TESTING_TOPOLOGY"] = "multi_asic"
-        from ..mock_tables import mock_multi_asic
-        reload(mock_multi_asic)
-        from ..mock_tables import dbconnector
-        dbconnector.load_namespace_config()
-
-    def test_default_namespace(self):
+    def test_default_namespace(self, match_engine_masic):
         runner = CliRunner()
-        db = Db()
-        result = runner.invoke(dump.state, ["port", "Ethernet0", "--key-map"], obj=db)
+        result = runner.invoke(dump.state, ["port", "Ethernet0", "--key-map"], obj=match_engine_masic)
         expected = {"Ethernet0": {"CONFIG_DB": {"keys": ["PORT|Ethernet0"], "tables_not_found": []},
                                   "APPL_DB": {"keys": ["PORT_TABLE:Ethernet0"], "tables_not_found": []},
                                   "ASIC_DB": {"keys": ["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF:oid:0xd00000000056d", "ASIC_STATE:SAI_OBJECT_TYPE_PORT:oid:0x10000000004a4"], "tables_not_found": [], "vidtorid": {"oid:0xd00000000056d": "oid:0xd", "oid:0x10000000004a4": "oid:0x1690000000001"}},
@@ -275,10 +313,9 @@ class TestDumpStateMultiAsic(object):
         ddiff = compare_json_output(expected, result.output)
         assert not ddiff, ddiff
 
-    def test_namespace_asic0(self):
+    def test_namespace_asic0(self, match_engine_masic):
         runner = CliRunner()
-        db = Db()
-        result = runner.invoke(dump.state, ["port", "Ethernet0", "--namespace", "asic0"], obj=db)
+        result = runner.invoke(dump.state, ["port", "Ethernet0", "--namespace", "asic0"], obj=match_engine_masic)
         expected = {"Ethernet0": {"CONFIG_DB": {"keys": [{"PORT|Ethernet0": {"admin_status": "up", "alias": "Ethernet1/1", "asic_port_name": "Eth0-ASIC0", "description": "ARISTA01T2:Ethernet3/1/1", "lanes": "33,34,35,36", "mtu": "9100", "pfc_asym": "off", "role": "Ext", "speed": "40000"}}], "tables_not_found": []},
                                   "APPL_DB": {"keys": [{"PORT_TABLE:Ethernet0": {"lanes": "33,34,35,36", "description": "ARISTA01T2:Ethernet3/1/1", "pfc_asym": "off", "mtu": "9100", "alias": "Ethernet1/1", "oper_status": "up", "admin_status": "up", "role": "Ext", "speed": "40000", "asic_port_name": "Eth0-ASIC0"}}], "tables_not_found": []},
                                   "ASIC_DB": {"keys": [], "tables_not_found": ["ASIC_STATE:SAI_OBJECT_TYPE_HOSTIF", "ASIC_STATE:SAI_OBJECT_TYPE_PORT"]}, "STATE_DB": {"keys": [], "tables_not_found": ["PORT_TABLE"]}}}
@@ -287,10 +324,9 @@ class TestDumpStateMultiAsic(object):
         ddiff = compare_json_output(expected, result.output)
         assert not ddiff, ddiff
 
-    def test_namespace_asic1(self):
+    def test_namespace_asic1(self, match_engine_masic):
         runner = CliRunner()
-        db = Db()
-        result = runner.invoke(dump.state, ["port", "Ethernet-BP256", "--namespace", "asic1"], obj=db)
+        result = runner.invoke(dump.state, ["port", "Ethernet-BP256", "--namespace", "asic1"], obj=match_engine_masic)
         expected = {"Ethernet-BP256":
                     {"CONFIG_DB": {"keys": [{"PORT|Ethernet-BP256": {"admin_status": "up", "alias": "Ethernet-BP256", "asic_port_name": "Eth0-ASIC1", "description": "ASIC0:Eth16-ASIC0", "lanes": "61,62,63,64", "mtu": "9100", "pfc_asym": "off", "role": "Int", "speed": "40000"}}], "tables_not_found": []},
                      "APPL_DB": {"keys": [{"PORT_TABLE:Ethernet-BP256": {"oper_status": "up", "lanes": "61,62,63,64", "description": "ASIC0:Eth16-ASIC0", "pfc_asym": "off", "mtu": "9100", "alias": "Ethernet-BP256", "admin_status": "up", "speed": "40000", "asic_port_name": "Eth0-ASIC1"}}], "tables_not_found": []},
@@ -300,13 +336,8 @@ class TestDumpStateMultiAsic(object):
         ddiff = compare_json_output(expected, result.output)
         assert not ddiff, ddiff
 
-    def test_invalid_namespace(self):
+    def test_invalid_namespace(self, match_engine_masic):
         runner = CliRunner()
-        db = Db()
-        result = runner.invoke(dump.state, ["port", "Ethernet0", "--namespace", "asic3"], obj=db)
+        result = runner.invoke(dump.state, ["port", "Ethernet0", "--namespace", "asic3"], obj=match_engine_masic)
         assert result.output == "Namespace option is not valid. Choose one of ['asic0', 'asic1']\n", result
 
-    def teardown_class(cls):
-        print("TEARDOWN")
-        os.environ["UTILITIES_UNIT_TESTING"] = "0"
-        os.environ["UTILITIES_UNIT_TESTING_TOPOLOGY"] = ""
