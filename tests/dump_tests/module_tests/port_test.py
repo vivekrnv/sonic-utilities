@@ -145,6 +145,6 @@ class TestPortModule:
         params = {}
         m_port = Port(match_engine)
         returned = m_port.get_all_args("")
-        expect = ["Ethernet156", "Ethernet160", "Ethernet164", "Ethernet176"]
+        expect = ["Ethernet156", "Ethernet160", "Ethernet164", "Ethernet176", "Ethernet4", "Ethernet0"]
         ddiff = DeepDiff(expect, returned, ignore_order=True)
         assert not ddiff, ddiff
