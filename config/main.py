@@ -1871,7 +1871,7 @@ def add_portchannel_member(ctx, portchannel_name, port_name):
 
     # Don't allow a port to be a member of portchannel if already has PBH bindings
     try:
-        pbh_bindings = get_port_pbh_binding(ctx.obj['db_wrap'], port_name, ctx.obj['namespace'])
+        pbh_bindings = get_port_pbh_binding(ctx.obj['db_wrap'], port_name, DEFAULT_NAMESPACE)
         if pbh_bindings:
             ctx.fail("Port {} is already bound to following PBH_TABLES: {}".format(port_name, pbh_bindings))
     except Exception as e:
