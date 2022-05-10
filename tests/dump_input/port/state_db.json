@@ -10,9 +10,5 @@
         "PORT_TABLE|Ethernet164":{
                 "state" : "ok",
                 "netdev_oper_status" : "up"
-        },
-        "PORT_TABLE|Ethernet0": {
-                "speed" : "100000",
-                "supported_speeds": "10000,25000,40000,100000"
         }
 }
