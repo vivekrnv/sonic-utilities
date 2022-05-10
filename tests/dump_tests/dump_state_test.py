@@ -10,7 +10,7 @@ from importlib import reload
 from click.testing import CliRunner
 from utilities_common.db import Db
 from dump.match_infra import ConnectionPool, MatchEngine
-from dump.helper import create_template_dict, populate_mock
+from dump.helper import populate_mock
 from deepdiff import DeepDiff
 from utilities_common.constants import DEFAULT_NAMESPACE
 from pyfakefs.fake_filesystem_unittest import Patcher
@@ -117,7 +117,7 @@ def match_engine():
     print("SETUP")
     os.environ["VERBOSE"] = "1"
 
-    dump_port_input = os.path.join(os.path.dirname(__file__), "../dump_input/port/")
+    dump_port_input = os.path.join(os.path.dirname(__file__), "../dump_input/dump/default")
 
     dedicated_dbs = {}
     dedicated_dbs['CONFIG_DB'] = os.path.join(dump_port_input, "config_db.json")
@@ -209,7 +209,7 @@ class TestDumpState:
 
     def test_identifier_all_with_filtering(self, match_engine):
         runner = CliRunner()
-        expected_entries = ["Ethernet0", "Ethernet4", "Ethernet156", "Ethernet160", "Ethernet164", "Ethernet176"]
+        expected_entries = ["Ethernet0", "Ethernet4", "Ethernet156", "Ethernet160", "Ethernet164", "Ethernet176", "Ethernet60"]
         result = runner.invoke(dump.state, ["port", "all", "--db", "CONFIG_DB", "--key-map"], obj=match_engine)
         print(result.output)
         try:
@@ -271,26 +271,26 @@ def match_engine_masic():
         assert False, "Mock initialization failed: " + str(e)
 
     conn_pool = ConnectionPool()
-    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "port/config_db.json")
-    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "port/appl_db.json")
-    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "port/state_db.json")
-    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "port/asic_db.json")
+    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "dump/default/config_db.json")
+    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "dump/default/appl_db.json")
+    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "dump/default/state_db.json")
+    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "dump/default/asic_db.json")
     conn_pool.cache[DEFAULT_NAMESPACE] = {"conn" : conn_pool.initialize_connector(DEFAULT_NAMESPACE),
                                           "connected_to": list(dedicated_dbs.keys())}
     populate_mock(conn_pool.cache[DEFAULT_NAMESPACE]["conn"], list(dedicated_dbs.keys()), dedicated_dbs)
 
-    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "masic/asic0/config_db.json")
-    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "masic/asic0/appl_db.json")
-    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "masic/asic0/state_db.json")
-    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "masic/asic0/asic_db.json")
+    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "dump/asic0/config_db.json")
+    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "dump/asic0/appl_db.json")
+    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "dump/asic0/state_db.json")
+    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "dump/asic0/asic_db.json")
     conn_pool.cache["asic0"] = {"conn" : conn_pool.initialize_connector("asic0"),
                                 "connected_to": list(dedicated_dbs.keys())}
     populate_mock(conn_pool.cache["asic0"]["conn"], list(dedicated_dbs.keys()), dedicated_dbs)
 
-    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "masic/asic1/config_db.json")
-    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "masic/asic1/appl_db.json")
-    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "masic/asic1/state_db.json")
-    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "masic/asic1/asic_db.json")
+    dedicated_dbs['CONFIG_DB'] = os.path.join(dump_input, "dump/asic1/config_db.json")
+    dedicated_dbs['APPL_DB'] = os.path.join(dump_input, "dump/asic1/appl_db.json")
+    dedicated_dbs['STATE_DB'] = os.path.join(dump_input, "dump/asic1/state_db.json")
+    dedicated_dbs['ASIC_DB'] =  os.path.join(dump_input, "dump/asic1/asic_db.json")
     conn_pool.cache["asic1"] = {"conn" : conn_pool.initialize_connector("asic1"),
                                 "connected_to": list(dedicated_dbs.keys())}
     populate_mock(conn_pool.cache["asic1"]["conn"], list(dedicated_dbs.keys()), dedicated_dbs)
