@@ -133,6 +133,78 @@
         "txpowerlowalarm": "-10.5012",
         "txpowerlowwarning": "-7.5007"
     },
+    "TRANSCEIVER_INFO|Ethernet16": {
+        "type": "RJ45",
+        "hardware_rev": "N/A",
+        "serial": "N/A",
+        "manufacturer": "N/A",
+        "model": "N/A",
+        "vendor_oui": "N/A",
+        "vendor_date": "N/A",
+        "connector": "N/A",
+        "encoding": "N/A",
+        "ext_identifier": "N/A",
+        "ext_rateselect_compliance": "N/A",
+        "cable_type": "N/A",
+        "cable_length": "N/A",
+        "specification_compliance": "N/A",
+        "nominal_bit_rate": "N/A",
+        "application_advertisement": "N/A"
+    },
+    "TRANSCEIVER_INFO|Ethernet36": {
+        "type": "RJ45",
+        "hardware_rev": "N/A",
+        "serial": "N/A",
+        "manufacturer": "N/A",
+        "model": "N/A",
+        "vendor_oui": "N/A",
+        "vendor_date": "N/A",
+        "connector": "N/A",
+        "encoding": "N/A",
+        "ext_identifier": "N/A",
+        "ext_rateselect_compliance": "N/A",
+        "cable_type": "N/A",
+        "cable_length": "N/A",
+        "specification_compliance": "N/A",
+        "nominal_bit_rate": "N/A",
+        "application_advertisement": "N/A"
+    },
+    "TRANSCEIVER_INFO|Ethernet24": {
+        "type": "QSFP28 or later",
+        "hardware_rev": "AC",
+        "serial": "MT1706FT02066",
+        "manufacturer": "Mellanox",
+        "model": "MFA1A00-C003",
+        "vendor_oui": "00-02-c9",
+        "vendor_date": "2017-01-13 ",
+        "connector": "No separable connector",
+        "encoding": "64B66B",
+        "ext_identifier": "Power Class 3(2.5W max), CDR present in Rx Tx",
+        "ext_rateselect_compliance": "QSFP+ Rate Select Version 1",
+        "cable_type": "Length Cable Assembly(m)",
+        "cable_length": "3",
+        "specification_compliance": "{'10/40G Ethernet Compliance Code': '40G Active Cable (XLPPI)'}",
+        "nominal_bit_rate": "255",
+        "application_advertisement": "N/A"
+    },
+    "TRANSCEIVER_INFO|Ethernet28": {
+        "type": "RJ45",
+        "hardware_rev": "N/A",
+        "serial": "N/A",
+        "manufacturer": "N/A",
+        "model": "N/A",
+        "vendor_oui": "N/A",
+        "vendor_date": "N/A",
+        "connector": "N/A",
+        "encoding": "N/A",
+        "ext_identifier": "N/A",
+        "ext_rateselect_compliance": "N/A",
+        "cable_type": "N/A",
+        "cable_length": "N/A",
+        "specification_compliance": "N/A",
+        "nominal_bit_rate": "N/A",
+        "application_advertisement": "N/A"
+    },
     "TRANSCEIVER_STATUS|Ethernet0": {
         "status": "67",
         "error": "Blocking Error|High temperature"
@@ -721,10 +793,34 @@
         "xcvrd_switch_standby_end": "2021-May-13 10:01:15.696051",
         "xcvrd_switch_standby_start": "2021-May-13 10:01:15.690835"
     },
+    "FLOW_COUNTER_CAPABILITY_TABLE|route": {
+        "support": "true"
+    },
     "LINK_PROBE_STATS|Ethernet0": {
         "pck_loss_count": "612",
         "pck_expected_count": "840",
         "link_prober_unknown_start": "2022-Jan-26 03:13:05.366900",
         "link_prober_unknown_end": "2022-Jan-26 03:17:35.446580"
+    },
+    "PORT_TABLE|Ethernet16": {
+        "state": "ok",
+        "netdev_oper_status": "up",
+        "admin_status": "up",
+        "mtu":  "9100",
+        "speed": "100"
+    },
+    "PORT_TABLE|Ethernet36": {
+        "state": "ok",
+        "netdev_oper_status": "up",
+        "admin_status": "up",
+        "mtu":  "9100",
+        "speed": "10"
+    },
+    "PORT_TABLE|Ethernet24": {
+        "state": "ok",
+        "netdev_oper_status": "up",
+        "admin_status": "up",
+        "mtu":  "9100",
+        "speed": "1000"
     }
 }
