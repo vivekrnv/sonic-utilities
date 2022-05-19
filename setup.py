@@ -146,7 +146,10 @@ setup(
         'scripts/centralize_database',
         'scripts/null_route_helper',
         'scripts/coredump_gen_handler.py',
+        'scripts/memory_threshold_check.py',
+        'scripts/memory_threshold_check_handler.py',
         'scripts/techsupport_cleanup.py',
+        'scripts/storm_control.py',
         'scripts/check_db_integrity.py'
     ],
     entry_points={

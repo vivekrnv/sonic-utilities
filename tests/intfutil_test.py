@@ -71,33 +71,46 @@ show_interface_description_eth9_output="""\
 """
 
 show_interface_auto_neg_status_output = """\
-  Interface    Auto-Neg Mode    Speed    Adv Speeds    Type    Adv Types    Oper    Admin
------------  ---------------  -------  ------------  ------  -----------  ------  -------
-  Ethernet0          enabled      25G       10G,50G     CR4      CR4,CR2    down       up
- Ethernet16              N/A     100M           N/A     N/A          N/A      up       up
- Ethernet24              N/A       1G           N/A     N/A          N/A      up       up
- Ethernet28              N/A    1000M           N/A     N/A          N/A      up       up
- Ethernet32         disabled      40G           all     N/A          all      up       up
- Ethernet36              N/A      10M           N/A     N/A          N/A      up       up
-Ethernet112              N/A      40G           N/A     N/A          N/A      up       up
-Ethernet116              N/A      40G           N/A     N/A          N/A      up       up
-Ethernet120              N/A      40G           N/A     N/A          N/A      up       up
-Ethernet124              N/A      40G           N/A     N/A          N/A      up       up
+  Interface    Auto-Neg Mode    Speed    Adv Speeds    Rmt Adv Speeds    Type    Adv Types    Oper    Admin
+-----------  ---------------  -------  ------------  ----------------  ------  -----------  ------  -------
+  Ethernet0          enabled      25G       10G,50G       10M,100M,1G     CR4      CR4,CR2    down       up
+ Ethernet16              N/A     100M           N/A               N/A     N/A          N/A      up       up
+ Ethernet24              N/A       1G           N/A               N/A     N/A          N/A      up       up
+ Ethernet28              N/A    1000M           N/A               N/A     N/A          N/A      up       up
+ Ethernet32         disabled      40G           all               N/A     N/A          all      up       up
+ Ethernet36              N/A      10M           N/A               N/A     N/A          N/A      up       up
+Ethernet112              N/A      40G           N/A               N/A     N/A          N/A      up       up
+Ethernet116              N/A      40G           N/A               N/A     N/A          N/A      up       up
+Ethernet120              N/A      40G           N/A               N/A     N/A          N/A      up       up
+Ethernet124              N/A      40G           N/A               N/A     N/A          N/A      up       up
 """
 
 show_interface_auto_neg_status_Ethernet0_output = """\
-  Interface    Auto-Neg Mode    Speed    Adv Speeds    Type    Adv Types    Oper    Admin
------------  ---------------  -------  ------------  ------  -----------  ------  -------
-  Ethernet0          enabled      25G       10G,50G     CR4      CR4,CR2    down       up
+  Interface    Auto-Neg Mode    Speed    Adv Speeds    Rmt Adv Speeds    Type    Adv Types    Oper    Admin
+-----------  ---------------  -------  ------------  ----------------  ------  -----------  ------  -------
+  Ethernet0          enabled      25G       10G,50G       10M,100M,1G     CR4      CR4,CR2    down       up
 """
 
 show_interface_auto_neg_status_eth9_output = """\
-  Interface    Auto-Neg Mode    Speed    Adv Speeds    Type    Adv Types    Oper    Admin
------------  ---------------  -------  ------------  ------  -----------  ------  -------
- Ethernet32         disabled      40G           all     N/A          all      up       up
+  Interface    Auto-Neg Mode    Speed    Adv Speeds    Rmt Adv Speeds    Type    Adv Types    Oper    Admin
+-----------  ---------------  -------  ------------  ----------------  ------  -----------  ------  -------
+ Ethernet32         disabled      40G           all               N/A     N/A          all      up       up
 """
 
-
+show_interface_link_training_status_output = """\
+  Interface      LT Oper    LT Admin    Oper    Admin
+-----------  -----------  ----------  ------  -------
+  Ethernet0  not trained          on    down       up
+ Ethernet16          off           -      up       up
+ Ethernet24          off           -      up       up
+ Ethernet28          off           -      up       up
+ Ethernet32      trained          on      up       up
+ Ethernet36          off           -      up       up
+Ethernet112          off         off      up       up
+Ethernet116          off           -      up       up
+Ethernet120          off           -      up       up
+Ethernet124          off           -      up       up
+"""
 
 class TestIntfutil(TestCase):
     @classmethod
@@ -301,6 +314,13 @@ class TestIntfutil(TestCase):
         print(result.output)
         assert result.exit_code == 0
         assert result.output == show_interface_auto_neg_status_eth9_output
+
+    def test_show_interfaces_link_training_status(self):
+        result = self.runner.invoke(show.cli.commands["interfaces"].commands["link-training"].commands["status"], [])
+        print(result.exit_code)
+        print(result.output)
+        assert result.exit_code == 0
+        assert result.output == show_interface_link_training_status_output
 
     @classmethod
     def teardown_class(cls):
