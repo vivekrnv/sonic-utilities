@@ -75,6 +75,11 @@ class TestConfigInterface(object):
         assert 'duplicate' in result.output
         self.basic_check("advertised-types", ["Ethernet0", ""], ctx, operator.ne)
 
+    def test_config_mtu(self, ctx):
+        self.basic_check("mtu", ["Ethernet0", "1514"], ctx)
+        result = self.basic_check("mtu", ["PortChannel0001", "1514"], ctx, operator.ne)
+        assert 'Invalid port PortChannel0001' in result.output
+
     def basic_check(self, command_name, para_list, ctx, op=operator.eq, expect_result=0):
         runner = CliRunner()
         result = runner.invoke(config.config.commands["interface"].commands[command_name], para_list, obj = ctx)
