@@ -7,6 +7,7 @@ from tabulate import tabulate
 from sonic_py_common import multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
 from dump.match_infra import RedisSource, JsonSource, MatchEngine
+from swsscommon.swsscommon import ConfigDBConnector
 from dump import plugins
 
 # Autocompletion Helper
@@ -81,7 +82,10 @@ def state(ctx, module, identifier, db, table, key_map, verbose, namespace):
     params['namespace'] = namespace
     for arg in ids:
         params[plugins.dump_modules[module].ARG_NAME] = arg
-        collected_info[arg] = obj.execute(params)
+        try:
+            collected_info[arg] = obj.execute(params)
+        except ValueError as err:
+            click.fail(f"Failed to execute plugin: {err}")
 
     if len(db) > 0:
         collected_info = filter_out_dbs(db, collected_info)
@@ -174,9 +178,13 @@ def populate_fv(info, module, namespace, conn_pool):
 
 
 def get_dict_str(key_obj):
+    conn = ConfigDBConnector()
     table = []
-    for pair in key_obj.items():
-        table.append(list(pair))
+    key_obj = conn.raw_to_typed(key_obj)
+    for field, value in key_obj.items():
+        if isinstance(value, list):
+            value = "\n".join(value)
+        table.append((field, value))
     return tabulate(table, headers=["field", "value"], tablefmt="psql")
 
 
