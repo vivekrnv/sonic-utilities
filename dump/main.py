@@ -6,7 +6,7 @@ import click
 from tabulate import tabulate
 from sonic_py_common import multi_asic
 from utilities_common.constants import DEFAULT_NAMESPACE
-from dump.match_infra import RedisSource, JsonSource, ConnectionPool, MatchEngine
+from dump.match_infra import RedisSource, JsonSource, ConnectionPool, MatchEngine, CONN
 from dump import plugins
 
 # Autocompletion Helper
@@ -154,7 +154,7 @@ def populate_fv(info, module, namespace, conn_pool):
         else:
             conn_pool.get(db_name, namespace)
     
-    db_conn = conn_pool.cache.get(namespace, {}).get('conn', None)
+    db_conn = conn_pool.cache.get(namespace, {}).get(CONN, None)
 
     final_info = {}
     for id in info.keys():
