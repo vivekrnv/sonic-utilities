@@ -3,7 +3,7 @@ import show.main
 from unittest.mock import patch, Mock
 from click.testing import CliRunner
 
-EXPECTED_BASE_COMMAND = 'sudo timeout --kill-after=300s -s SIGTERM '
+EXPECTED_BASE_COMMAND = 'sudo '
 
 @patch("show.main.run_command")
 @pytest.mark.parametrize(
@@ -11,7 +11,7 @@ EXPECTED_BASE_COMMAND = 'sudo timeout --kill-after=300s -s SIGTERM '
         [
             ([], 'generate_dump -v -t 5'),
             (['--since', '2 days ago'], "generate_dump -v -s '2 days ago' -t 5"),
-            (['-g', '50'], '--foreground 50m generate_dump -v -t 5'),
+            (['-g', '50'], 'timeout --kill-after=300s -s SIGTERM --foreground 50m generate_dump -v -t 5'),
             (['--allow-process-stop'], '-a generate_dump -v -t 5'),
             (['--silent'], 'generate_dump -t 5'),
             (['--debug-dump', '--redirect-stderr'], 'generate_dump -v -d -t 5 -r'),
