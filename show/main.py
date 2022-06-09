@@ -1147,10 +1147,10 @@ def users(verbose):
 @click.option('--redirect-stderr', '-r', is_flag=True, help="Redirect an intermediate errors to STDERR")
 def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop, silent, debug_dump, redirect_stderr):
     """Gather information for troubleshooting"""
-    cmd = "sudo timeout --kill-after={}s -s SIGTERM".format(COMMAND_TIMEOUT)
+    cmd = "sudo"
 
     if global_timeout:
-        cmd += " --foreground {}m".format(global_timeout)
+        cmd += " timeout --kill-after={}s -s SIGTERM --foreground {}m".format(COMMAND_TIMEOUT, global_timeout)
 
     if allow_process_stop:
         cmd += " -a"
