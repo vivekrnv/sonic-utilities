@@ -20,7 +20,7 @@ The SAI dump is generated to /tmp/saisdkdump/sai_sdk_dump_11_22_2021_11_07_PM
 /tmp/saisdkdump
 """
 
-TS_DEFAULT_CMD = "show techsupport --silent --global-timeout 60 --since '2 days ago'"
+TS_DEFAULT_CMD = "show techsupport --silent --global-timeout 60 --since 2 days ago"
 
 def signal_handler(signum, frame):
     raise Exception("Timed out!")
