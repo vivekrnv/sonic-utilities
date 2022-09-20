@@ -722,14 +722,14 @@ class DBMigrator():
         log.log_info('Handling version_3_0_5')
         # If the policer used for mirror_session happen to have color set as aware
         # Change the color to blind. This is support the new enhancement made for Mellanox platforms.
-        # If the user mistakenly sets color as aware up until this image,
-        # this'll lead to orchagent crash after the upgrade
+        # If the user did not set color as blind up until this image,
+        # that'll lead to orchagent crash after the upgrade
         if self.asic_type == 'mellanox':
             mirror_sess = self.configDB.get_table('MIRROR_SESSION')
             policers = [v['policer'] for k, v in mirror_sess.items() if 'policer' in v]
             for policer in policers:
                 data = self.configDB.get_entry('POLICER', policer)
-                if data.get('color') == 'aware':
+                if data.get('color') != 'blind':
                     data.update({'color': 'blind'})
                     self.configDB.set_entry('POLICER', policer, data)
         return 'version_3_0_6'
