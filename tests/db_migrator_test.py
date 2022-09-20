@@ -428,6 +428,7 @@ class TestMirrorPolicerColorMigrate(object):
         dbmgtr_mlnx.migrate()
         assert dbmgtr_mlnx.configDB.get_entry('POLICER', 'policer_dscp').get('color') == 'blind'
         assert dbmgtr_mlnx.configDB.get_entry('POLICER', 'policer_random').get('color') == 'aware'
+        assert not dbmgtr_mlnx.configDB.get_entry('POLICER', 'policer_src_ip').get('color')
 
         dbmgtr = db_migrator.DBMigrator(None)
         dbmgtr.asic_type = "broadcom"
@@ -435,3 +436,4 @@ class TestMirrorPolicerColorMigrate(object):
         dbmgtr.migrate()
         assert dbmgtr.configDB.get_entry('POLICER', 'policer_dscp').get('color') == 'aware'
         assert dbmgtr.configDB.get_entry('POLICER', 'policer_random').get('color') == 'aware'
+        assert not dbmgtr_mlnx.configDB.get_entry('POLICER', 'policer_src_ip').get('color')

@@ -31,5 +31,20 @@
         "cbs": "12500000",
         "color": "aware",
         "red_packet_action": "drop"
+    },
+    "MIRROR_SESSION|mirror_session_src_ip": {
+        "dscp": "5",
+        "dst_ip": "1.1.1.1",
+        "policer": "policer_src_ip",
+        "src_ip": "2.2.2.2",
+        "ttl": "32",
+        "type": "ERSPAN"
+    },
+    "POLICER|policer_src_ip": {
+        "meter_type": "bytes",
+        "mode": "sr_tcm",
+        "cir": "12500000",
+        "cbs": "12500000",
+        "red_packet_action": "drop"
     }
 }

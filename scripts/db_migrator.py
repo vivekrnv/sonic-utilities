@@ -44,7 +44,7 @@ class DBMigrator():
                      none-zero values.
               build: sequentially increase within a minor version domain.
         """
-        self.CURRENT_VERSION = 'version_3_0_5'
+        self.CURRENT_VERSION = 'version_3_0_6'
 
         self.TABLE_NAME      = 'VERSIONS'
         self.TABLE_KEY       = 'DATABASE'
@@ -729,9 +729,16 @@ class DBMigrator():
             policers = [v['policer'] for k, v in mirror_sess.items() if 'policer' in v]
             for policer in policers:
                 data = self.configDB.get_entry('POLICER', policer)
-                if data.get('color') != 'blind':
+                if data.get('color') == 'aware':
                     data.update({'color': 'blind'})
                     self.configDB.set_entry('POLICER', policer, data)
+        return 'version_3_0_6'
+
+    def version_3_0_6(self):
+        """
+        Current latest version. Nothing to do here.
+        """
+        log.log_info('Handling version_3_0_6')
         return None
 
     def get_version(self):
