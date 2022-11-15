@@ -879,33 +879,47 @@ enable_logrotate() {
 collect_mellanox() {
     trap 'handle_error $? $LINENO' ERR
     local timeout_cmd="timeout --foreground ${TIMEOUT_MIN}m"
+    local platform=$(python3 -c "from sonic_py_common import device_info; print(device_info.get_platform())")
+    local hwsku=$(python3 -c "from sonic_py_common import device_info; print(device_info.get_hwsku())")
     local sai_dump_folder="/tmp/saisdkdump"
     local sai_dump_filename="${sai_dump_folder}/sai_sdk_dump_$(date +"%m_%d_%Y_%I_%M_%p")"
+    local sdk_dump_path=`cat /usr/share/sonic/device/${platform}/${hwsku}/sai.profile|grep "SAI_DUMP_STORE_PATH"|cut -d = -f2`
 
-    ${CMD_PREFIX}docker exec syncd mkdir -p $sai_dump_folder
-    ${CMD_PREFIX}docker exec syncd saisdkdump -f $sai_dump_filename
+    if [[ "$( docker container inspect -f '{{.State.Running}}' syncd )" == "true" ]]; then
+        if [[ ! -z "$(sonic-db-cli APPL_DB HGETALL PORT_TABLE:PortInitDone)" ]]; then
+            # Run saisdkdump only after the create_switch is known to be successful
+            ${CMD_PREFIX}docker exec syncd mkdir -p $sai_dump_folder
+            ${CMD_PREFIX}docker exec syncd saisdkdump -f $sai_dump_filename
 
-    if [ $? != 0 ]; then
-        echo "Failed to collect saisdkdump."
-    fi
+            if [ $? != 0 ]; then
+                echo "Failed to collect saisdkdump."
+            fi
 
-    copy_from_docker syncd $sai_dump_folder $sai_dump_folder
-    echo "$sai_dump_folder"
-    for file in `ls $sai_dump_folder`; do
-        save_file ${sai_dump_folder}/${file} sai_sdk_dump true
-    done
+            copy_from_docker syncd $sai_dump_folder $sai_dump_folder
+            echo "$sai_dump_folder"
+            for file in `ls $sai_dump_folder`; do
+                save_file ${sai_dump_folder}/${file} sai_sdk_dump true
+            done
 
-    ${CMD_PREFIX}rm -rf $sai_dump_folder
-    ${CMD_PREFIX}docker exec syncd rm -rf $sai_dump_folder
+            ${CMD_PREFIX}rm -rf $sai_dump_folder
+            ${CMD_PREFIX}docker exec syncd rm -rf $sai_dump_folder
+        fi
 
-    # Save SDK error dumps
-    local sdk_dump_path=`${CMD_PREFIX}docker exec syncd cat /tmp/sai.profile|grep "SAI_DUMP_STORE_PATH"|cut -d = -f2`
-    if [[ -d $sdk_dump_path ]]; then
+        # Save SDK error dumps
         copy_from_docker syncd $sdk_dump_path  /tmp/sdk-dumps
         for file in $(find /tmp/sdk-dumps -type f); do
             save_file ${file} sai_sdk_dump false
         done
         rm -rf /tmp/sdk-dumps
+    else
+        # Check if the SAI_DUMP_STORE_PATH is accessible on the host and collect files from there
+        if [[ -d $sdk_dump_path ]]; then
+            $CP -rvf $sdk_dump_path /tmp/sdk-dumps
+            for file in $(find /tmp/sdk-dumps -type f); do
+                save_file ${file} sai_sdk_dump false
+            done
+            rm -rf /tmp/sdk-dumps
+        fi
     fi
 
     # run 'hw-management-generate-dump.sh' script and save the result file
@@ -1220,6 +1234,23 @@ save_crash_files() {
 }
 
 ###############################################################################
+# Collect saisdkdump files under /var/log/orch_abrt_sdkdump. These files are
+#  created because of the orchagent abort triggered by SAI programming failure
+# Globals:
+#  None
+# Arguments:
+#  None
+# Returns:
+#  None
+###############################################################################
+save_saisdkdump_files(){
+    for file in $(find_files "/var/log/orch_abrt_sdkdump/"); do
+        $MKDIR $V -p $LOGDIR/orch_abrt_sdkdump
+        save_file $file orch_abrt_sdkdump
+    done
+}
+
+###############################################################################
 # Get number of ASICs in the platform
 # Globals:
 #  None
@@ -1487,6 +1518,7 @@ main() {
     save_log_files
     save_crash_files
     save_warmboot_files
+    save_saisdkdump_files
 
     finalize
 }
