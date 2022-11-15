@@ -11,6 +11,24 @@ from swsscommon.swsscommon import SonicV2Connector
 from utilities_common.auto_techsupport_helper import *
 
 
+def wait_saisdkdump(db, container, name):
+    """
+    wait for saisdkdump to be created by the host before stopping syncd
+    Happens when the orchagent aborts due to sai programming failure
+    """
+    if "swss" not in container and "orchagent" not in name:
+        return 
+    orch_abrted = db.exists(STATE_DB, "ORCH_ABRT_STATUS")
+    curr_time = time.time()
+    while orch_abrted and not os.path.isfile(SDKDUMP_LOCK):
+        if time.time() - curr_time < SDKDUMP_TIMEOUT:
+            time.sleep(SDKDUMP_SLEEP)
+        else:
+            # Remove the lock once found
+            os.path.remove(SDKDUMP_LOCK)
+            break
+
+
 def handle_coredump_cleanup(dump_name, db):
     _, num_bytes = get_stats(os.path.join(CORE_DUMP_DIR, CORE_DUMP_PTRN))
 
@@ -74,6 +92,7 @@ def main():
         syslog.syslog(syslog.LOG_INFO, "Spurious Invocation. {} is not created within last {} sec".format(file_path, TIME_BUF))
         return
     cls = CriticalProcCoreDumpHandle(args.name, args.container, db)
+    wait_saisdkdump(db, args.container, args.name)
     cls.handle_core_dump_creation_event()
     handle_coredump_cleanup(args.name, db)
 
