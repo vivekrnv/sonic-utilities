@@ -74,6 +74,8 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
     def setUp(self):
         cdump_mod.TIME_BUF = 1
         cdump_mod.WAIT_BUFFER = 1
+        cdump_mod.SDKDUMP_TIMEOUT = 1.6
+        cdump_mod.SDKDUMP_SLEEP = 0.2
 
     def test_invoc_ts_state_db_update(self):
         """
@@ -469,3 +471,27 @@ class TestCoreDumpCreationEvent(unittest.TestCase):
             patcher.fs.create_file("/var/core/orchagent.12345.123.core.gz")
             cls = cdump_mod.CriticalProcCoreDumpHandle("orchagent.12345.123.core.gz", "swss", redis_mock)
             cls.handle_core_dump_creation_event()
+
+    def test_wait_for_sdkdump(self):
+        """
+        Scenario: Check if the auto-techsupport waits until the saisdkdump is created.
+        """
+        db_wrap = Db()
+        redis_mock = db_wrap.db
+        # Set Orch Abort Status
+        redis_mock.get_redis_client(cdump_mod.STATE_DB).set(cdump_mod.ORCH_ABRT_TABLE, "1")
+        signal.signal(signal.SIGALRM, signal_handler)
+        signal.alarm(5)   # 5 seconds
+        try:
+            with Patcher() as patcher:
+                patcher.fs.create_file(cdump_mod.SDKDUMP_LOCK)
+                cdump_mod.wait_saisdkdump(redis_mock, "swss0", "orchagent.xxxx.yy.core.gz")
+                assert not os.path.isfile(cdump_mod.SDKDUMP_LOCK)
+        except Exception:
+            assert False, "wait_saisdkdump should not time out"
+        finally:
+            signal.alarm(0)
+
+        curr = time.time()
+        cdump_mod.wait_saisdkdump(redis_mock, "swss0", "orchagent.xxxx.yy.core.gz")
+        assert time.time() - curr >= cdump_mod.SDKDUMP_TIMEOUT - 0.1

@@ -15,7 +15,8 @@ __all__ = [  # Contants
             "TS_MAP", "CORE_DUMP", "TIMESTAMP", "CONTAINER", "TIME_BUF",
             "SINCE_DEFAULT", "TS_PTRN_GLOB", "EXT_LOCKFAIL", "EXT_RETRY",
             "EXT_SUCCESS", "MAX_RETRY_LIMIT", "EVENT_TYPE", "EVENT_TYPE_CORE",
-            "EVENT_TYPE_MEMORY", "SDKDUMP_LOCK", "SDKDUMP_TIMEOUT", "SDKDUMP_SLEEP"
+            "EVENT_TYPE_MEMORY", "SDKDUMP_LOCK", "SDKDUMP_TIMEOUT", "SDKDUMP_SLEEP",
+            "ORCH_ABRT_TABLE"
         ] + [  # Methods
             "verify_recent_file_creation",
             "get_ts_dumps",
@@ -73,6 +74,7 @@ TS_GLOBAL_TIMEOUT = "60"
 SDKDUMP_LOCK = "/tmp/saidump_collection_notify_flag"
 SDKDUMP_TIMEOUT = 120
 SDKDUMP_SLEEP = 5
+ORCH_ABRT_TABLE = "ORCH_ABRT_STATUS"
 
 # Explicity Pass this to the subprocess invoking techsupport
 ENV_VAR = os.environ

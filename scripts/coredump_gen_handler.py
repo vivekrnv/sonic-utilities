@@ -5,6 +5,7 @@ coredump_gen_handler script.
     For more info, refer to the Event Driven TechSupport & CoreDump Mgmt HLD
 """
 import os
+import time
 import argparse
 import syslog
 from swsscommon.swsscommon import SonicV2Connector
@@ -16,17 +17,21 @@ def wait_saisdkdump(db, container, name):
     wait for saisdkdump to be created by the host before stopping syncd
     Happens when the orchagent aborts due to sai programming failure
     """
-    if "swss" not in container and "orchagent" not in name:
+    orch_abrted = db.exists(STATE_DB, ORCH_ABRT_TABLE)
+    if "swss" not in container and "orchagent" not in name and not orch_abrted:
         return 
-    orch_abrted = db.exists(STATE_DB, "ORCH_ABRT_STATUS")
-    curr_time = time.time()
-    while orch_abrted and not os.path.isfile(SDKDUMP_LOCK):
-        if time.time() - curr_time < SDKDUMP_TIMEOUT:
+
+    init_time = time.time()
+    while not os.path.isfile(SDKDUMP_LOCK):
+        if time.time() - init_time < SDKDUMP_TIMEOUT:
             time.sleep(SDKDUMP_SLEEP)
         else:
-            # Remove the lock once found
-            os.path.remove(SDKDUMP_LOCK)
             break
+
+    if os.path.isfile(SDKDUMP_LOCK):
+        # Remove the lock once found
+        syslog.syslog(syslog.LOG_INFO, "Waited until the saisdkdump is collected, proceeding forward..")
+        os.remove(SDKDUMP_LOCK)
 
 
 def handle_coredump_cleanup(dump_name, db):
