@@ -886,7 +886,7 @@ collect_mellanox() {
     local sdk_dump_path=`cat /usr/share/sonic/device/${platform}/${hwsku}/sai.profile|grep "SAI_DUMP_STORE_PATH"|cut -d = -f2`
 
     if [[ "$( docker container inspect -f '{{.State.Running}}' syncd )" == "true" ]]; then
-        if [[ ! -z "$(sonic-db-cli APPL_DB HGETALL PORT_TABLE:PortInitDone)" ]]; then
+        if [[ x"$(sonic-db-cli APPL_DB EXISTS PORT_TABLE:PortInitDone)" == x"1" ]]; then
             # Run saisdkdump only after the create_switch is known to be successful
             ${CMD_PREFIX}docker exec syncd mkdir -p $sai_dump_folder
             ${CMD_PREFIX}docker exec syncd saisdkdump -f $sai_dump_filename
