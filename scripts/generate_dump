@@ -866,6 +866,52 @@ enable_logrotate() {
     sed -i '/\/usr\/sbin\/logrotate/s/^#*//g' /etc/cron.d/logrotate
 }
 
+###############################################################################
+# Create a relative symbolic link of an existing file
+# Globals:
+#  BASE
+#  MKDIR
+#  TAR
+#  TARFILE
+#  DUMPDIR
+#  V
+#  RM
+#  NOOP
+# Arguments:
+#  filename: the full path of the file
+#  dest_dir: destination dir where the link is created
+#  src_sir: directory under $TARDIR where the actual file exists
+# Returns:
+#  None
+###############################################################################
+save_symlink() {
+    trap 'handle_error $? $LINENO' ERR
+    local start_t=$(date +%s%3N)
+    local end_t=0
+    local filename=$1
+    local dest_dir=$2
+    local src_dir=$3
+    local do_tar_append=${4:-true}
+    local file_basename=$(basename $filename)
+    local tar_path="$BASE/$dest_dir/$file_basename"
+
+    if [[ ! -d "$TARDIR/$dest_dir" ]]; then
+        $MKDIR $V -p "$TARDIR/$dest_dir"
+    fi
+
+    ${CMD_PREFIX}pushd $TARDIR/$dest_dir
+    ${CMD_PREFIX}ln -s ../$src_dir/$file_basename $file_basename
+    ${CMD_PREFIX}popd
+
+    if $do_tar_append; then
+        ($TAR $V -rf $TARFILE -C $DUMPDIR "$tar_path" \
+            || abort "${EXT_PROCFS_SAVE_FAILED}" "tar append operation failed. Aborting to prevent data loss.") \
+            && $RM $V -f "$DUMPDIR/$tar_path"
+    fi
+    end_t=$(date +%s%3N)
+    echo "[ save_symlink:$filename] : $(($end_t-$start_t)) msec"  >> $TECHSUPPORT_TIME_INFO
+}
+
 
 ###############################################################################
 # Collect Mellanox specific information
@@ -879,17 +925,14 @@ enable_logrotate() {
 collect_mellanox() {
     trap 'handle_error $? $LINENO' ERR
     local timeout_cmd="timeout --foreground ${TIMEOUT_MIN}m"
-    local platform=$(python3 -c "from sonic_py_common import device_info; print(device_info.get_platform())")
-    local hwsku=$(python3 -c "from sonic_py_common import device_info; print(device_info.get_hwsku())")
     local sai_dump_folder="/tmp/saisdkdump"
     local sai_dump_filename="${sai_dump_folder}/sai_sdk_dump_$(date +"%m_%d_%Y_%I_%M_%p")"
-    local sdk_dump_path=`cat /usr/share/sonic/device/${platform}/${hwsku}/sai.profile|grep "SAI_DUMP_STORE_PATH"|cut -d = -f2`
 
     if [[ "$( docker container inspect -f '{{.State.Running}}' syncd )" == "true" ]]; then
         if [[ x"$(sonic-db-cli APPL_DB EXISTS PORT_TABLE:PortInitDone)" == x"1" ]]; then
             # Run saisdkdump only after the create_switch is known to be successful
             ${CMD_PREFIX}docker exec syncd mkdir -p $sai_dump_folder
-            ${CMD_PREFIX}docker exec syncd saisdkdump -f $sai_dump_filename
+            ${CMD_PREFIX}${timeout_cmd} docker exec syncd saisdkdump -f $sai_dump_filename
 
             if [ $? != 0 ]; then
                 echo "Failed to collect saisdkdump."
@@ -903,22 +946,6 @@ collect_mellanox() {
 
             ${CMD_PREFIX}rm -rf $sai_dump_folder
             ${CMD_PREFIX}docker exec syncd rm -rf $sai_dump_folder
-        fi
-
-        # Save SDK error dumps
-        copy_from_docker syncd $sdk_dump_path  /tmp/sdk-dumps
-        for file in $(find /tmp/sdk-dumps -type f); do
-            save_file ${file} sai_sdk_dump false
-        done
-        rm -rf /tmp/sdk-dumps
-    else
-        # Check if the SAI_DUMP_STORE_PATH is accessible on the host and collect files from there
-        if [[ -d $sdk_dump_path ]]; then
-            $CP -rvf $sdk_dump_path /tmp/sdk-dumps
-            for file in $(find /tmp/sdk-dumps -type f); do
-                save_file ${file} sai_sdk_dump false
-            done
-            rm -rf /tmp/sdk-dumps
         fi
     fi
 
@@ -940,7 +967,53 @@ collect_mellanox() {
     else
       echo "HW Mgmt dump script $HW_DUMP_FILE does not exist"
     fi
+}
 
+###############################################################################
+# Collect dfw dumps if any. Applies to only MLNX platform
+# Globals:
+#  CMD_PREFIX
+# Arguments:
+#  None
+# Returns:
+#  None
+###############################################################################
+collect_mellanox_dfw_dumps() {
+    trap 'handle_error $? $LINENO' ERR
+    local platform=$(python3 -c "from sonic_py_common import device_info; print(device_info.get_platform())")
+    local hwsku=$(python3 -c "from sonic_py_common import device_info; print(device_info.get_hwsku())")
+    local sdk_dump_path=`cat /usr/share/sonic/device/${platform}/${hwsku}/sai.profile|grep "SAI_DUMP_STORE_PATH"|cut -d = -f2`
+
+    if [[ ! -d $sdk_dump_path ]]; then
+       # This would mean the SAI_DUMP_STORE_PATH is not mounted on the host and is only accessible though the container 
+       # This is a bad design and not recommended/ But there is nothing which restricts against it and thus the special handling
+       if [[ "$( docker container inspect -f '{{.State.Running}}' syncd )" == "true" ]]; then
+            $RM $V -rf /tmp/dfw-sdk-dumps
+            $MKDIR $V -p /tmp/dfw-sdk-dumps
+            copy_from_docker syncd $sdk_dump_path /tmp/dfw-sdk-dumps
+       else
+            echo "ERROR: dfw dumps cannot be collected"
+       fi
+       sdk_dump_path="/tmp/dfw-sdk-dumps"
+    fi
+
+    for file in $(find_files "$sdk_dump_path"); do
+        if $TAR -tf $TARFILE | grep $BASE/log/$(basename $file); then
+            # If this path sits under "/var/log/" dir, the files
+            # would've already been collected and thus just add a sym link
+            if [ ! -z "${file##*.gz}" ]; then
+                # files saved under log/ are zipped with gz
+                file=$file.gz
+            fi
+            ${CMD_PREFIX}save_symlink ${file} sai_sdk_dump log
+        else
+            if [ ! -z "${file##*.gz}" ]; then
+                ${CMD_PREFIX}save_file ${file} sai_sdk_dump true
+            else
+                ${CMD_PREFIX}save_file ${file} sai_sdk_dump false
+            fi
+        fi
+    done
 }
 
 ###############################################################################
@@ -1245,8 +1318,21 @@ save_crash_files() {
 ###############################################################################
 save_saisdkdump_files(){
     for file in $(find_files "/var/log/orch_abrt_sdkdump/"); do
-        $MKDIR $V -p $LOGDIR/orch_abrt_sdkdump
-        save_file $file orch_abrt_sdkdump
+        if $TAR -tf $TARFILE | grep $BASE/log/$(basename $file); then
+            # if the files are already collected under the log/ dir
+            # just add a symbolic link
+            if [ ! -z "${file##*.gz}" ]; then
+                # files saved under log/ are zipped with gz
+                file=$file.gz
+            fi
+            ${CMD_PREFIX}save_symlink ${file} orch_abrt_sdkdump log
+        else
+            if [ ! -z "${file##*.gz}" ]; then
+                ${CMD_PREFIX}save_file ${file} orch_abrt_sdkdump true
+            else
+                ${CMD_PREFIX}save_file ${file} orch_abrt_sdkdump false
+            fi
+        fi
     done
 }
 
@@ -1519,6 +1605,10 @@ main() {
     save_crash_files
     save_warmboot_files
     save_saisdkdump_files
+
+    if [[ "$asic" = "mellanox" ]]; then
+        collect_mellanox_dfw_dumps
+    fi
 
     finalize
 }
