@@ -895,9 +895,7 @@ save_symlink() {
     local file_basename=$(basename $filename)
     local tar_path="$BASE/$dest_dir/$file_basename"
 
-    if [[ ! -d "$TARDIR/$dest_dir" ]]; then
-        $MKDIR $V -p "$TARDIR/$dest_dir"
-    fi
+    $MKDIR $V -p "$TARDIR/$dest_dir"
 
     ${CMD_PREFIX}pushd $TARDIR/$dest_dir
     ${CMD_PREFIX}ln -s ../$src_dir/$file_basename $file_basename
