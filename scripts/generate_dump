@@ -1110,7 +1110,7 @@ collect_mellanox_dfw_dumps() {
 
     if [[ ! -d $sdk_dump_path ]]; then
        # This would mean the SAI_DUMP_STORE_PATH is not mounted on the host and is only accessible though the container 
-       # This is a bad design and not recommended/ But there is nothing which restricts against it and thus the special handling
+       # This is a bad design and not recommended But there is nothing which restricts against it and thus the special handling
        if [[ "$( docker container inspect -f '{{.State.Running}}' syncd )" == "true" ]]; then
             $RM $V -rf /tmp/dfw-sdk-dumps
             $MKDIR $V -p /tmp/dfw-sdk-dumps
