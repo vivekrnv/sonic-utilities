@@ -49,7 +49,9 @@
         "tx1power": "N/A",
         "tx2power": "N/A",
         "tx3power": "N/A",
-        "tx4power": "N/A",
+        "tx4power": "N/A"
+    },
+    "TRANSCEIVER_DOM_THRESHOLD|Ethernet0": {
         "rxpowerhighalarm": "3.4001",
         "rxpowerhighwarning": "2.4000",
         "rxpowerlowalarm": "-13.5067",
@@ -74,7 +76,7 @@
         "manufacturer": "INNOLIGHT",
         "model": "C-DQ8FNM010-N00",
         "vendor_oui": "44-7c-7f",
-        "vendor_date": "2020-05-22 ",
+        "vendor_date": "2020-05-22",
         "connector": "No separable connector",
         "encoding": "Not supported for CMIS cables",
         "ext_identifier": "Power Class 1(10.0W Max)",
@@ -83,7 +85,7 @@
         "cable_length": "10",
         "specification_compliance": "Not supported for CMIS cables",
         "nominal_bit_rate": "Not supported for CMIS cables",
-        "application_advertisement": "400GAUI-8 C2M (Annex 120E) - Active Cable assembly with BER < 2.6x10^-4\n\t\t\t\t   IB EDR (Arch.Spec.Vol.2) - Active Cable assembly with BER < 5x10^-5\n\t\t\t\t   IB QDR (Arch.Spec.Vol.2) - Active Cable assembly with BER < 10^-12\n\t\t\t\t   "
+        "application_advertisement": "400GAUI-8 C2M (Annex 120E) - Active Cable assembly with BER < 2.6x10^-4\n\t\t\t\t   IB EDR (Arch.Spec.Vol.2) - Active Cable assembly with BER < 5x10^-5\n\t\t\t\t   IB QDR (Arch.Spec.Vol.2) - Active Cable assembly with BER < 10^-12"
     },
     "TRANSCEIVER_DOM_SENSOR|Ethernet8": {
         "temperature": "44.9883",
@@ -111,7 +113,9 @@
         "tx5power": "1.175",
         "tx6power": "1.175",
         "tx7power": "1.175",
-        "tx8power": "1.175",
+        "tx8power": "1.175"
+    },
+    "TRANSCEIVER_DOM_THRESHOLD|Ethernet8": {
         "rxpowerhighalarm": "6.9999",
         "rxpowerhighwarning": "4.9999",
         "rxpowerlowalarm": "-11.9044",
@@ -205,6 +209,24 @@
         "nominal_bit_rate": "N/A",
         "application_advertisement": "N/A"
     },
+    "TRANSCEIVER_INFO|Ethernet40": {
+        "type": "QSFP-DD Double Density 8X Pluggable Transceiver",
+        "vendor_rev": "2A",
+        "serial": "INKAO2900002A",
+        "manufacturer": "INNOLIGHT",
+        "model": "C-DQ8FNM010-N00",
+        "vendor_oui": "44-7c-7f",
+        "vendor_date": "2020-05-22",
+        "connector": "No separable connector",
+        "encoding": "Not supported for CMIS cables",
+        "ext_identifier": "Power Class 1(10.0W Max)",
+        "ext_rateselect_compliance": "Not supported for CMIS cables",
+        "cable_type": "Length Cable Assembly(m)",
+        "cable_length": "10",
+        "specification_compliance": "Not supported for CMIS cables",
+        "nominal_bit_rate": "Not supported for CMIS cables",
+        "application_advertisement": "{1: {'host_electrical_interface_id': '400G CR8', 'module_media_interface_id': 'Copper cable', 'media_lane_count': 8, 'host_lane_count': 8, 'host_lane_assignment_options': 1, 'media_lane_assignment_options': 2}, 2: {'host_electrical_interface_id': '200GBASE-CR4 (Clause 136)'}}"
+    },
     "TRANSCEIVER_STATUS|Ethernet0": {
         "status": "67",
         "error": "Blocking Error|High temperature"
@@ -233,6 +255,10 @@
         "status": "255",
         "error": "Unknown"
     },
+    "TRANSCEIVER_STATUS|Ethernet40": {
+        "status": "0",
+        "error": "N/A"
+    },
     "CHASSIS_INFO|chassis 1": {
         "psu_num": "2"
     },
@@ -249,6 +275,7 @@
         "voltage_max_threshold": "None",
         "current": "8.37",
         "power": "102.7",
+        "power_overload": "True",
         "is_replaceable": "False",
         "led_status": "green"
     },
@@ -265,6 +292,7 @@
         "voltage_max_threshold": "None",
         "current": "10.07",
         "power": "122.0",
+        "power_overload": "False",
         "is_replaceable": "False",
         "led_status": "green"
     },
@@ -364,6 +392,30 @@
         "Len": "4",
         "Name": "CRC-32",
         "Value": "0xAC518FB3"
+    },
+    "MUX_CABLE_INFO|Ethernet0": {
+        "version_peer_next": "0.2MS",
+        "version_peer_active": "0.2MS",
+        "version_peer_inactive": "0.2MS",
+        "version_nic_next": "0.2MS",
+        "version_nic_active": "0.2MS",
+        "version_nic_inactive": "0.2MS",
+        "version_self_next": "0.2MS",
+        "version_self_active": "0.2MS",
+        "version_self_inactive": "0.2MS",
+        "Value": "AABB"
+    },
+    "MUX_CABLE_INFO|Ethernet12": {
+        "version_peer_next": "0.1MS",
+        "version_peer_active": "0.1MS",
+        "version_peer_inactive": "0.1MS",
+        "version_nic_next": "0.1MS",
+        "version_nic_active": "0.1MS",
+        "version_nic_inactive": "0.1MS",
+        "version_self_next": "0.1MS",
+        "version_self_active": "0.1MS",
+        "version_self_inactive": "0.1MS",
+        "Value": "AABB"
     },
     "SWITCH_CAPABILITY|switch": {
         "MIRROR": "true",

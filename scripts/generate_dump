@@ -528,6 +528,40 @@ save_bgp_neighbor() {
 }
 
 ###############################################################################
+# Iterates all EVPN neighbors and runs save_vtysh to save each neighbor's
+# advertised-routes and received-routes
+# On multi ASIC platform, collects information from all namespaces
+# Globals:
+#  None
+# Arguments:
+#  Optional arg namespace
+# Returns:
+#  None
+###############################################################################
+save_bgp_evpn_neighbor() {
+    trap 'handle_error $? $LINENO' ERR
+    local timeout_cmd="timeout --foreground ${TIMEOUT_MIN}m"
+    local asic_id=${1:-""}
+    local ns=$(get_vtysh_namespace $asic_id)
+
+    evpn_neighbors=$(${timeout_cmd} bash -c "vtysh -c 'show bgp l2vpn evpn summary' | cut -d ' ' -f1")
+    local parse_neighbors=false
+    for word in $evpn_neighbors; do
+        if [[ $word == "Neighbor" ]]; then
+            parse_neighbors=true
+            continue
+        elif [[ $word == "Total" ]]; then
+            parse_neighbors=false
+            continue
+        fi
+        if [ "$parse_neighbors" = true ]; then
+            save_cmd "vtysh $ns -c \"show bgp l2vpn evpn neighbors $word advertised-routes\"" "bgp.evpn.neighbor.$word.adv$asic_id"
+            save_cmd "vtysh $ns -c \"show bgp l2vpn evpn neighbors $word routes\"" "bgp.evpn.neighbor.$word.rcv$asic_id"
+        fi
+    done
+}
+
+###############################################################################
 # Iterates all ASIC namespaces on multi ASIC platform and on default (host)
 # namespace on single ASIC platform
 # Globals:
@@ -545,6 +579,28 @@ save_bgp_neighbor_all_ns() {
         for (( i=0; i<$NUM_ASICS; i++ ))
         do
             save_bgp_neighbor $i
+        done
+    fi
+}
+
+###############################################################################
+# Iterates all ASIC namespaces on multi ASIC platform and on default (host)
+# namespace on single ASIC platform
+# Globals:
+#  NUM_ASICS
+# Arguments:
+#  None
+# Returns:
+#  None
+###############################################################################
+save_bgp_evpn_neighbor_all_ns() {
+    trap 'handle_error $? $LINENO' ERR
+    if [[ ( "$NUM_ASICS" == 1 ) ]] ; then
+        save_bgp_evpn_neighbor
+    else
+        for (( i=0; i<$NUM_ASICS; i++ ))
+        do
+            save_bgp_evpn_neighbor $i
         done
     fi
 }
@@ -602,6 +658,7 @@ save_ip_info() {
     save_ip "route show table all" "route"
     save_ip "neigh" "neigh"
     save_ip "-s neigh show nud noarp" "neigh.noarp"
+    save_ip "-s link" "link.stats"
 }
 
 ###############################################################################
@@ -624,6 +681,23 @@ save_bgp_info() {
     save_bgp_neighbor_all_ns
 }
 
+###############################################################################
+# Save EVPN related info
+# Globals:
+#  None
+# Arguments:
+#  None
+# Returns:
+#  None
+###############################################################################
+save_evpn_info() {
+    trap 'handle_error $? $LINENO' ERR
+    save_vtysh "show bgp l2vpn evpn" "bgp.l2vpn.evpn"
+    save_vtysh "show bgp l2vpn evpn route detail" "bgp.evpn.route"
+    save_vtysh "show evpn vni detail" "bgp.evpn.vni"
+    save_vtysh "show evpn arp-cache vni all" "bgp.evpn.arp"
+    save_bgp_evpn_neighbor_all_ns
+}
 ###############################################################################
 # Save FRR related info
 # Globals:
@@ -701,6 +775,59 @@ save_proc() {
 }
 
 ###############################################################################
+# Dump io stats for processes
+# Globals:
+#  V
+#  TARDIR
+#  MKDIR
+#  CP
+#  DUMPDIR
+#  TAR
+#  RM
+#  BASE
+#  TARFILE
+#  NOOP
+# Arguments:
+#  None
+# Returns:
+#  None
+###############################################################################
+save_proc_stats() {
+    trap 'handle_error $? $LINENO' ERR
+    $MKDIR $V -p $TARDIR/proc_stats
+
+    local stats_file=/tmp/stats
+    echo > $stats_file
+    for pid in /proc/[[:digit:]]*
+    do
+        pid_num=${pid//[!0-9]/}
+        cmdline=`eval ps -p $pid_num -o args --no-headers`
+        if test -n "$cmdline"; then
+            echo pid $pid
+            echo cmdline: $cmdline
+            cat $pid/io; echo
+        else
+            #Dump also internal kernel processes if they perform writes
+            write_bytes=$(cat $pid/io | grep -w write_bytes: | cut -b 14-)
+            if [ "$write_bytes" != "0" ]; then
+                echo pid $pid - `cat $pid/comm`:
+                cat $pid/io; echo
+            fi
+        fi
+    done >> $stats_file 2>&1
+
+    if $NOOP; then
+        echo "$CP $V -r $stats_file $TARDIR/proc_stats"
+    else
+        ( $CP $V -r $stats_file $TARDIR/proc_stats ) || echo "$stats_file error" > $TARDIR/$stats_file
+    fi
+
+    $TAR $V -rhf $TARFILE -C $DUMPDIR --mode=+rw $BASE/proc_stats
+    $RM $V -rf $TARDIR/proc_stats
+    $RM -rf $stats_file
+}
+
+###############################################################################
 # Dumps all fields and values from given Redis DB.
 # Arguments:
 #  DB name: DB name
@@ -757,7 +884,7 @@ save_platform_info() {
     if [[ ! $PLATFORM =~ .*(mlnx|nvidia).*simx.* ]]; then
         save_cmd "show platform syseeprom" "syseeprom"
         save_cmd "show platform psustatus" "psustatus"
-        save_cmd "show platform ssdhealth" "ssdhealth"
+        save_cmd "show platform ssdhealth --vendor" "ssdhealth"
         save_cmd "show platform temperature" "temperature"
         save_cmd "show platform fan" "fan"
     fi
@@ -909,7 +1036,6 @@ save_symlink() {
     end_t=$(date +%s%3N)
     echo "[ save_symlink:$filename] : $(($end_t-$start_t)) msec"  >> $TECHSUPPORT_TIME_INFO
 }
-
 
 ###############################################################################
 # Collect Mellanox specific information
@@ -1189,7 +1315,9 @@ collect_cisco_8000() {
     if [ -d /usr/share/sonic/device/${platform} ]; then
         pushd /usr/share/sonic/device/${platform} > /dev/null
         for file in $(find . -path "./*plugin*" -prune -o -path "./*.xml" -prune -o -path "./*.yaml" -prune -o -print); do
-            save_file ${file} sai false
+            if [ -f ${file} ]; then
+                 save_file ${file} sai false
+            fi
         done
         popd > /dev/null
     else
@@ -1454,6 +1582,7 @@ main() {
         /proc/uptime /proc/version /proc/vmallocinfo /proc/vmstat \
         /proc/zoneinfo \
         || abort "${EXT_PROCFS_SAVE_FAILED}" "Proc saving operation failed. Aborting for safety."
+    save_proc_stats
     end_t=$(date +%s%3N)
     echo "[ Capture Proc State ] : $(($end_t-$start_t)) msec" >> $TECHSUPPORT_TIME_INFO
 
@@ -1477,6 +1606,7 @@ main() {
     save_cmd "show version" "version"
     save_cmd "show platform summary" "platform.summary"
     save_cmd "cat /host/machine.conf" "machine.conf"
+    save_cmd "cat /boot/config-$(uname -r)" "boot.conf"
     save_cmd "docker stats --no-stream" "docker.stats"
 
     save_cmd "sensors" "sensors"
@@ -1489,6 +1619,7 @@ main() {
 
     save_frr_info
     save_bgp_info
+    save_evpn_info
 
     save_cmd "show interface status -d all" "interface.status"
     save_cmd "show interface transceiver presence" "interface.xcvrs.presence"
@@ -1539,6 +1670,12 @@ main() {
         done
     fi
 
+    save_cmd "dpkg -l" "dpkg"
+    save_cmd "who -a" "who"
+    save_cmd "swapon -s" "swapon"
+    save_cmd "hdparm -i /dev/sda" "hdparm"
+    save_cmd "ps -AwwL -o user,pid,lwp,ppid,nlwp,pcpu,pri,nice,vsize,rss,tty,stat,wchan:12,start,bsdtime,command" "ps.extended"
+
     save_saidump
 
     if [ "$asic" = "barefoot" ]; then
@@ -1568,7 +1705,7 @@ main() {
     rm_list=$(find -L $TARDIR/etc -maxdepth 5 -type l)
     if [ ! -z "$rm_list" ]
     then
-        rm $rm_list
+        rm -f $rm_list
     fi
 
     # Remove secret from /etc files before tar
