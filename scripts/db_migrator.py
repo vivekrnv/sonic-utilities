@@ -91,7 +91,9 @@ class DBMigrator():
         self.asic_type = version_info.get('asic_type')
         if not self.asic_type:
             log.log_error("ASIC type information not obtained. DB migration will not be reliable")
-        self.hwsku = device_info.get_hwsku()
+
+        # TODO: Update get_hwsku API to take in a custom configDB object
+        self.hwsku = device_info.get_localhost_info('hwsku', self.configDB)
         if not self.hwsku:
             log.log_error("HWSKU information not obtained. DB migration will not be reliable")
 
