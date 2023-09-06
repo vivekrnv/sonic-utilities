@@ -248,7 +248,7 @@ setup(
         'prettyprinter>=0.18.0',
         'pyroute2>=0.5.14, <0.6.1',
         'requests>=2.25.0',
-        'tabulate==0.8.2',
+        'tabulate==0.9.0',
         'toposort==1.6',
         'www-authenticate==0.9.2',
         'xmltodict==0.12.0',
@@ -263,7 +263,7 @@ setup(
         'responses',
         'pytest',
         'mockredispy>=2.9.3',
-        'deepdiff==5.2.3'
+        'deepdiff==6.2.2'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',
