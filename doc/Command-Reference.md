@@ -39,6 +39,10 @@
   * [Console config commands](#console-config-commands)
   * [Console connect commands](#console-connect-commands)
   * [Console clear commands](#console-clear-commands)
+* [CMIS firmware upgrade](#cmis-firmware-upgrade)
+  * [CMIS firmware version show commands](#cmis-firmware-version-show-commands)
+  * [CMIS firmware upgrade commands](#cmis-firmware-upgrade-commands)
+  * [CMIS firmware target mode commands](#cmis-firmware-target-mode-commands)
 * [DHCP Relay](#dhcp-relay)
   * [DHCP Relay show commands](#dhcp-relay-show-commands)
   * [DHCP Relay clear commands](#dhcp-relay-clear-commands)
@@ -132,6 +136,7 @@
 * [Platform Specific Commands](#platform-specific-commands)
   * [Mellanox Platform Specific Commands](#mellanox-platform-specific-commands)
   * [Barefoot Platform Specific Commands](#barefoot-platform-specific-commands)
+* [PINS](#pins-show commands)
 * [PortChannels](#portchannels)
   * [PortChannel Show commands](#portchannel-show-commands)
   * [PortChannel Config commands](#portchannel-config-commands)
@@ -205,6 +210,7 @@
 
 | Version | Modification Date | Details |
 | --- | --- | --- |
+| v8 | Oct-09-2023 | Add CMIS firmware upgrade commands |
 | v7 | Jun-22-2023 | Add static DNS show and config commands |
 | v6 | May-06-2021 | Add SNMP show and config commands |
 | v5 | Nov-05-2020 | Add document for console commands |
@@ -453,6 +459,7 @@ The same syntax applies to all subgroups of `show` which themselves contain subc
   Commands:
     counters       Show interface counters
     description    Show interface status, protocol and...
+    fec            Show interface fec information
     link-training  Show interface link-training information
     naming_mode    Show interface naming_mode status
     neighbor       Show neighbor related information
@@ -2783,6 +2790,138 @@ Optionally, you can clear with a remote device name by specifying the `-d` or `-
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#console)
 
+## CMIS firmware upgrade
+
+### CMIS firmware version show commands
+
+The sfputil command shows the current major and minor versions of active/inactive firmware, running Image details. The output may vary based on the single vs dual bank supported modules.
+
+**sfputil show fwversion**
+
+- Usage:
+  ```
+  sfputil show fwversion PORT_NAME
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sfputil show fwversion Ethernet180
+  Image A Version: 0.3.5
+  Image B Version: 0.3.5
+  Factory Image Version: 0.0.0
+  Running Image: A
+  Committed Image: A
+  Active Firmware: 0.3.5
+  Inactive Firmware: 0.3.5
+  ```
+
+### CMIS firmware upgrade commands
+
+The sfputil commands are used to download/upgrade firmware on transciver modules. The download/upgrade actually happens using set of CMIS CDB commands. The module may replace the exisiting image or copy into the inactive bank of the module. The host issues a download complete CDB command when the entire firmware image has been written to LPL or EPL pages. Each steps can be verified using the 'sfputil show fwversion PORT_NAME'
+
+**sfputil firmware download**
+
+This command is used for downloading firmware tp upgrade the transciever module.
+
+- Usage:
+  ```
+  sfputil firmware download PORT_NAME FILE_PATH
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sfputil firmware download Ethernet180 AEC_Camano_YCable__0.3.6_20230905.bin
+  CDB: Starting firmware download
+  Downloading ...  [####################################]  100%
+  CDB: firmware download complete
+  Firmware download complete success
+  Total download Time: 0:01:55.731397
+
+  admin@sonic:~$ sfputil show fwversion Ethernet180
+  Image A Version: 0.3.5
+  Image B Version: 0.3.6
+  Factory Image Version: 0.0.0
+  Running Image: A
+  Committed Image: A
+  Active Firmware: 0.3.5
+  Inactive Firmware: 0.3.6
+  ```
+**sfputil firmware run**
+
+This command is used to start and run a downloaded image. This command transfers control from the currently running firmware to a new firmware. 
+
+- Usage:
+  ```
+  sfputil firmware run PORT_NAME
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sfputil firmware run Ethernet180
+  Running firmware: Non-hitless Reset to Inactive Image
+  Firmware run in mode=0 success
+
+  admin@sonic:~$ sfputil show fwversion Ethernet180
+  Image A Version: 0.3.5
+  Image B Version: 0.3.6
+  Factory Image Version: 0.0.0
+  Running Image: B
+  Committed Image: A
+  Active Firmware: 0.3.6
+  Inactive Firmware: 0.3.5
+  ```
+
+**sfputil firmware commit**
+
+This command to commit the running image so that the module will boot from it on future boots. 
+
+- Usage:
+  ```
+  sfputil firmware commit PORT_NAME
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sfputil firmware commit Ethernet180
+  Firmware commit successful
+
+  admin@sonic:~$ sfputil show fwversion Ethernet180
+  Image A Version: 0.3.5
+  Image B Version: 0.3.6
+  Factory Image Version: 0.0.0
+  Running Image: B
+  Committed Image: B
+  Active Firmware: 0.3.6
+  Inactive Firmware: 0.3.5
+  ```
+
+### CMIS firmware target mode commands
+
+This command is vendor-specific and supported on the modules to set the target mode to perform remote firmware upgrades. The target modes can be set as 0 (local- E0), 1 (remote end E1), or 2 (remote end E2). Depending on the mode set, the remote or local end will respond to CDB/I2C commands from host's E0 end. After setting the target mode, we can use **sfputil** firmware upgrade commands, will be executed on the module for which target mode is set.
+
+Example of the module supporting target mode
+
+![RMT_UPGRD](https://github.com/AnoopKamath/sonic-utilities_remote_upgrade/assets/115578705/c3b0bb62-eb14-4b05-b0a8-96b8c082455a)
+
+**sfputil firmware target**
+
+- Usage:
+  ```
+  sfputil firmware target [OPTIONS] PORT_NAME TARGET
+
+  Select target end for firmware download
+  0-(local)
+
+  1-(remote-A)
+
+  2-(remote-B)
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sfputil firmware target Ethernet180 1
+  Target Mode set to 1
+  ```
 
 ## DHCP Relay
 
@@ -4445,6 +4584,29 @@ This command displays the key fields of the interfaces such as Operational Statu
   -----------  ------  -------  --------------  --------------------
   Ethernet4    down       up  hundredGigE1/2  T0-2:hundredGigE1/30
   ```
+
+**show interfaces fec status (Versions >= 202311)**
+
+This command is to display the FEC status of the selected interfaces. If **interface_name** is not specicied, this command shows the FEC status of all interfaces.
+
+- Usage:
+  ```
+  show interfaces fec status [<interface_name>]
+  ```
+
+- Example:  
+```
+  admin@sonic:~$ show interfaces fec status
+  Interface    FEC Oper    FEC Admin
+  -----------  ----------  -----------
+  Ethernet0         N/A           rs
+ Ethernet32         N/A           rs
+ Ethernet36         N/A          N/A
+Ethernet112         N/A           rs
+Ethernet116         N/A           rs
+Ethernet120         N/A           rs
+Ethernet124          rs         auto
+```
 
 **show interfaces link-training (Versions >= 202211)**
 
@@ -8384,6 +8546,63 @@ It supports add/update/remove operations.
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#pbh)
 
+## PINS
+
+### PINS Show commands
+
+#### P4RT Table
+
+**show p4-table**
+
+This command displays the P4RT (P4 Runtime) tables in the application database.
+
+These tables are used by PINS (P4 Integrated Network Stack) for orchagent to
+communicate with the P4RT application.
+
+- Usage:
+  ```bash
+  show p4-table
+  show p4-table <table_prefix>
+  ```
+
+- Example:
+
+  ```bash
+  admin@sonic:~$ show p4-table
+  {
+      "P4RT_TABLE:ACL_TABLE_DEFINITION_TABLE:ACL_ACL_PRE_INGRESS_TABLE": {
+          "stage":"PRE_INGRESS",
+          "match/dst_ipv6":"{\"bitwidth\":128,\"format\":\"IPV6\",\"kind\":\"sai_field\",\"sai_field\":\"SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6\"}",
+          "match/in_port":"{\"format\":\"STRING\",\"kind\":\"sai_field\",\"sai_field\":\"SAI_ACL_TABLE_ATTR_FIELD_IN_PORT\"}",
+          "match/is_ipv4":"{\"bitwidth\":1,\"format\":\"HEX_STRING\",\"kind\":\"sai_field\",\"sai_field\":\"SAI_ACL_TABLE_ATTR_FIELD_ACL_IP_TYPE/IPV4ANY\"}",
+          "action/set_vrf": "[{\"action\":\"SAI_PACKET_ACTION_FORWARD\"},{\"action\":\"SAI_ACL_ENTRY_ATTR_ACTION_SET_VRF\",\"param\":\"vrf_id\"}]"
+      },
+      "P4RT_TABLE:ACL_ACL_PRE_INGRESS_TABLE:{\"match/dst_ip\":\"10.53.192.0&255.255.240.0\",\"match/is_ipv4\":\"0x1\",\"priority\":1132}": {
+          "action": "set_vrf",
+          "param/vrf_id": "p4rt-vrf-80",
+          "controller_metadata": "my metadata"
+      },
+      ...
+  }
+  ```
+
+  The command supports filtering entries by table name. If a prefix is
+  specified, only p4 table entries matching that prefix will be displayed.
+
+  ```bash
+  admin@sonic:~$ show p4-table ACL_ACL_PRE_INGRESS_TABLE
+  {
+      "P4RT_TABLE:ACL_ACL_PRE_INGRESS_TABLE:{\"match/dst_ip\":\"10.53.192.0&255.255.240.0\",\"match/is_ipv4\":\"0x1\",\"priority\":1132}": {
+          "action": "set_vrf",
+          "param/vrf_id": "p4rt-vrf-80",
+          "controller_metadata": "my metadata"
+      },
+      ...
+  }
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#pbh)
+
 ## QoS
 
 ### QoS Show commands
@@ -8906,6 +9125,7 @@ This command displays the global sFlow configuration that includes the admin sta
   admin@sonic:~# show sflow
   sFlow Global Information:
   sFlow Admin State:          up
+  sFlow Sample Direction:     both
   sFlow Polling Interval:     default
   sFlow AgentID:              lo
 
@@ -8929,24 +9149,23 @@ This command displays the per-interface sflow admin status and the sampling rate
   admin@sonic:~# show sflow interface
 
   sFlow interface configurations
-  +-------------+---------------+-----------------+
-  | Interface   | Admin State   |   Sampling Rate |
-  +=============+===============+=================+
-  | Ethernet0   | up            |            4000 |
-  +-------------+---------------+-----------------+
-  | Ethernet1   | up            |            4000 |
-  +-------------+---------------+-----------------+
+  +-------------+---------------+-----------------+----------------------+
+  | Interface   | Admin State   |   Sampling Rate | Sampling Direction   |
+  +=============+===============+=================+======================+
+  | Ethernet0   | up            |            4000 | both                 |
+  +-------------+---------------+-----------------+----------------------|
+  | Ethernet1   | up            |            4000 | tx                   |
+  +-------------+---------------+-----------------+----------------------+
   ...
-  +-------------+---------------+-----------------+
-  | Ethernet61  | up            |            4000 |
-  +-------------+---------------+-----------------+
-  | Ethernet62  | up            |            4000 |
-  +-------------+---------------+-----------------+
-  | Ethernet63  | up            |            4000 |
-  +-------------+---------------+-----------------+
+  +-------------+---------------+-----------------+----------------------+
+  | Ethernet61  | up            |            4000 | rx                   |
+  +-------------+---------------+-----------------+----------------------+
+  | Ethernet62  | up            |            4000 | tx                   |
+  +-------------+---------------+-----------------+----------------------+
+  | Ethernet63  | up            |            4000 | both                 |
+  +-------------+---------------+-----------------+----------------------+
 
   ```
-
 ### sFlow Config commands
 
 **config sflow collector add**
@@ -9015,6 +9234,18 @@ Globally, sFlow is disabled by default. When sFlow is enabled globally, the sflo
   ```
   admin@sonic:~# sudo config sflow enable
   ```
+**config sflow sample-direction**
+
+This command takes global sflow sample direction. If not configured, default is "rx" for backward compatibility. Based on the direction, the sFlow is enabled at all the interface level at rx or tx or both.
+
+- Usage:
+  ```
+  config sflow sample-direction <rx|tx|both>
+  ```
+- Example:
+  ```
+  admin@sonic:~# sudo config sflow sample-direction tx
+  ```
 **config sflow interface**
 
 Enable/disable sflow at an interface level. By default, sflow is enabled on all interfaces at the interface level. Use this command to explicitly disable sFlow for a specific interface. An interface is sampled if sflow is enabled globally as well as at the interface level. Note that this configuration deals only with sFlow flow samples and not counter samples.
@@ -9031,6 +9262,24 @@ Enable/disable sflow at an interface level. By default, sflow is enabled on all 
   ```
   admin@sonic:~# sudo config sflow interface disable Ethernet40
   ```
+
+**config sflow interface sample-direction**
+
+Set sample direction to determine ingress sampling or egress sampling or both. If not configured, default is "rx".
+
+- Usage:
+  ```
+  config sflow sample-direction <interface-name|all> <rx|tx|both>
+  ```
+
+  - Parameters:
+    - interface-name: specify the interface for which sFlow flow sample-direction has to be set. The “all” keyword is used as a convenience to set sflow sample-direction at the interface level for all the interfaces.
+
+- Example:
+  ```
+  admin@sonic:~# sudo config sflow interface sample-direction Ethernet40 tx
+  ```
+Note: The local configuration applied to an interface has higher precedence over the global configuration provided through the "all" keyword.
 
 **config sflow interface sample-rate**
 

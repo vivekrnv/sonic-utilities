@@ -882,62 +882,22 @@ def fetch_error_status_from_platform_api(port):
     """
     if port is None:
         logical_port_list = natsort.natsorted(platform_sfputil.logical)
-        # Create a list containing the logical port names of all ports we're interested in
-        generate_sfp_list_code = \
-            "sfp_list = chassis.get_all_sfps()\n"
     else:
-        physical_port_list = logical_port_name_to_physical_port_list(port)
         logical_port_list = [port]
-        # Create a list containing the logical port names of all ports we're interested in
-        generate_sfp_list_code = \
-            "sfp_list = [chassis.get_sfp(x) for x in {}]\n".format(physical_port_list)
-
-    # Code to initialize chassis object
-    init_chassis_code = \
-        "import sonic_platform.platform\n" \
-        "platform = sonic_platform.platform.Platform()\n" \
-        "chassis = platform.get_chassis()\n"
-
-    # Code to fetch the error status
-    get_error_status_code = \
-        "try:\n"\
-        "    errors=['{}:{}'.format(sfp.index, sfp.get_error_description()) for sfp in sfp_list]\n" \
-        "except NotImplementedError as e:\n"\
-        "    errors=['{}:{}'.format(sfp.index, 'OK (Not implemented)') for sfp in sfp_list]\n" \
-        "print(errors)\n"
-
-    get_error_status_command = ["docker", "exec", "pmon", "python3", "-c", "{}{}{}".format(
-        init_chassis_code, generate_sfp_list_code, get_error_status_code)]
-    # Fetch error status from pmon docker
-    try:
-        output = subprocess.check_output(get_error_status_command, universal_newlines=True)
-    except subprocess.CalledProcessError as e:
-        click.Abort("Error! Unable to fetch error status for SPF modules. Error code = {}, error messages: {}".format(e.returncode, e.output))
-        return None
-
-    output_list = output.split('\n')
-    for output_str in output_list:
-        # The output of all SFP error status are a list consisting of element with convention of '<sfp no>:<error status>'
-        # Besides, there can be some logs captured during the platform API executing
-        # So, first of all, we need to skip all the logs until find the output list of SFP error status
-        if output_str[0] == '[' and output_str[-1] == ']':
-            output_list = ast.literal_eval(output_str)
-            break
-
-    output_dict = {}
-    for output in output_list:
-        sfp_index, error_status = output.split(':')
-        output_dict[int(sfp_index)] = error_status
 
     output = []
     for logical_port_name in logical_port_list:
-        physical_port_list = logical_port_name_to_physical_port_list(logical_port_name)
-        port_name = get_physical_port_name(logical_port_name, 1, False)
+        physical_port = logical_port_to_physical_port_index(logical_port_name)
 
         if is_port_type_rj45(logical_port_name):
-            output.append([port_name, "N/A"])
+            output.append([logical_port_name, "N/A"])
         else:
-            output.append([port_name, output_dict.get(physical_port_list[0])])
+            try:
+                error_description = platform_chassis.get_sfp(physical_port).get_error_description()
+                output.append([logical_port_name, error_description])
+            except NotImplementedError:
+                click.echo("get_error_description NOT implemented for port {}".format(logical_port_name))
+                sys.exit(ERROR_NOT_IMPLEMENTED)
 
     return output
 
@@ -1365,11 +1325,17 @@ def download_firmware(port_name, filepath):
         sys.exit(EXIT_FAIL)
 
     # Increase the optoe driver's write max to speed up firmware download
-    sfp.set_optoe_write_max(SMBUS_BLOCK_WRITE_SIZE)
+    try:
+        sfp.set_optoe_write_max(SMBUS_BLOCK_WRITE_SIZE)
+    except NotImplementedError:
+        click.echo("Platform doesn't implement optoe write max change. Skipping value increase.")
 
     with click.progressbar(length=file_size, label="Downloading ...") as bar:
         address = 0
-        BLOCK_SIZE = MAX_LPL_FIRMWARE_BLOCK_SIZE if lplonly_flag else maxblocksize
+        if lplonly_flag:
+            BLOCK_SIZE = min(MAX_LPL_FIRMWARE_BLOCK_SIZE, maxblocksize)
+        else:
+            BLOCK_SIZE = maxblocksize
         remaining = file_size - startLPLsize
         while remaining > 0:
             count = BLOCK_SIZE if remaining >= BLOCK_SIZE else remaining
@@ -1391,7 +1357,10 @@ def download_firmware(port_name, filepath):
             remaining -= count
 
     # Restore the optoe driver's write max to '1' (default value)
-    sfp.set_optoe_write_max(1)
+    try:
+        sfp.set_optoe_write_max(1)
+    except NotImplementedError:
+        click.echo("Platform doesn't implement optoe write max change. Skipping value restore!")
 
     status = api.cdb_firmware_download_complete()
     update_firmware_info_to_state_db(port_name)
@@ -1560,6 +1529,43 @@ def version():
     """Display version info"""
     click.echo("sfputil version {0}".format(VERSION))
 
+# 'target' subcommand
+@firmware.command()
+@click.argument('port_name', required=True, default=None)
+@click.argument('target', type=click.IntRange(0, 2), required=True, default=None)
+def target(port_name, target):
+    """Select target end for firmware download 0-(local) \n
+                                               1-(remote-A) \n
+                                               2-(remote-B)
+    """
+    physical_port = logical_port_to_physical_port_index(port_name)
+    sfp = platform_chassis.get_sfp(physical_port)
+
+    if is_port_type_rj45(port_name):
+        click.echo("{}: This functionality is not applicable for RJ45 port".format(port_name))
+        sys.exit(EXIT_FAIL)
+
+    if not is_sfp_present(port_name):
+       click.echo("{}: SFP EEPROM not detected\n".format(port_name))
+       sys.exit(EXIT_FAIL)
+
+    try:
+        api = sfp.get_xcvr_api()
+    except NotImplementedError:
+        click.echo("{}: This functionality is currently not implemented for this module".format(port_name))
+        sys.exit(ERROR_NOT_IMPLEMENTED)
+
+    try:
+        status = api.set_firmware_download_target_end(target)
+    except AttributeError:
+        click.echo("{}: This functionality is not applicable for this module".format(port_name))
+        sys.exit(ERROR_NOT_IMPLEMENTED)
+
+    if status:
+        click.echo("Target Mode set to {}". format(target))
+    else:
+        click.echo("Target Mode set failed!")
+        sys.exit(EXIT_FAIL)
 
 if __name__ == '__main__':
     cli()

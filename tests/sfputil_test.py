@@ -424,13 +424,17 @@ class TestSfputil(object):
         output = sfputil.fetch_error_status_from_state_db('Ethernet0', db.db)
         assert output == expected_output_ethernet0
 
+    @patch('sfputil.main.platform_chassis')
     @patch('sfputil.main.logical_port_name_to_physical_port_list', MagicMock(return_value=[1]))
     @patch('sfputil.main.logical_port_to_physical_port_index', MagicMock(return_value=1))
     @patch('sfputil.main.is_port_type_rj45', MagicMock(return_value=False))
-    @patch('subprocess.check_output', MagicMock(return_value="['0:OK']"))
-    def test_fetch_error_status_from_platform_api(self):
+    def test_fetch_error_status_from_platform_api(self, mock_chassis):
+        mock_sfp = MagicMock()
+        mock_chassis.get_sfp = MagicMock(return_value=mock_sfp)
+        mock_sfp.get_error_description = MagicMock(return_value='OK')
+
         output = sfputil.fetch_error_status_from_platform_api('Ethernet0')
-        assert output == [['Ethernet0', None]]
+        assert output == [['Ethernet0', 'OK']]
 
     @patch('sfputil.main.logical_port_name_to_physical_port_list', MagicMock(return_value=[1]))
     @patch('sfputil.main.logical_port_to_physical_port_index', MagicMock(return_value=1))
@@ -439,6 +443,22 @@ class TestSfputil(object):
     def test_fetch_error_status_from_platform_api_RJ45(self):
         output = sfputil.fetch_error_status_from_platform_api('Ethernet0')
         assert output == [['Ethernet0', 'N/A']]
+
+    @patch('sfputil.main.platform_chassis')
+    @patch('sfputil.main.platform_sfputil', MagicMock(is_logical_port=MagicMock(return_value=1)))
+    @patch('sfputil.main.logical_port_name_to_physical_port_list', MagicMock(return_value=[1]))
+    @patch('sfputil.main.logical_port_to_physical_port_index', MagicMock(return_value=1))
+    @patch('sfputil.main.is_port_type_rj45', MagicMock(return_value=False))
+    def test_fetch_error_status_from_platform_api_exception(self, mock_chassis):
+        mock_sfp = MagicMock()
+        mock_chassis.get_sfp = MagicMock(return_value=mock_sfp)
+        mock_sfp.get_error_description = MagicMock(side_effect=NotImplementedError)
+
+        runner = CliRunner()
+        result = runner.invoke(sfputil.cli.commands['show'].commands['error-status'], ["-hw", "-p", "Ethernet0"])
+        assert result.exit_code == ERROR_NOT_IMPLEMENTED
+        expected_output = "get_error_description NOT implemented for port Ethernet0\n"
+        assert result.output == expected_output
 
     @patch('sfputil.main.platform_chassis')
     @patch('sfputil.main.logical_port_to_physical_port_index', MagicMock(return_value=1))
@@ -805,6 +825,26 @@ Ethernet0  N/A
         assert result.output == 'Show firmware version is not applicable for RJ45 port Ethernet0.\n'
         assert result.exit_code == EXIT_FAIL
 
+    @patch('builtins.open')
+    @patch('sfputil.main.platform_chassis')
+    @patch('sfputil.main.logical_port_to_physical_port_index', MagicMock(return_value=1))
+    @patch('sfputil.main.update_firmware_info_to_state_db', MagicMock())
+    def test_download_firmware(self, mock_chassis, mock_file):
+        mock_file.return_value.tell.return_value = 0
+        mock_sfp = MagicMock()
+        mock_api = MagicMock()
+        mock_sfp.get_xcvr_api = MagicMock(return_value=mock_api)
+        mock_chassis.get_sfp = MagicMock(return_value=mock_sfp)
+        mock_api.get_module_fw_mgmt_feature.return_value = {'status': True, 'feature': (0, 0, False, False, 0)}
+        mock_api.cdb_start_firmware_download.return_value = 1
+        mock_api.cdb_firmware_download_complete.return_value = 1
+        mock_sfp.set_optoe_write_max = MagicMock(side_effect=NotImplementedError)
+        status = sfputil.download_firmware("Ethernet0", "test.bin")
+        assert status == 1
+        mock_api.get_module_fw_mgmt_feature.return_value = {'status': True, 'feature': (0, 64, True, False, 0)}
+        status = sfputil.download_firmware("Ethernet0", "test.bin")
+        assert status == 1
+
     @patch('sfputil.main.platform_chassis')
     @patch('sfputil.main.logical_port_to_physical_port_index', MagicMock(return_value=1))
     def test_run_firmwre(self, mock_chassis):
@@ -930,3 +970,36 @@ Ethernet0  N/A
         mock_sfp.get_transceiver_info_firmware_versions.return_value = ['a.b.c', 'd.e.f']
 
         sfputil.update_firmware_info_to_state_db("Ethernet0")
+
+    @patch('sfputil.main.platform_chassis')
+    @patch('sfputil.main.logical_port_to_physical_port_index', MagicMock(return_value=1))
+    def test_target_firmware(self, mock_chassis):
+        mock_sfp = MagicMock()
+        mock_api = MagicMock()
+        mock_sfp.get_xcvr_api = MagicMock(return_value=mock_api)
+        mock_sfp.get_presence.return_value = True
+        mock_chassis.get_sfp = MagicMock(return_value=mock_sfp)
+        mock_api.set_firmware_download_target_end.return_value = 1
+        runner = CliRunner()
+        result = runner.invoke(sfputil.cli.commands['firmware'].commands['target'], ["Ethernet0", "2"])
+        assert result.output == 'Target Mode set to 2\n'
+        assert result.exit_code == 0
+
+        mock_sfp.get_presence.return_value = False
+        result = runner.invoke(sfputil.cli.commands['firmware'].commands['target'], ["Ethernet0", "2"])
+        assert result.output == 'Ethernet0: SFP EEPROM not detected\n\n'
+
+        mock_sfp.get_presence.return_value = True
+        mock_sfp.get_xcvr_api = MagicMock(side_effect=NotImplementedError)
+        result = runner.invoke(sfputil.cli.commands['firmware'].commands['target'], ["Ethernet0", "2"])
+        assert result.output == 'Ethernet0: This functionality is currently not implemented for this module\n'
+        assert result.exit_code == ERROR_NOT_IMPLEMENTED
+
+        mock_sfp.get_xcvr_api = MagicMock(return_value=mock_api)
+        mock_sfp.get_presence.return_value = True
+        mock_api.set_firmware_download_target_end.return_value = 0
+        result = runner.invoke(sfputil.cli.commands['firmware'].commands['target'], ["Ethernet0", "1"])
+        assert result.output == 'Target Mode set failed!\n'
+        assert result.exit_code == EXIT_FAIL
+
+        

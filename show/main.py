@@ -54,6 +54,7 @@ from . import kube
 from . import muxcable
 from . import nat
 from . import platform
+from . import p4_table
 from . import processes
 from . import reboot_cause
 from . import sflow
@@ -288,6 +289,7 @@ cli.add_command(kube.kubernetes)
 cli.add_command(muxcable.muxcable)
 cli.add_command(nat.nat)
 cli.add_command(platform.platform)
+cli.add_command(p4_table.p4_table)
 cli.add_command(processes.processes)
 cli.add_command(reboot_cause.reboot_cause)
 cli.add_command(sflow.sflow)
@@ -716,7 +718,8 @@ def queue():
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
 @click.option('--json', is_flag=True, help="JSON output")
 @click.option('--voq', is_flag=True, help="VOQ counters")
-def counters(interfacename, namespace, display, verbose, json, voq):
+@click.option('--nonzero', is_flag=True, help="Non Zero Counters")
+def counters(interfacename, namespace, display, verbose, json, voq, nonzero):
     """Show queue counters"""
 
     cmd = ["queuestat"]
@@ -736,6 +739,9 @@ def counters(interfacename, namespace, display, verbose, json, voq):
 
     if voq:
         cmd += ["-V"]
+
+    if nonzero:
+        cmd += ["-nz"]
 
     run_command(cmd, display_cmd=verbose)
 

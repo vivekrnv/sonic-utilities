@@ -6,6 +6,8 @@ import json
 import sys
 import traceback
 import re
+import sonic_yang
+import syslog
 
 from sonic_py_common import device_info, logger
 from swsscommon.swsscommon import SonicV2Connector, ConfigDBConnector, SonicDBConfig
@@ -13,6 +15,7 @@ from minigraph import parse_xml
 
 INIT_CFG_FILE = '/etc/sonic/init_cfg.json'
 MINIGRAPH_FILE = '/etc/sonic/minigraph.xml'
+YANG_MODELS_DIR = "/usr/local/yang-models"
 
 # mock the redis for unit test purposes #
 try:
@@ -91,7 +94,8 @@ class DBMigrator():
         self.asic_type = version_info.get('asic_type')
         if not self.asic_type:
             log.log_error("ASIC type information not obtained. DB migration will not be reliable")
-        self.hwsku = device_info.get_hwsku()
+
+        self.hwsku = device_info.get_localhost_info('hwsku', self.configDB)
         if not self.hwsku:
             log.log_error("HWSKU information not obtained. DB migration will not be reliable")
 
@@ -658,7 +662,7 @@ class DBMigrator():
         # overwrite the routing-config-mode as per minigraph parser
         # Criteria for update:
         # if config mode is missing in base OS or if base and target modes are not same
-        #  Eg. in 201811 mode is "unified", and in newer branches mode is "separated" 
+        #  Eg. in 201811 mode is "unified", and in newer branches mode is "separated"
         if ('docker_routing_config_mode' not in device_metadata_old and 'docker_routing_config_mode' in device_metadata_new) or \
         (device_metadata_old.get('docker_routing_config_mode') != device_metadata_new.get('docker_routing_config_mode')):
             device_metadata_old['docker_routing_config_mode'] = device_metadata_new.get('docker_routing_config_mode')
@@ -983,10 +987,19 @@ class DBMigrator():
     def version_3_0_6(self):
         """
         Version 3_0_6
-        This is the latest version for 202211 branch
         """
 
         log.log_info('Handling version_3_0_6')
+        self.set_version('version_3_0_7')
+        return 'version_3_0_7'
+
+    def version_3_0_7(self):
+        """
+        Version 3_0_7
+        This is the latest version for 202205 branch
+        """
+
+        log.log_info('Handling version_3_0_7')
         self.set_version('version_4_0_0')
         return 'version_4_0_0'
 
@@ -1000,12 +1013,14 @@ class DBMigrator():
         # reading FAST_REBOOT table can't be done with stateDB.get as it uses hget behind the scenes and the table structure is
         # not using hash and won't work.
         # FAST_REBOOT table exists only if fast-reboot was triggered.
-        keys = self.stateDB.keys(self.stateDB.STATE_DB, "FAST_REBOOT|system")
-        if keys:
-            enable_state = 'true'
-        else:
-            enable_state = 'false'
-        self.stateDB.set(self.stateDB.STATE_DB, 'FAST_RESTART_ENABLE_TABLE|system', 'enable', enable_state)
+        keys = self.stateDB.keys(self.stateDB.STATE_DB, "FAST_RESTART_ENABLE_TABLE|system")
+        if not keys:
+            keys = self.stateDB.keys(self.stateDB.STATE_DB, "FAST_REBOOT|system")
+            if keys:
+                enable_state = 'true'
+            else:
+                enable_state = 'false'
+            self.stateDB.set(self.stateDB.STATE_DB, 'FAST_RESTART_ENABLE_TABLE|system', 'enable', enable_state)
         self.set_version('version_4_0_1')
         return 'version_4_0_1'
 
@@ -1024,7 +1039,6 @@ class DBMigrator():
         Version 4_0_2.
         """
         log.log_info('Handling version_4_0_2')
-
         if self.stateDB.keys(self.stateDB.STATE_DB, "FAST_REBOOT|system"):
             self.migrate_config_db_flex_counter_delay_status()
 
@@ -1111,6 +1125,31 @@ class DBMigrator():
             version = next_version
         # Perform common migration ops
         self.common_migration_ops()
+        config = self.configDB.get_config()
+        # Fix table key in tuple
+        for table_name, table in config.items():
+            new_table = {}
+            hit = False
+            for table_key, table_val in table.items():
+                if isinstance(table_key, tuple):
+                    new_key = "|".join(table_key)
+                    new_table[new_key] = table_val
+                    hit = True
+                else:
+                    new_table[table_key] = table_val
+            if hit:
+                config[table_name] = new_table
+        # Run yang validation
+        yang_parser = sonic_yang.SonicYang(YANG_MODELS_DIR)
+        yang_parser.loadYangModel()
+        try:
+            yang_parser.loadData(configdbJson=config)
+            yang_parser.validate_data_tree()
+        except sonic_yang.SonicYangException as e:
+            syslog.syslog(syslog.LOG_CRIT, "Yang validation failed: " + str(e))
+            if os.environ["UTILITIES_UNIT_TESTING"] == "2":
+                raise
+
 
 def main():
     try:

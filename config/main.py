@@ -14,6 +14,7 @@ import sys
 import time
 import itertools
 import copy
+import tempfile
 
 from jsonpatch import JsonPatchConflict
 from jsonpointer import JsonPointerException
@@ -141,6 +142,14 @@ def read_json_file(fileName):
     except Exception as e:
         raise Exception(str(e))
     return result
+
+# write given JSON file
+def write_json_file(json_input, fileName):
+    try:
+        with open(fileName, 'w') as f:
+            json.dump(json_input, f, indent=4)
+    except Exception as e:
+        raise Exception(str(e))
 
 def _get_breakout_options(ctx, args, incomplete):
     """ Provides dynamic mode option as per user argument i.e. interface name """
@@ -1525,6 +1534,12 @@ def reload(db, filename, yes, load_sysinfo, no_service_restart, force, file_form
         # Get the file from user input, else take the default file /etc/sonic/config_db{NS_id}.json
         if cfg_files:
             file = cfg_files[inst+1]
+            # Save to tmpfile in case of stdin input which can only be read once
+            if file == "/dev/stdin":
+                file_input = read_json_file(file)
+                (_, tmpfname) = tempfile.mkstemp(dir="/tmp", suffix="_configReloadStdin")
+                write_json_file(file_input, tmpfname)
+                file = tmpfname
         else:
             if file_format == 'config_db':
                 if namespace is None:
@@ -1539,6 +1554,19 @@ def reload(db, filename, yes, load_sysinfo, no_service_restart, force, file_form
         if not os.path.exists(file):
             click.echo("The config file {} doesn't exist".format(file))
             continue
+
+        if file_format == 'config_db':
+            file_input = read_json_file(file)
+
+            platform = file_input.get("DEVICE_METADATA", {}).\
+                get("localhost", {}).get("platform")
+            mac = file_input.get("DEVICE_METADATA", {}).\
+                get("localhost", {}).get("mac")
+
+            if not platform or not mac:
+                log.log_warning("Input file does't have platform or mac. platform: {}, mac: {}"
+                    .format(None if platform is None else platform, None if mac is None else mac))
+                load_sysinfo = True
 
         if load_sysinfo:
             try:
@@ -1597,6 +1625,13 @@ def reload(db, filename, yes, load_sysinfo, no_service_restart, force, file_form
 
         clicommon.run_command(command, display_cmd=True)
         client.set(config_db.INIT_INDICATOR, 1)
+
+        if os.path.exists(file) and file.endswith("_configReloadStdin"):
+            # Remove tmpfile
+            try:
+                os.remove(file)
+            except OSError as e:
+                click.echo("An error occurred while removing the temporary file: {}".format(str(e)), err=True)
 
         # Migrate DB contents to latest version
         db_migrator='/usr/local/bin/db_migrator.py'
@@ -1907,8 +1942,8 @@ def override_config_table(db, input_config_db, dry_run):
                 if ns in config_input.keys():
                     ns_config_input = config_input[ns]
                 else:
-                    click.secho("Wrong config format! {} not found in asic config! cannot override.. abort".format(ns))
-                    sys.exit(1)
+                    click.echo("Override config not present for {}".format(ns))
+                    continue
         if not ns_config_input:
             # if ns_config_input is not defined, define it
             # it could be single-asic dut, or config_input is empty
@@ -2909,7 +2944,12 @@ def _qos_update_ports(ctx, ports, dry_run, json_data):
             click.secho("QoS definition template not found at {}".format(qos_template_file), fg="yellow")
             ctx.abort()
 
-        # Remove multi indexed entries first
+        # Remove entries first
+        for table_name in tables_single_index:
+            for port in portset_to_handle:
+                if config_db.get_entry(table_name, port):
+                    config_db.set_entry(table_name, port, None)
+
         for table_name in tables_multi_index:
             entries = config_db.get_keys(table_name)
             for key in entries:
@@ -5961,6 +6001,22 @@ def ecn(profile, rmax, rmin, ymax, ymin, gmax, gmin, rdrop, ydrop, gdrop, verbos
 
 
 #
+# 'mmu' command ('config mmu...')
+#
+@config.command()
+@click.option('-p', metavar='<profile_name>', type=str, required=True, help="Profile name")
+@click.option('-a', metavar='<alpha>', type=click.IntRange(-8,8), help="Set alpha for profile type dynamic")
+@click.option('-s', metavar='<staticth>', type=int, help="Set staticth for profile type static")
+def mmu(p, a, s):
+    """mmuconfig configuration tasks"""
+    log.log_info("'mmuconfig -p {}' executing...".format(p))
+    command = ['mmuconfig', '-p', str(p)]
+    if a is not None: command += ['-a', str(a)]
+    if s is not None: command += ['-s', str(s)]
+    clicommon.run_command(command)
+
+
+#
 # 'pfc' group ('config interface pfc ...')
 #
 
@@ -6525,7 +6581,9 @@ def add_ntp_server(ctx, ntp_ip_address):
         return
     else:
         try:
-            db.set_entry('NTP_SERVER', ntp_ip_address, {'NULL': 'NULL'})
+            db.set_entry('NTP_SERVER', ntp_ip_address,
+                         {'resolve_as': ntp_ip_address,
+                          'association_type': 'server'})
         except ValueError as e:
             ctx.fail("Invalid ConfigDB. Error: {}".format(e)) 
         click.echo("NTP server {} added to configuration".format(ntp_ip_address))
@@ -6646,6 +6704,41 @@ def polling_int(ctx, interval):
     except ValueError as e:
         ctx.fail("Invalid ConfigDB. Error: {}".format(e))
 
+def is_port_egress_sflow_supported():
+    state_db = SonicV2Connector(use_unix_socket_path=True)
+    state_db.connect(state_db.STATE_DB, False)
+    entry_name="SWITCH_CAPABILITY|switch"
+    supported = state_db.get(state_db.STATE_DB, entry_name,"PORT_EGRESS_SAMPLE_CAPABLE")
+    return supported
+
+#
+# 'sflow' command ('config sflow sample-direction ...')
+#
+@sflow.command('sample-direction')
+@click.argument('direction',  metavar='<sample_direction>', required=True, type=str)
+@click.pass_context
+def global_sample_direction(ctx, direction):
+    """Set sampling direction """
+    if ADHOC_VALIDATION:
+        if direction:
+            if direction not in ['rx', 'tx', 'both']:
+                ctx.fail("Error: Direction {} is invalid".format(direction))
+
+            if ((direction == 'tx' or direction == 'both') and (is_port_egress_sflow_supported() == 'false')):
+                ctx.fail("Sample direction {} is not supported on this platform".format(direction))
+
+    config_db = ValidatedConfigDBConnector(ctx.obj['db'])
+    sflow_tbl = config_db.get_table('SFLOW')
+
+    if not sflow_tbl:
+        sflow_tbl = {'global': {'admin_state': 'down'}}
+
+    sflow_tbl['global']['sample_direction'] = direction
+    try:
+        config_db.mod_entry('SFLOW', 'global', sflow_tbl['global'])
+    except ValueError as e:
+        ctx.fail("Invalid ConfigDB. Error: {}".format(e))
+
 def is_valid_sample_rate(rate):
     return rate.isdigit() and int(rate) in range(256, 8388608 + 1)
 
@@ -6754,6 +6847,40 @@ def sample_rate(ctx, ifname, rate):
                 config_db.mod_entry('SFLOW_SESSION', ifname, {'sample_rate': rate})
             except ValueError as e:
                 ctx.fail("Invalid ConfigDB. Error: {}".format(e))
+
+#
+# 'sflow' command ('config sflow interface sample-direction  ...')
+#
+@interface.command('sample-direction')
+@click.argument('ifname', metavar='<interface_name>', required=True, type=str)
+@click.argument('direction', metavar='<sample_direction>', required=True, type=str)
+@click.pass_context
+def interface_sample_direction(ctx, ifname, direction):
+    config_db = ValidatedConfigDBConnector(ctx.obj['db'])
+    if ADHOC_VALIDATION:
+        if not interface_name_is_valid(config_db, ifname) and ifname != 'all':
+            click.echo('Invalid interface name')
+            return
+        if direction:
+            if direction not in ['rx', 'tx', 'both']:
+                ctx.fail("Error: Direction {} is invalid".format(direction))
+
+            if (direction == 'tx' or direction == 'both') and (is_port_egress_sflow_supported() == 'false'):
+                ctx.fail("Sample direction {} is not supported on this platform".format(direction))
+
+    sess_dict = config_db.get_table('SFLOW_SESSION')
+
+    if sess_dict and ifname in sess_dict.keys():
+        sess_dict[ifname]['sample_direction'] = direction
+        try:
+            config_db.mod_entry('SFLOW_SESSION', ifname, sess_dict[ifname])
+        except ValueError as e:
+            ctx.fail("Invalid ConfigDB. Error: {}".format(e))
+    else:
+        try:
+            config_db.mod_entry('SFLOW_SESSION', ifname, {'sample_direction': direction})
+        except ValueError as e:
+            ctx.fail("Invalid ConfigDB. Error: {}".format(e))
 
 
 #
@@ -7203,7 +7330,7 @@ def clock():
 
 
 def get_tzs(ctx, args, incomplete):
-    ret = clicommon.run_command('timedatectl list-timezones',
+    ret = clicommon.run_command(['timedatectl', 'list-timezones'],
                                 display_cmd=False, ignore_error=False,
                                 return_cmd=True)
     if len(ret) == 0:
