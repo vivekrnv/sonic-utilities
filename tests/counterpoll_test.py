@@ -65,7 +65,6 @@ class TestCounterpoll(object):
         mock_get_platform_info.return_value = {'switch_type': 'dpu'}
         runner = CliRunner()
         result = runner.invoke(counterpoll.cli.commands["show"], [])
-        print(result.output)
         assert result.output == expected_counterpoll_show_dpu
 
     def test_port_buffer_drop_interval(self):
@@ -250,8 +249,7 @@ class TestCounterpoll(object):
         runner = CliRunner()
         db = Db()
 
-        result = runner.invoke(counterpoll.cli.commands["eni"].commands[status], [], obj=db.cfgdb)
-        print(result.exit_code, result.output)
+        result = runner.invoke(counterpoll.cli, ["eni", status])
         assert result.exit_code == 1
         assert result.output == "ENI counters are not supported on non DPU platforms\n"
 
@@ -263,7 +261,6 @@ class TestCounterpoll(object):
         db = Db()
 
         result = runner.invoke(counterpoll.cli.commands["eni"].commands[status], [], obj=db.cfgdb)
-        print(result.exit_code, result.output)
         assert result.exit_code == 0
 
         table = db.cfgdb.get_table('FLEX_COUNTER_TABLE')
@@ -277,7 +274,6 @@ class TestCounterpoll(object):
         test_interval = "2000"
 
         result = runner.invoke(counterpoll.cli.commands["eni"].commands["interval"], [test_interval], obj=db.cfgdb)
-        print(result.exit_code, result.output)
         assert result.exit_code == 0
 
         table = db.cfgdb.get_table('FLEX_COUNTER_TABLE')
