@@ -88,6 +88,7 @@ class TestShowPlatformPsu(object):
         assert mock_run_command.call_count == 1
         mock_run_command.assert_called_with(['psushow', '-s'], display_cmd=True)
 
+
 class TestShowPlatformSsdhealth(object):
     # Test 'show platform ssdhealth'
     @mock.patch('utilities_common.cli.run_command')
