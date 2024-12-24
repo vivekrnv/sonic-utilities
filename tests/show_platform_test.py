@@ -91,18 +91,11 @@ class TestShowPlatformPsu(object):
 class TestShowPlatformSsdhealth(object):
     # Test 'show platform ssdhealth'
     @mock.patch('utilities_common.cli.run_command')
-    @mock.patch('sonic_py_common.device_info.get_platform_json_data')
-    def test_ssdhealth(self, mock_plat_json, mock_run_command):
-        mock_plat_json.return_value = {
-            "chassis": {
-                 "name": "mock_platform"
-            }
-        }
+    def test_ssdhealth(self, mock_run_command):
         result = CliRunner().invoke(show.cli.commands['platform'].commands['ssdhealth'], ["/dev/nvme0n1", '--verbose'])
         assert result.exit_code == 0, result.output
         assert mock_run_command.call_count == 1
         mock_run_command.assert_called_with(['sudo', 'ssdutil', '-d', '/dev/nvme0n1', '-v'], display_cmd=True)
-        mock_plat_json.assert_called_with()
 
     @mock.patch('os.popen')
     @mock.patch('utilities_common.cli.run_command')
