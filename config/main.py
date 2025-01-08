@@ -793,7 +793,7 @@ def _wait_until_clear(tables, interval=0.5, timeout=30, verbose=False):
                     click.echo("Some entries matching {} still exist: {}".format(table, keys[0]))
                 time.sleep(interval)
         empty = (non_empty_table_count == 0)
-    if not empty:
+    if not empty and timeout:
         click.echo("Operation not completed successfully, please save and reload configuration.")
     return empty
 
