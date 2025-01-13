@@ -209,7 +209,7 @@ class AclLoader(object):
 
         appl_db_keys = self.appldb.keys(self.appldb.APPL_DB, "{}:*".format(self.APPL_ACL_TABLE))
         if not appl_db_keys:
-            return  
+            return
 
         for app_acl_tbl in appl_db_keys:
             key = app_acl_tbl.split(":")[-1]

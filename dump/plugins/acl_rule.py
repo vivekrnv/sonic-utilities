@@ -27,7 +27,7 @@ class Acl_Rule(Executor):
         req_app = MatchRequest(db="APPL_DB", table=APP_RULE_NAME, key_pattern="*", ns=ns)
         ret_app = self.match_engine.fetch(req_app)
         return [f"{CFG_DB_SEPARATOR}".join(key.split(CFG_DB_SEPARATOR)[1:]) for key in ret.get("keys")] + \
-                [f"{APP_DB_SEPARATOR}".join(key.split(APP_DB_SEPARATOR)[1:]) for key in ret_app.get("keys")]
+               [f"{APP_DB_SEPARATOR}".join(key.split(APP_DB_SEPARATOR)[1:]) for key in ret_app.get("keys")]
 
     def execute(self, params):
         self.ret_temp = create_template_dict(dbs=["CONFIG_DB", "APPL_DB", "ASIC_DB"])

@@ -4,7 +4,7 @@ from click.testing import CliRunner
 
 import acl_loader.main as acl_loader_show
 from acl_loader import *
-from acl_loader.main import *
+from acl_loader.main import AclLoader
 from importlib import reload
 
 root_path = os.path.dirname(os.path.abspath(__file__))
