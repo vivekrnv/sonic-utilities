@@ -56,7 +56,7 @@ class Acl_Table(Executor):
             self.add_to_ret_template(req.table, req.db, ret["keys"], ret["error"])
 
     def init_acl_table_appl_info(self, acl_table_name):
-        req = MatchRequest(db="APPL_DB", table=APP_TABLE_NAME, key_pattern=acl_table_name, 
+        req = MatchRequest(db="APPL_DB", table=APP_TABLE_NAME, key_pattern=acl_table_name,
                            return_fields=["type"], ns=self.ns)
         ret = self.match_engine.fetch(req)
         if ret["keys"]:
@@ -79,7 +79,7 @@ class Acl_Table(Executor):
             return acl_rules[0].split(CFG_DB_SEPARATOR)[-1]
 
         # Check in APPL_DB
-        req = MatchRequest(db="APPL_DB", table=APP_RULE_NAME, 
+        req = MatchRequest(db="APPL_DB", table=APP_RULE_NAME,
                            key_pattern=APP_DB_SEPARATOR.join([acl_table_name, "*"]), ns=self.ns)
         ret = self.match_engine.fetch(req)
         acl_rules = ret["keys"]
