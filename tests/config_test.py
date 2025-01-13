@@ -1605,7 +1605,7 @@ class TestConfigQos(object):
     @patch('swsscommon.swsscommon.SonicV2Connector.keys')
     def test_qos_wait_until_clear_no_timeout(self, mock_keys, mock_echo):
         from config.main import _wait_until_clear
-        _wait_until_clear(["BUFFER_POOL_TABLE:*"], 0.5, 0)
+        assert _wait_until_clear(["BUFFER_POOL_TABLE:*"], 0.5, 0)
         mock_keys.assert_not_called()
         mock_echo.assert_not_called()
 
