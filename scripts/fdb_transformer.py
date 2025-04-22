@@ -1,15 +1,20 @@
 #!/usr/bin/env python
-# Convert dynamic FDB entries to static before warm reboot to avoid FDB flooding
-#         After updating the entries, delete from APPL_DB so that it can be converted to dynamic
+# 1) Convert dynamic FDB entries to static before warm reboot to avoid flooding
+#     Usage: ./fdb_dyn_to_static.py --pre_reboot
+# 2) Convert static FDB entries to dynamic after warm reboot
+#     Usage: ./fdb_dyn_to_static.py --post_reboot
 # Heavily Borrowed from fast-reboot-dump.py
 
 import time
 import json
 import argparse
+import sys
 from swsscommon import swsscommon
 from sonic_py_common import logger
 
-log = logger.Logger("FDBDynamicToStatic")
+log = logger.Logger("FDB Transformer")
+
+TRANSFORMED_FIELD = "transformed" # used for dynamic->static conversion post reboot
 
 def is_mac_unicast(mac):
     first_octet = mac.split(':')[0]
@@ -161,8 +166,9 @@ def convert_static_to_dynamic_using_asic(dry_run=False):
                 field_values = []
                 field_values.append(("type", "static"))
                 field_values.append(("port", port_name))
+                field_values.append((TRANSFORMED_FIELD, "true"))
                 fdb_producer.set(f"{vlan}:{mac}", field_values)
-                log.log_notice(f"Requested to convert FDB entry {vlan}:{mac}:{port_name} to static")
+                log.log_notice(f"Convert FDB entry {vlan}:{mac}:{port_name} to static")
 
             all_dynamic_fdb_keys[f"{vlan}:{mac}"] = key
 
@@ -170,28 +176,61 @@ def convert_static_to_dynamic_using_asic(dry_run=False):
         pipeline.flush()
 
     # Wait until all dynamic FDB entries are converted to static in ASIC DB
-    for appl_key, key in all_dynamic_fdb_keys.items():
-        fdb_entry = asic_db.get_all(asic_db.ASIC_DB, key)
-        if not dry_run:
-            tries = 50
-        else:
-            tries = 1
+    # for appl_key, key in all_dynamic_fdb_keys.items():
+    #     fdb_entry = asic_db.get_all(asic_db.ASIC_DB, key)
+    #     if not dry_run:
+    #         tries = 50
+    #     else:
+    #         tries = 1
 
-        while fdb_entry and fdb_entry.get("SAI_FDB_ENTRY_ATTR_TYPE") != "SAI_FDB_ENTRY_TYPE_STATIC":
-            time.sleep(0.1)
-            tries = tries - 1
-            if tries == 0:
-                break
-            fdb_entry = asic_db.get_all(asic_db.ASIC_DB, key)
+    #     while fdb_entry and fdb_entry.get("SAI_FDB_ENTRY_ATTR_TYPE") != "SAI_FDB_ENTRY_TYPE_STATIC":
+    #         time.sleep(0.1)
+    #         tries = tries - 1
+    #         if tries == 0:
+    #             break
+    #         fdb_entry = asic_db.get_all(asic_db.ASIC_DB, key)
     
-        if fdb_entry and fdb_entry.get("SAI_FDB_ENTRY_ATTR_TYPE") == "SAI_FDB_ENTRY_TYPE_DYNAMIC":
-            log.log_info(f"FDB entry fdb_entry: {key} converted to static")
+    #     if fdb_entry and fdb_entry.get("SAI_FDB_ENTRY_ATTR_TYPE") == "SAI_FDB_ENTRY_TYPE_DYNAMIC":
+    #         log.log_info(f"FDB entry fdb_entry: {key} converted to static")
 
-        # delete from APPL_DB
-        fdb_table._del(appl_key)
-        log.log_notice(f"FDB entry fdb_entry: {appl_key} cleared from APPL_DB")
+def convert_dynamic_to_static(dry_run=False):
+    app_db = swsscommon.SonicV2Connector(use_unix_socket_path=False)
+    app_db.connect(app_db.APPL_DB, False)
+    db_appl = swsscommon.DBConnector("APPL_DB", 0, False)
+    pipeline = swsscommon.RedisPipeline(db_appl)
+    fdb_producer = swsscommon.ProducerStateTable(pipeline, "FDB_TABLE", True)
+    fdb_table = swsscommon.Table(db_appl, "FDB_TABLE")
 
-parser = argparse.ArgumentParser(description='Convert dynamic FDB entries to static before warm reboot')
+    # Get all FDB entries from APPL_DB
+    keys = app_db.keys(app_db.APPL_DB, "FDB_TABLE:*")
+    keys = [] if keys is None else keys
+
+    for key in keys:
+        entry = app_db.get_all(app_db.APPL_DB, key)
+        if entry.get(TRANSFORMED_FIELD) == "true":
+            if dry_run:
+                print(f"Converting FDB entry {key} back to dynamic")
+            else:
+                field_values = []
+                field_values.append(("type", "dynamic"))
+                field_values.append(("port", entry["port"]))
+                fdb_producer.set(key.replace("FDB_TABLE:", ""), field_values)
+                log.log_notice(f"Convert FDB entry {key} back to dynamic")
+
+    if not dry_run:
+        pipeline.flush()
+    
+
+parser = argparse.ArgumentParser(description='Convert FDB entries to static->dynamic before warm reboot or dynamic->static after warm reboot')
 parser.add_argument('--dry_run', action='store_true', default=False, help='Dry run the script and print the dynamic FDB entries')
+optional = parser._action_groups.pop()
+group1 = parser.add_argument_group("Required arguments")
+group1.add_argument('--pre_reboot', action='store_true', default=False, help='Perform the conversion before warm reboot')
+group1.add_argument('--post_reboot', action='store_true', default=False, help='Perform the conversion after warm reboot')
+parser._action_groups.append(optional) # add optional arguments section again
 args = parser.parse_args()
-convert_static_to_dynamic_using_asic(args.dry_run)
+
+if args.pre_reboot:
+    convert_static_to_dynamic_using_asic(args.dry_run)
+else:
+    convert_dynamic_to_static(args.dry_run)
