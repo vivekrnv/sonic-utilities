@@ -26,7 +26,6 @@ try:
     import click
     import os
     import sys
-    import glob
     from pathlib import Path
     import datetime
     import syslog
@@ -112,7 +111,7 @@ def run_nasa_cli(cmd, docker_client):
     return run_in_syncd(cmd, docker_client)
 
 
-def rotate_dump_files(path, count, docker_client):
+def rotate_dump_files(path, count):
     """Rotate dump files in the given directory
 
     If the number of dump files in the directory is greater than the or equal to the count,
@@ -160,17 +159,17 @@ def get_location_details(docker_client):
         count = int(count)
     except ValueError as e:
         click.echo(f"Invalid count value: {count}, error: {e}", err=True)
-        return (None, None)
+        return (path_root, None)
 
     return path_root, count
 
-def cleanup_dump_files(docker_client, path_root, count, dir_name):
+def cleanup_dump_files(path_root, count, dir_name):
     """Cleanup dump files in the given directory"""
     if path_root is None or count is None:
         return
     path = os.path.join(path_root, dir_name)
     Path(path).mkdir(parents=True, exist_ok=True)
-    rotate_dump_files(path, count, docker_client)
+    rotate_dump_files(path, count)
 
 @click.group()
 def nvidia_bluefield():
@@ -197,7 +196,12 @@ def packet_drop(state):
         return rc
 
     path_root, count = get_location_details(docker_client)
-    cleanup_dump_files(docker_client, path_root, count, PKT_REC_DIR)
+
+    if path_root is None or count is None:
+        click.echo(f"Could not enable packet drop recording, dump directory not configured", err=True)
+        sys.exit(-1)
+
+    cleanup_dump_files(path_root, count, PKT_REC_DIR)
     path = os.path.join(path_root, PKT_REC_DIR)
 
     # create the bin file under the path path with timestamp
@@ -229,7 +233,12 @@ def config_record(state):
         return rc
 
     path_root, count = get_location_details(docker_client)
-    cleanup_dump_files(docker_client, path_root, count, CFG_REC_DIR)
+
+    if path_root is None or count is None:
+        click.echo(f"Could not enable config recording, dump directory/count not configured", err=True)
+        sys.exit(-1)
+
+    cleanup_dump_files(path_root, count, CFG_REC_DIR)
     path = os.path.join(path_root, CFG_REC_DIR)
 
     # create the bin file under the path path with timestamp
@@ -244,7 +253,7 @@ def config_record(state):
     else:
         syslog.syslog(syslog.LOG_NOTICE, f"Config recording enabled on {bin_path}")
         click.echo(f"Config recording {state}.")
-    
+
     sys.exit(rc)
 
 

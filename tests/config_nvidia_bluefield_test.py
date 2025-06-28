@@ -69,7 +69,7 @@ class TestNvidiaBluefieldSdk(TestCase):
             [(0, 100, '/var/log/file1'), (0, 200, '/var/log/file2')],
             600
         )
-        rotate_dump_files("/var/log", 2, self.docker_client)
+        rotate_dump_files("/var/log", 2)
         mock_remove.assert_called_once_with('/var/log/file2')
 
     @mock.patch('pathlib.Path.exists')
@@ -95,7 +95,6 @@ class TestNvidiaBluefieldSdk(TestCase):
             mock_get.side_effect = ["/var/log", "invalid"]
             
             path, count = get_location_details(self.docker_client)
-            self.assertIsNone(path)
             self.assertIsNone(count)
 
     def test_nasa_cli(self):
@@ -110,9 +109,9 @@ class TestNvidiaBluefieldSdk(TestCase):
     @mock.patch('pathlib.Path.mkdir')
     @mock.patch('config.plugins.nvidia_bluefield.rotate_dump_files')
     def test_cleanup_dump_files(self, m_rotate_dump_files, m_mkdir):
-        cleanup_dump_files(self.docker_client, "/var/log", 2, "test_dir")
+        cleanup_dump_files("/var/log", 2, "test_dir")
         m_mkdir.assert_called_once_with(parents=True, exist_ok=True)
-        m_rotate_dump_files.assert_called_once_with("/var/log/test_dir", 2, self.docker_client)
+        m_rotate_dump_files.assert_called_once_with("/var/log/test_dir", 2)
 
 class TestNvidiaBluefieldCliSdk(TestCase):
 
