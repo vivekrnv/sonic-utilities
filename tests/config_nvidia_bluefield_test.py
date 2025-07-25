@@ -31,8 +31,30 @@ from config.plugins.nvidia_bluefield import (
     rotate_dump_files,
     get_location_details,
     run_nasa_cli,
-    cleanup_dump_files
+    cleanup_dump_files,
+    get_packet_debug_mode,
+    get_sai_debug_mode
 )
+
+
+GET_CMD_OUTPUT_ENABLED = b"""\
+---------- NASA CLI ----------
+Open conection to NASA Service
+NASA service is up as expected, using running service
+Welcome to the NASA CLI.   Type help or press tab to list commands.
+nasa_cli> get_sai_debug_modez
+RC: SAI_STATUS_SUCCESS (0x0)
+filename: /tmp/config_record.bin
+"""
+
+GET_CMD_OUTPUT_DISABLED = b"""\
+---------- NASA CLI ----------
+Open conection to NASA Service
+NASA service is up as expected, using running service
+Welcome to the NASA CLI.   Type help or press tab to list commands.
+nasa_cli> get_packet_debug_mode
+RC: SAI_STATUS_ITEM_NOT_FOUND (-0x7)
+"""
 
 class TestNvidiaBluefieldSdk(TestCase):
     def setUp(self):
@@ -113,15 +135,45 @@ class TestNvidiaBluefieldSdk(TestCase):
         m_mkdir.assert_called_once_with(parents=True, exist_ok=True)
         m_rotate_dump_files.assert_called_once_with("/var/log/test_dir", 2)
 
+    def test_debug_mode_enabled(self):
+        self.container.exec_run = mock.MagicMock()
+        self.container.exec_run.return_value = (0, GET_CMD_OUTPUT_ENABLED)
+        status, filename = get_sai_debug_mode(self.docker_client)
+        assert status == 'enabled'
+        assert filename == '/tmp/config_record.bin'
+        self.container.exec_run.assert_has_calls([
+            mock.call('sh -c \'echo -n "get_sai_debug_mode\nquit\n" > /tmp/nasa_cli_cmd.txt\''),
+            mock.call('/usr/sbin/cli/nasa_cli.py -u --exit_on_failure -l /tmp/nasa_cli_cmd.txt'),
+        ])
+
+    def test_debug_mode_disabed(self):
+        self.container.exec_run = mock.MagicMock()
+        self.container.exec_run.return_value = (0, GET_CMD_OUTPUT_DISABLED)
+        status, filename = get_packet_debug_mode(self.docker_client)
+        assert status == 'disabled'
+        assert filename == None
+        self.container.exec_run.assert_has_calls([
+            mock.call('sh -c \'echo -n "get_packet_debug_mode\nquit\n" > /tmp/nasa_cli_cmd.txt\''),
+            mock.call('/usr/sbin/cli/nasa_cli.py -u --exit_on_failure -l /tmp/nasa_cli_cmd.txt'),
+        ])
+
+    def test_debug_mode_disabed_error(self):
+        self.container.exec_run = mock.MagicMock()
+        self.container.exec_run.return_value = (1, b"Random error")
+        status, filename = get_packet_debug_mode(self.docker_client)
+        assert status == 'disabled'
+        assert filename == None
+
 class TestNvidiaBluefieldCliSdk(TestCase):
 
     @mock.patch('docker.from_env')
     @mock.patch('os.mknod')
+    @mock.patch('config.plugins.nvidia_bluefield.get_packet_debug_mode', return_value=('', ''))
     @mock.patch('config.plugins.nvidia_bluefield.run_in_syncd', return_value=(0, b""))
     @mock.patch('config.plugins.nvidia_bluefield.cleanup_dump_files')
     @mock.patch('config.plugins.nvidia_bluefield.get_location_details', return_value=("/var/log/bluefield/sdk-dumps", 5))
     @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value={"asic_type": "nvidia-bluefield"})
-    def test_packet_drop_cli(self, m_device_info, m_get_location_details, m_cleanup_dump_files, m_run_in_syncd, m_mknod, m_docker):
+    def test_packet_drop_cli(self, m_device_info, m_get_location_details, m_cleanup_dump_files, m_run_in_syncd, m_current, m_mknod, m_docker):
         helper = util_base.UtilHelper()
         helper.load_and_register_plugins(plugins, config.config)
         runner = CliRunner()
@@ -129,7 +181,7 @@ class TestNvidiaBluefieldCliSdk(TestCase):
         f_name = m_mknod.call_args.args[0]
         assert f_name.startswith("/var/log/bluefield/sdk-dumps/packet-drop/pkt_dump_record_")
         assert result.exit_code == 0
-        assert "Packet drop recording enabled." in result.output
+        assert "Packet drop recording enabled" in result.output
         assert m_run_in_syncd.call_count == 2
         cmd_create = m_run_in_syncd.call_args_list[0].args[0]
         cmd_run = m_run_in_syncd.call_args_list[1].args[0]
@@ -146,16 +198,17 @@ class TestNvidiaBluefieldCliSdk(TestCase):
         assert 'set_packet_debug_mode' in cmd_create
         assert '/usr/sbin/cli/nasa_cli.py -u --exit_on_failure -l /tmp/nasa_cli_cmd.txt' in cmd_run
         assert result.exit_code == 0
-        assert "Packet drop recording disabled." in result.output
+        assert "Packet drop recording disabled" in result.output
         
 
     @mock.patch('docker.from_env')
     @mock.patch('os.mknod')
+    @mock.patch('config.plugins.nvidia_bluefield.get_sai_debug_mode', return_value=('', ''))
     @mock.patch('config.plugins.nvidia_bluefield.run_in_syncd', return_value=(0, b""))
     @mock.patch('config.plugins.nvidia_bluefield.cleanup_dump_files')
     @mock.patch('config.plugins.nvidia_bluefield.get_location_details', return_value=("/var/log/bluefield/sdk-dumps", 5))
     @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value={"asic_type": "nvidia-bluefield"})
-    def test_config_record_cli(self, m_device_info, m_get_location_details, m_cleanup_dump_files, m_run_in_syncd, m_mknod, m_docker):
+    def test_config_record_cli(self, m_device_info, m_get_location_details, m_cleanup_dump_files, m_run_in_syncd, m_current, m_mknod, m_docker):
         helper = util_base.UtilHelper()
         helper.load_and_register_plugins(plugins, config.config)
         runner = CliRunner()
@@ -163,7 +216,7 @@ class TestNvidiaBluefieldCliSdk(TestCase):
         f_name = m_mknod.call_args.args[0]
         assert f_name.startswith("/var/log/bluefield/sdk-dumps/config-record/cfg_record_")
         assert result.exit_code == 0
-        assert "Config recording enabled." in result.output
+        assert "Config recording enabled" in result.output
         assert m_run_in_syncd.call_count == 2
         cmd_create = m_run_in_syncd.call_args_list[0].args[0]
         cmd_run = m_run_in_syncd.call_args_list[1].args[0]
@@ -180,4 +233,4 @@ class TestNvidiaBluefieldCliSdk(TestCase):
         assert 'set_sai_debug_mode' in cmd_create
         assert '/usr/sbin/cli/nasa_cli.py -u --exit_on_failure -l /tmp/nasa_cli_cmd.txt' in cmd_run
         assert result.exit_code == 0
-        assert "Config recording disabled." in result.output
+        assert "Config recording disabled" in result.output

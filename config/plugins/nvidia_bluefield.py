@@ -46,26 +46,6 @@ SAI_KEY_DUMP_STORE_COUNT = 'SAI_DUMP_STORE_AMOUNT'
 CFG_REC_DIR = "config-record"
 PKT_REC_DIR = "packet-drop"
 
-def get_sai_profile_value(key, docker_client):
-    """Get value for a given key from /tmp/sai.profile file in syncd container.
-
-    Args:
-        key (str): Key to look up in the profile file
-        docker_client (docker.client.DockerClient): Docker client
-
-    Returns:
-        str: Value for the given key, or None if not found
-    """
-    cmd = f"cat {SAI_PROFILE_FILE}"
-    rc, out = run_in_syncd(cmd, docker_client)
-
-    if rc == 0 and out:
-        for line in out.splitlines():
-            if line.startswith(f"{key}="):
-                return line.split('=', 1)[1]
-    return ""
-
-
 def run_in_syncd(cmd, docker_client):
     """Run a command in the syncd container using Docker Python SDK.
 
@@ -163,6 +143,7 @@ def get_location_details(docker_client):
 
     return path_root, count
 
+
 def cleanup_dump_files(path_root, count, dir_name):
     """Cleanup dump files in the given directory"""
     if path_root is None or count is None:
@@ -170,6 +151,78 @@ def cleanup_dump_files(path_root, count, dir_name):
     path = os.path.join(path_root, dir_name)
     Path(path).mkdir(parents=True, exist_ok=True)
     rotate_dump_files(path, count)
+
+def parse_nasa_output(output, mode_type):
+    """Parse NASA CLI output to determine status and filename"""
+    if not output:
+        return "disabled", None
+
+    lines = output.splitlines()
+    filename = None
+
+    for line in lines:
+        line = line.strip()
+
+        # Look for filename line (format: "filename: /path/to/file.bin")
+        if line.startswith("filename:"):
+            filename = line.split(":", 1)[1].strip()
+            enabled = True
+            break
+
+    return "enabled" if filename else "disabled", filename
+
+
+def get_packet_debug_mode(docker_client):
+    """Get packet debug mode status"""
+    try:
+        rc, output = run_nasa_cli("get_packet_debug_mode", docker_client)
+        if rc != 0:
+            print(f"Error querying packet debug mode: \n {output}", file=sys.stderr)
+            return "disabled", None
+
+        status, filename = parse_nasa_output(output, "packet")
+        return status, filename
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return "disabled", None
+
+
+def get_sai_debug_mode(docker_client):
+    """Get SAI debug mode status"""
+    try:
+        rc, output = run_nasa_cli("get_sai_debug_mode", docker_client)
+        if rc != 0:
+            print(f"Error querying SAI debug mode: \n {output}", file=sys.stderr)
+            return "disabled", None
+
+        status, filename = parse_nasa_output(output, "sai")
+        return status, filename
+
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return "disabled", None
+
+
+def get_sai_profile_value(key, docker_client):
+    """Get value for a given key from /tmp/sai.profile file in syncd container.
+
+    Args:
+        key (str): Key to look up in the profile file
+        docker_client (docker.client.DockerClient): Docker client
+
+    Returns:
+        str: Value for the given key, or None if not found
+    """
+    cmd = f"cat {SAI_PROFILE_FILE}"
+    rc, out = run_in_syncd(cmd, docker_client)
+
+    if rc == 0 and out:
+        for line in out.splitlines():
+            if line.startswith(f"{key}="):
+                return line.split('=', 1)[1]
+    return ""
+
 
 @click.group()
 def nvidia_bluefield():
@@ -189,6 +242,15 @@ def packet_drop(state):
     """Enable or disable packet drop recording"""
     import docker
     docker_client = docker.from_env()
+    # check if the packet drop recording is already enabled
+    status, filename = get_packet_debug_mode(docker_client)
+    if status == 'enabled' and state == 'enabled':
+        click.echo(f"Packet drop recording is already enabled on {filename}")
+        sys.exit(0)
+    elif status == 'disabled' and state == 'disabled':
+        click.echo(f"Packet drop recording is already disabled")
+        sys.exit(0)
+
     if state == 'disabled':
         rc, _ = run_nasa_cli(PKT_REC_CMD_PREFIX, docker_client)
         if rc == 0:
@@ -215,7 +277,7 @@ def packet_drop(state):
         click.echo(f"Could not enable packet drop recording: {stdout}", err=True)
     else:
         syslog.syslog(syslog.LOG_NOTICE, f"Packet drop recording enabled on {bin_path}")
-        click.echo(f"Packet drop recording {state}.")
+        click.echo(f"Packet drop recording {state} on {bin_path}.")
 
     sys.exit(rc)
 
@@ -226,6 +288,15 @@ def config_record(state):
     """Enable or disable configuration recording"""
     import docker
     docker_client = docker.from_env()
+    # check if the packet drop recording is already enabled
+    status, filename = get_sai_debug_mode(docker_client)
+    if status == 'enabled' and state == 'enabled':
+        click.echo(f"Packet drop recording is already enabled on {filename}")
+        sys.exit(0)
+    elif status == 'disabled' and state == 'disabled':
+        click.echo(f"Packet drop recording is already disabled")
+        sys.exit(0)
+
     if state == 'disabled':
         rc, _ = run_nasa_cli(CFG_REC_CMD_PREFIX, docker_client)
         if rc == 0:
@@ -252,7 +323,7 @@ def config_record(state):
         click.echo(f"Could not enable config recording: {stdout}", err=True)
     else:
         syslog.syslog(syslog.LOG_NOTICE, f"Config recording enabled on {bin_path}")
-        click.echo(f"Config recording {state}.")
+        click.echo(f"Config recording {state} on {bin_path}.")
 
     sys.exit(rc)
 
