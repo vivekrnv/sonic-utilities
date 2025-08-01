@@ -222,7 +222,7 @@ class TestNvidiaBluefieldCliSdk(TestCase):
     @mock.patch('config.plugins.nvidia_bluefield.get_location_details', return_value=("/var/log/bluefield/", 5))
     @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value=ASIC_TYPE_NVDA_BF)
     def test_config_record_cli(
-        self, 
+        self,
         m_device_info,
         m_get_location_details,
         m_cleanup_dump_files,
