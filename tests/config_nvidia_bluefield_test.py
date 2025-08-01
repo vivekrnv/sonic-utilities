@@ -52,6 +52,8 @@ nasa_cli> get_packet_debug_mode
 RC: SAI_STATUS_ITEM_NOT_FOUND (-0x7)
 """
 
+ASIC_TYPE_NVDA_BF = {"asic_type": "nvidia-bluefield"}
+
 
 class TestNvidiaBluefieldSdk(TestCase):
     def setUp(self):
@@ -168,14 +170,24 @@ class TestNvidiaBluefieldCliSdk(TestCase):
     @mock.patch('config.plugins.nvidia_bluefield.run_in_syncd', return_value=(0, b""))
     @mock.patch('config.plugins.nvidia_bluefield.cleanup_dump_files')
     @mock.patch('config.plugins.nvidia_bluefield.get_location_details', return_value=("/var/log/bluefield/", 5))
-    @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value={"asic_type":"nvidia-bluefield"})
-    def test_packet_drop_cli(self, m_device_info, m_get_location_details, m_cleanup_dump_files, 
-                            m_run_in_syncd, m_current, m_mknod, m_docker):
+    @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value=ASIC_TYPE_NVDA_BF)
+    def test_packet_drop_cli(
+            self, 
+            m_device_info, 
+            m_get_location_details, 
+            m_cleanup_dump_files, 
+            m_run_in_syncd, 
+            m_current, 
+            m_mknod, 
+            m_docker
+        ):
         helper = util_base.UtilHelper()
         helper.load_and_register_plugins(plugins, config.config)
         runner = CliRunner()
-        result = runner.invoke(config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"], 
-                                ["packet-drop", "enabled"])
+        result = runner.invoke(
+            config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"], 
+            ["packet-drop", "enabled"]
+        )
         f_name = m_mknod.call_args.args[0]
         assert f_name.startswith("/var/log/bluefield/packet-drop/pkt_dump_record_")
         assert result.exit_code == 0
@@ -190,8 +202,10 @@ class TestNvidiaBluefieldCliSdk(TestCase):
         m_run_in_syncd.reset_mock()
 
         runner = CliRunner()
-        result = runner.invoke(config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"], 
-                                ["packet-drop", "disabled"])
+        result = runner.invoke(
+            config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"], 
+            ["packet-drop", "disabled"]
+        )
         assert m_run_in_syncd.call_count == 2
         cmd_create = m_run_in_syncd.call_args_list[0].args[0]
         cmd_run = m_run_in_syncd.call_args_list[1].args[0]
@@ -207,14 +221,24 @@ class TestNvidiaBluefieldCliSdk(TestCase):
     @mock.patch('config.plugins.nvidia_bluefield.run_in_syncd', return_value=(0, b""))
     @mock.patch('config.plugins.nvidia_bluefield.cleanup_dump_files')
     @mock.patch('config.plugins.nvidia_bluefield.get_location_details', return_value=("/var/log/bluefield/", 5))
-    @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value={"asic_type":"nvidia-bluefield"})
-    def test_config_record_cli(self, m_device_info, m_get_location_details, m_cleanup_dump_files, 
-                                m_run_in_syncd, m_current, m_mknod, m_docker):
+    @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value=ASIC_TYPE_NVDA_BF)
+    def test_config_record_cli(
+            self, 
+            m_device_info, 
+            m_get_location_details, 
+            m_cleanup_dump_files, 
+            m_run_in_syncd, 
+            m_current, 
+            m_mknod, 
+            m_docker
+        ):
         helper = util_base.UtilHelper()
         helper.load_and_register_plugins(plugins, config.config)
         runner = CliRunner()
-        result = runner.invoke(config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"], 
-                                ["config-record", "enabled"])
+        result = runner.invoke(
+            config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"],
+            ["config-record", "enabled"]
+        )
         f_name = m_mknod.call_args.args[0]
         assert f_name.startswith("/var/log/bluefield/config-record/cfg_record_")
         assert result.exit_code == 0
@@ -228,8 +252,10 @@ class TestNvidiaBluefieldCliSdk(TestCase):
         m_run_in_syncd.reset_mock()
 
         runner = CliRunner()
-        result = runner.invoke(config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"], 
-                                ["config-record", "disabled"])
+        result = runner.invoke(
+            config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"],
+            ["config-record", "disabled"]
+        )
         assert m_run_in_syncd.call_count == 2
         cmd_create = m_run_in_syncd.call_args_list[0].args[0]
         cmd_run = m_run_in_syncd.call_args_list[1].args[0]
