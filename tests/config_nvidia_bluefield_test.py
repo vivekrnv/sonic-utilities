@@ -172,20 +172,20 @@ class TestNvidiaBluefieldCliSdk(TestCase):
     @mock.patch('config.plugins.nvidia_bluefield.get_location_details', return_value=("/var/log/bluefield/", 5))
     @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value=ASIC_TYPE_NVDA_BF)
     def test_packet_drop_cli(
-            self, 
-            m_device_info, 
-            m_get_location_details, 
-            m_cleanup_dump_files, 
-            m_run_in_syncd, 
-            m_current, 
-            m_mknod, 
-            m_docker
-        ):
+        self,
+        m_device_info,
+        m_get_location_details,
+        m_cleanup_dump_files,
+        m_run_in_syncd,
+        m_current,
+        m_mknod,
+        m_docker
+    ):
         helper = util_base.UtilHelper()
         helper.load_and_register_plugins(plugins, config.config)
         runner = CliRunner()
         result = runner.invoke(
-            config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"], 
+            config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"],
             ["packet-drop", "enabled"]
         )
         f_name = m_mknod.call_args.args[0]
@@ -203,7 +203,7 @@ class TestNvidiaBluefieldCliSdk(TestCase):
 
         runner = CliRunner()
         result = runner.invoke(
-            config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"], 
+            config.config.commands["platform"].commands["nvidia-bluefield"].commands["sdk"],
             ["packet-drop", "disabled"]
         )
         assert m_run_in_syncd.call_count == 2
@@ -214,7 +214,6 @@ class TestNvidiaBluefieldCliSdk(TestCase):
         assert result.exit_code == 0
         assert "Packet drop recording disabled" in result.output
 
-
     @mock.patch('docker.from_env')
     @mock.patch('os.mknod')
     @mock.patch('config.plugins.nvidia_bluefield.get_sai_debug_mode', return_value=('', ''))
@@ -223,15 +222,15 @@ class TestNvidiaBluefieldCliSdk(TestCase):
     @mock.patch('config.plugins.nvidia_bluefield.get_location_details', return_value=("/var/log/bluefield/", 5))
     @mock.patch('sonic_py_common.device_info.get_sonic_version_info', return_value=ASIC_TYPE_NVDA_BF)
     def test_config_record_cli(
-            self, 
-            m_device_info, 
-            m_get_location_details, 
-            m_cleanup_dump_files, 
-            m_run_in_syncd, 
-            m_current, 
-            m_mknod, 
-            m_docker
-        ):
+        self, 
+        m_device_info,
+        m_get_location_details,
+        m_cleanup_dump_files,
+        m_run_in_syncd,
+        m_current,
+        m_mknod,
+        m_docker
+    ):
         helper = util_base.UtilHelper()
         helper.load_and_register_plugins(plugins, config.config)
         runner = CliRunner()
