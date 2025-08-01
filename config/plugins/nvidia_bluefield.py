@@ -46,6 +46,7 @@ SAI_KEY_DUMP_STORE_COUNT = 'SAI_DUMP_STORE_AMOUNT'
 CFG_REC_DIR = "config-record"
 PKT_REC_DIR = "packet-drop"
 
+
 def run_in_syncd(cmd, docker_client):
     """Run a command in the syncd container using Docker Python SDK.
 
@@ -152,6 +153,7 @@ def cleanup_dump_files(path_root, count, dir_name):
     Path(path).mkdir(parents=True, exist_ok=True)
     rotate_dump_files(path, count)
 
+
 def parse_nasa_output(output, mode_type):
     """Parse NASA CLI output to determine status and filename"""
     if not output:
@@ -166,7 +168,6 @@ def parse_nasa_output(output, mode_type):
         # Look for filename line (format: "filename: /path/to/file.bin")
         if line.startswith("filename:"):
             filename = line.split(":", 1)[1].strip()
-            enabled = True
             break
 
     return "enabled" if filename else "disabled", filename
@@ -248,7 +249,7 @@ def packet_drop(state):
         click.echo(f"Packet drop recording is already enabled on {filename}")
         sys.exit(0)
     elif status == 'disabled' and state == 'disabled':
-        click.echo(f"Packet drop recording is already disabled")
+        click.echo("Packet drop recording is already disabled")
         sys.exit(0)
 
     if state == 'disabled':
@@ -260,7 +261,7 @@ def packet_drop(state):
     path_root, count = get_location_details(docker_client)
 
     if path_root is None or count is None:
-        click.echo(f"Could not enable packet drop recording, dump directory not configured", err=True)
+        click.echo("Could not enable packet drop recording, dump directory not configured", err=True)
         sys.exit(-1)
 
     cleanup_dump_files(path_root, count, PKT_REC_DIR)
@@ -294,7 +295,7 @@ def config_record(state):
         click.echo(f"Packet drop recording is already enabled on {filename}")
         sys.exit(0)
     elif status == 'disabled' and state == 'disabled':
-        click.echo(f"Packet drop recording is already disabled")
+        click.echo("Packet drop recording is already disabled")
         sys.exit(0)
 
     if state == 'disabled':
@@ -306,7 +307,7 @@ def config_record(state):
     path_root, count = get_location_details(docker_client)
 
     if path_root is None or count is None:
-        click.echo(f"Could not enable config recording, dump directory/count not configured", err=True)
+        click.echo("Could not enable config recording, dump directory/count not configured", err=True)
         sys.exit(-1)
 
     cleanup_dump_files(path_root, count, CFG_REC_DIR)
