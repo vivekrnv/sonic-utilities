@@ -24,9 +24,9 @@ REXEC_HELP = '''Usage: cli [OPTIONS] LINECARD_NAMES...
   Executes a command on one or many linecards
 
   :param linecard_names: A list of linecard names to execute the command on,
-  use `all` to execute on all linecards. :param command: The command to
-  execute on the linecard(s) :param username: The username to use to login to
-  the linecard(s)
+  use `all` to execute on all linecards. :param command: The command to execute
+  on the linecard(s) :param username: The username to use to login to the
+  linecard(s)
 
 Options:
   -c, --command TEXT   [required]
