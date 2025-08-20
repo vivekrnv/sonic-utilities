@@ -81,8 +81,7 @@ def run_nasa_cli(cmd, docker_client):
     # First create a temp file in the container
 
     lines = [cmd + '\n', 'quit\n']
-    content = ''.join(lines).replace("'", "'\"'\"'")  # Escape single quotes
-    command = f"sh -c 'echo -n \"{content}\" > {NASA_CLI_CMD_F}'"
+    command = f"sh -c 'echo -n \"{''.join(lines)}\" > {NASA_CLI_CMD_F}'"
     rc, stdout = run_in_syncd(command, docker_client)
 
     if rc != 0:
@@ -92,7 +91,7 @@ def run_nasa_cli(cmd, docker_client):
     return run_in_syncd(cmd, docker_client)
 
 
-def rotate_dump_files(path, count):
+def rotate_dump_files(path, max_count):
     """Rotate dump files in the given directory
 
     If the number of dump files in the directory is greater than the or equal to the count,
@@ -100,7 +99,7 @@ def rotate_dump_files(path, count):
 
     Args:
         path (str): Directory to rotate dump files. Should be accessible from the host
-        count (int): Number of dump files to keep
+        max_count (int): Max number of dump files to keep
         docker_client (docker.client.DockerClient): Docker client
 
     Returns:
@@ -110,7 +109,7 @@ def rotate_dump_files(path, count):
     syslog.syslog(syslog.LOG_INFO, f"Logrotate: Current size of the directory {path} : {pretty_size(num_bytes)}")
 
     # If number of files exceeds count, delete the oldest ones
-    num_delete = len(fs_stats) - count
+    num_delete = len(fs_stats) - max_count
     while num_delete >= 0:
         stat = fs_stats.pop()
         os.remove(stat[2])

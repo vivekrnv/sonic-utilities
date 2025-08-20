@@ -143,7 +143,7 @@ class TestNvidiaBluefieldSdk(TestCase):
             mock.call('/usr/sbin/cli/nasa_cli.py -u --exit_on_failure -l /tmp/nasa_cli_cmd.txt'),
         ])
 
-    def test_debug_mode_disabed(self):
+    def test_debug_mode_disabled(self):
         self.container.exec_run = mock.MagicMock()
         self.container.exec_run.return_value = (0, GET_CMD_OUTPUT_DISABLED)
         status, filename = get_packet_debug_mode(self.docker_client)
@@ -154,7 +154,7 @@ class TestNvidiaBluefieldSdk(TestCase):
             mock.call('/usr/sbin/cli/nasa_cli.py -u --exit_on_failure -l /tmp/nasa_cli_cmd.txt'),
         ])
 
-    def test_debug_mode_disabed_error(self):
+    def test_debug_mode_disabled_error(self):
         self.container.exec_run = mock.MagicMock()
         self.container.exec_run.return_value = (1, b"Random error")
         status, filename = get_packet_debug_mode(self.docker_client)
