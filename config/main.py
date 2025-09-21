@@ -172,6 +172,7 @@ def write_json_file(json_input, fileName):
     except Exception as e:
         raise Exception(str(e))
 
+
 def _get_breakout_options(ctx, param, incomplete):
     """ Provides dynamic mode option as per user argument i.e. interface name """
     all_mode_options = []
