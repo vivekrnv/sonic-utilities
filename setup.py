@@ -234,7 +234,7 @@ setup(
     },
     install_requires=[
         'bcrypt>=3.2.2',
-        'click>=8.0',
+        'click>=8.0, <8.3',  # Click 8.3 has some bug with mutual exclusions
         'cryptography>=3.3.2',
         'urllib3>=2',
         'click-log>=0.3.2',
