@@ -3,20 +3,14 @@
 Unit tests for sonic-dpu-flow-dump.py
 """
 
+import importlib.util
 import os
 import sys
 import json
 import gzip
 import tempfile
 import subprocess
-import pytest
 from unittest.mock import Mock, patch, MagicMock, mock_open
-
-# Select status constants (match swsscommon.Select)
-SELECT_TIMEOUT = 0
-SELECT_ERROR = 1
-SELECT_OBJECT = 2
-from io import BytesIO
 
 # Add the scripts directory to the path
 test_path = os.path.dirname(os.path.abspath(__file__))
@@ -24,12 +18,16 @@ scripts_path = os.path.join(os.path.dirname(test_path), 'scripts')
 sys.path.insert(0, scripts_path)
 
 # Dynamically load the module since it has hyphens in the filename
-import importlib.util
 script_path = os.path.join(scripts_path, 'sonic-dpu-flow-dump.py')
 spec = importlib.util.spec_from_file_location("sonic_dpu_flow_dump", script_path)
 flow_dump = importlib.util.module_from_spec(spec)
 sys.modules["sonic_dpu_flow_dump"] = flow_dump
 spec.loader.exec_module(flow_dump)
+
+# Select status constants (match swsscommon.Select)
+SELECT_TIMEOUT = 0
+SELECT_ERROR = 1
+SELECT_OBJECT = 2
 
 
 class TestGenerateSessionName:
@@ -344,7 +342,8 @@ class TestWaitForCompletion:
     @patch.object(flow_dump.swsscommon, 'Select')
     @patch.object(flow_dump.swsscommon, 'SubscriberStateTable')
     @patch.object(flow_dump.swsscommon, 'DBConnector')
-    def test_wait_for_completion_completed(self, mock_db, mock_sub_class, mock_select_class, mock_table_class, mock_verbose):
+    def test_wait_for_completion_completed(
+            self, mock_db, mock_sub_class, mock_select_class, mock_table_class, mock_verbose):
         """Test completion path: notification returns completed state and output_file."""
         mock_table = Mock()
         mock_table.get.return_value = (True, [
@@ -376,7 +375,9 @@ class TestWaitForCompletion:
     @patch.object(flow_dump.swsscommon, 'Select')
     @patch.object(flow_dump.swsscommon, 'SubscriberStateTable')
     @patch.object(flow_dump.swsscommon, 'DBConnector')
-    def test_wait_for_completion_failed(self, mock_db, mock_sub_class, mock_select_class, mock_table_class, mock_verbose, mock_err):
+    def test_wait_for_completion_failed(
+            self, mock_db, mock_sub_class, mock_select_class, mock_table_class, mock_verbose,
+            mock_err):
         """Test failed state path."""
         mock_table = Mock()
         mock_table.get.return_value = (True, [("state", "failed"), ("output_file", None)])
