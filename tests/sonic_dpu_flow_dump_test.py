@@ -468,3 +468,35 @@ class TestPrintFlows:
 
         # Should not print anything
         mock_print.assert_not_called()
+
+
+class TestMain:
+    """Test main() with mocks; state 'completed' path."""
+
+    @patch.object(flow_dump, 'print_flows')
+    @patch.object(flow_dump, 'wait_for_completion',
+                  return_value=('completed', '/var/dump/flows/flow_dump_oid.jsonl.gz'))
+    @patch.object(flow_dump, 'trigger_flow_dump', return_value=True)
+    @patch.object(flow_dump, 'create_config_file', return_value='test_session')
+    @patch.object(flow_dump, 'is_dpu_type', return_value=True)
+    @patch.object(flow_dump, 'print_verbose')
+    @patch('sys.argv', ['sonic-dpu-flow-dump.py'])
+    def test_main_completed_with_output_file(
+            self, mock_verbose, mock_is_dpu, mock_create, mock_trigger, mock_wait, mock_print_flows):
+        """Main returns 0 when state is 'completed' and output_file is set; print_flows called."""
+        rc = flow_dump.main()
+        assert rc == 0
+        mock_is_dpu.assert_called_once()
+        mock_create.assert_called_once()
+        mock_trigger.assert_called_once_with(flow_dump.CONFIG_FILE_PATH)
+        mock_wait.assert_called_once_with('test_session', 60)
+        mock_print_flows.assert_called_once_with('/var/dump/flows/flow_dump_oid.jsonl.gz', False)
+
+    @patch.object(flow_dump, 'is_dpu_type', return_value=False)
+    @patch.object(flow_dump, 'print_error')
+    @patch('sys.argv', ['sonic-dpu-flow-dump.py'])
+    def test_main_not_dpu_returns_1(self, mock_err, mock_is_dpu):
+        """Main returns 1 when not DPU type."""
+        rc = flow_dump.main()
+        assert rc == 1
+        mock_is_dpu.assert_called_once()
