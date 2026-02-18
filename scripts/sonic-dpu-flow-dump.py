@@ -310,7 +310,7 @@ def convert_flow_attributes(flow_data):
                 attr_name = FLOW_ENTRY_ATTR_MAP.get(attr_id, key)
                 converted[attr_name] = value
             except (ValueError, TypeError):
-                converted[key] = value
+                converted[key.upper()] = value
     return converted
 
 
@@ -422,7 +422,7 @@ def main():
 
     # Check switch type before proceeding
     if not is_dpu_type():
-        sys.exit(1)
+        return 1
 
     session_name = create_config_file(
         CONFIG_FILE_PATH,
@@ -432,12 +432,12 @@ def main():
     )
 
     if session_name is None:
-        sys.exit(1)
+        return 1
 
     print_verbose(f"Using session name: {session_name}")
 
     if not trigger_flow_dump(CONFIG_FILE_PATH):
-        sys.exit(1)
+        return 1
 
     state, output_file = wait_for_completion(session_name, args.timeout)
 
@@ -447,16 +447,18 @@ def main():
         else:
             print_verbose("Session completed but no output file specified.")
             print_verbose("This may indicate that no flows matched the criteria or no flows exist.")
+        return 0
     elif state == "failed":
         print_error("Flow dump session failed. Check logs for details.")
-        sys.exit(1)
+        return 1
     else:
         print_verbose(f"Flow dump session ended with state: {state}")
         if output_file:
             print_flows(output_file, args.file_only)
         elif state:
             print_verbose(f'Session state is "{state}" but no output file available.')
+        return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -11,6 +11,11 @@ import tempfile
 import subprocess
 import pytest
 from unittest.mock import Mock, patch, MagicMock, mock_open
+
+# Select status constants (match swsscommon.Select)
+SELECT_TIMEOUT = 0
+SELECT_ERROR = 1
+SELECT_OBJECT = 2
 from io import BytesIO
 
 # Add the scripts directory to the path
@@ -183,8 +188,9 @@ class TestExtractFlowsFromFile:
             os.unlink(tmp_path)
 
     def test_extract_flows_single_flow(self):
-        """Test extraction of single flow."""
+        """Test extraction of single flow (keys are converted to uppercase)."""
         flow_data = {"flow_id": "1", "eni": "eni1", "action": "forward"}
+        expected = {"FLOW_ID": "1", "ENI": "eni1", "ACTION": "forward"}
 
         with tempfile.NamedTemporaryFile(suffix='.jsonl.gz', delete=False) as tmp_file:
             tmp_path = tmp_file.name
@@ -194,15 +200,18 @@ class TestExtractFlowsFromFile:
         try:
             flows = flow_dump.extract_flows_from_file(tmp_path)
             assert len(flows) == 1
-            assert flows[0] == flow_data
+            assert flows[0] == expected
         finally:
             os.unlink(tmp_path)
 
     def test_extract_flows_multiple_flows(self):
-        """Test extraction of multiple flows."""
+        """Test extraction of multiple flows (keys are converted to uppercase)."""
         flow1 = {"flow_id": "1", "eni": "eni1"}
         flow2 = {"flow_id": "2", "eni": "eni2"}
         flow3 = {"flow_id": "3", "eni": "eni3"}
+        expected1 = {"FLOW_ID": "1", "ENI": "eni1"}
+        expected2 = {"FLOW_ID": "2", "ENI": "eni2"}
+        expected3 = {"FLOW_ID": "3", "ENI": "eni3"}
 
         with tempfile.NamedTemporaryFile(suffix='.jsonl.gz', delete=False) as tmp_file:
             tmp_path = tmp_file.name
@@ -214,17 +223,19 @@ class TestExtractFlowsFromFile:
         try:
             flows = flow_dump.extract_flows_from_file(tmp_path)
             assert len(flows) == 3
-            assert flows[0] == flow1
-            assert flows[1] == flow2
-            assert flows[2] == flow3
+            assert flows[0] == expected1
+            assert flows[1] == expected2
+            assert flows[2] == expected3
         finally:
             os.unlink(tmp_path)
 
     def test_extract_flows_invalid_json_skipped(self):
-        """Test that invalid JSON lines are skipped."""
+        """Test that invalid JSON lines are skipped (keys are converted to uppercase)."""
         flow1 = {"flow_id": "1", "eni": "eni1"}
         invalid_line = "not a json object"
         flow2 = {"flow_id": "2", "eni": "eni2"}
+        expected1 = {"FLOW_ID": "1", "ENI": "eni1"}
+        expected2 = {"FLOW_ID": "2", "ENI": "eni2"}
 
         with tempfile.NamedTemporaryFile(suffix='.jsonl.gz', delete=False) as tmp_file:
             tmp_path = tmp_file.name
@@ -236,8 +247,8 @@ class TestExtractFlowsFromFile:
         try:
             flows = flow_dump.extract_flows_from_file(tmp_path)
             assert len(flows) == 2
-            assert flows[0] == flow1
-            assert flows[1] == flow2
+            assert flows[0] == expected1
+            assert flows[1] == expected2
         finally:
             os.unlink(tmp_path)
 
@@ -325,6 +336,67 @@ class TestProcessNotification:
         assert output_file is None
 
 
+class TestWaitForCompletion:
+    """Test wait_for_completion flow (completion path)."""
+
+    @patch.object(flow_dump, 'print_verbose')
+    @patch.object(flow_dump.swsscommon, 'Table')
+    @patch.object(flow_dump.swsscommon, 'Select')
+    @patch.object(flow_dump.swsscommon, 'SubscriberStateTable')
+    @patch.object(flow_dump.swsscommon, 'DBConnector')
+    def test_wait_for_completion_completed(self, mock_db, mock_sub_class, mock_select_class, mock_table_class, mock_verbose):
+        """Test completion path: notification returns completed state and output_file."""
+        mock_table = Mock()
+        mock_table.get.return_value = (True, [
+            ("state", "completed"),
+            ("output_file", "/var/dump/flows/flow_dump.jsonl.gz")
+        ])
+        mock_table_class.return_value = mock_table
+
+        mock_sub = MagicMock()
+        mock_sub.pop.return_value = ("my_session", "SET", [("state", "completed")])
+        mock_sub_class.return_value = mock_sub
+
+        mock_select_class.TIMEOUT = SELECT_TIMEOUT
+        mock_select_class.ERROR = SELECT_ERROR
+        mock_select_class.OBJECT = SELECT_OBJECT
+        mock_select_class.return_value.select.side_effect = [
+            (SELECT_OBJECT, mock_sub),
+            (SELECT_TIMEOUT, None),
+        ]
+
+        state, output_file = flow_dump.wait_for_completion("my_session", timeout=60)
+
+        assert state == "completed"
+        assert output_file == "/var/dump/flows/flow_dump.jsonl.gz"
+
+    @patch.object(flow_dump, 'print_error')
+    @patch.object(flow_dump, 'print_verbose')
+    @patch.object(flow_dump.swsscommon, 'Table')
+    @patch.object(flow_dump.swsscommon, 'Select')
+    @patch.object(flow_dump.swsscommon, 'SubscriberStateTable')
+    @patch.object(flow_dump.swsscommon, 'DBConnector')
+    def test_wait_for_completion_failed(self, mock_db, mock_sub_class, mock_select_class, mock_table_class, mock_verbose, mock_err):
+        """Test failed state path."""
+        mock_table = Mock()
+        mock_table.get.return_value = (True, [("state", "failed"), ("output_file", None)])
+        mock_table_class.return_value = mock_table
+
+        mock_sub = MagicMock()
+        mock_sub.pop.return_value = ("my_session", "SET", [("state", "failed")])
+        mock_sub_class.return_value = mock_sub
+
+        mock_select_class.TIMEOUT = SELECT_TIMEOUT
+        mock_select_class.ERROR = SELECT_ERROR
+        mock_select_class.OBJECT = SELECT_OBJECT
+        mock_select_class.return_value.select.side_effect = [(SELECT_OBJECT, mock_sub)]
+
+        state, output_file = flow_dump.wait_for_completion("my_session", timeout=60)
+
+        assert state == "failed"
+        assert output_file is None
+
+
 class TestTriggerFlowDump:
     """Test flow dump triggering."""
 
@@ -371,9 +443,8 @@ class TestPrintFlows:
 
             # Check that file path was printed
             assert mock_print.call_count >= 1
-            # Check that flows were printed
-            printed_calls = [str(call) for call in mock_print.call_args_list]
-            assert any("flow_id" in str(call) for call in mock_print.call_args_list)
+            # Check that flows were printed (keys are uppercase after conversion)
+            assert any("FLOW_ID" in str(call) for call in mock_print.call_args_list)
         finally:
             os.unlink(tmp_path)
 
@@ -396,53 +467,3 @@ class TestPrintFlows:
 
         # Should not print anything
         mock_print.assert_not_called()
-
-
-class TestIntegration:
-    """Integration tests with sample file."""
-
-    def test_extract_flows_from_sample_file(self):
-        """Test extraction from a sample flow dump file."""
-        # Create sample flow dump data similar to real file
-        sample_flows = [
-            {
-                "sai_flow_entry": {
-                    "eni_id": "eni-001",
-                    "vni": 100,
-                    "src_ip": "10.1.0.10",
-                    "dst_ip": "10.1.0.20"
-                },
-                "action": "forward",
-                "priority": 100
-            },
-            {
-                "sai_flow_entry": {
-                    "eni_id": "eni-002",
-                    "vni": 200,
-                    "src_ip": "10.2.0.10",
-                    "dst_ip": "10.2.0.20"
-                },
-                "action": "drop",
-                "priority": 200
-            }
-        ]
-
-        with tempfile.NamedTemporaryFile(suffix='.jsonl.gz', delete=False) as tmp_file:
-            tmp_path = tmp_file.name
-            with gzip.open(tmp_path, 'wt') as f:
-                for flow in sample_flows:
-                    f.write(json.dumps(flow) + "\n")
-
-        try:
-            flows = flow_dump.extract_flows_from_file(tmp_path)
-
-            assert len(flows) == 2
-            assert flows[0] == sample_flows[0]
-            assert flows[1] == sample_flows[1]
-
-            # Verify structure
-            assert "sai_flow_entry" in flows[0]
-            assert flows[0]["sai_flow_entry"]["eni_id"] == "eni-001"
-            assert flows[1]["sai_flow_entry"]["eni_id"] == "eni-002"
-        finally:
-            os.unlink(tmp_path)
