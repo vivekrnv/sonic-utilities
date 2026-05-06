@@ -1787,7 +1787,8 @@ def users(verbose):
 @click.option('--debug-dump', is_flag=True, help="Collect Debug Dump Output")
 @click.option('--redirect-stderr', '-r', is_flag=True, help="Redirect an intermediate errors to STDERR")
 @click.option('--flow-dump', is_flag=True, help="Collect DPU flow dump (Only valid on DPU platforms)")
-def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop, silent, debug_dump, redirect_stderr, flow_dump):
+def techsupport(since, global_timeout, cmd_timeout, verbose, allow_process_stop,
+                silent, debug_dump, redirect_stderr, flow_dump):
     """Gather information for troubleshooting"""
     cmd = ["sudo"]
 
