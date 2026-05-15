@@ -2483,7 +2483,6 @@ save_gearbox_data() {
 # Save DPU Flow Dump for better debugging
 ###############################################################################
 start_dpu_flow_dump() {
-    trap 'handle_error $? $LINENO' ERR
     if [[ "${ENABLE_FLOW_DUMP}" != true ]]; then
         return
     fi
@@ -2524,8 +2523,10 @@ start_dpu_flow_dump() {
             echo "DPU flow dump saved: $LOGDIR/$(basename "$src")"
         fi
     else
-        if [[ -f "$stderr_file" ]]; then
-            echo "DPU flow dump collection failed (rc=${rc}). Stderr: $stderr_file"
+        if [[ -s "$stderr_file" ]]; then
+            local err_log="${LOGDIR}/dpu_flow_dump.stderr"
+            $CP "$stderr_file" "$err_log"
+            echo "DPU flow dump collection failed (rc=${rc}). Stderr saved: $err_log"
         else
             echo "DPU flow dump collection failed or skipped (rc=${rc})."
         fi
