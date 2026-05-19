@@ -51,6 +51,7 @@ from .utils import log
 from . import aaa
 from . import bmc
 from . import chassis_modules
+from . import liquid_cool
 from . import console
 from . import feature
 from . import fabric
@@ -1756,6 +1757,7 @@ config.add_command(aaa.tacacs)
 config.add_command(aaa.radius)
 config.add_command(bmc.bmc)
 config.add_command(chassis_modules.chassis)
+config.add_command(liquid_cool.liquid_cool)
 config.add_command(console.console)
 config.add_command(fabric.fabric)
 config.add_command(feature.feature)
@@ -6390,17 +6392,19 @@ def frequency(ctx, interface_name, frequency):
     clicommon.run_command(command)
 
 
-#
-# 'tx_power' subcommand ('config interface transceiver tx_power ...')
-# For negative float use:-
-# config interface transceiver tx_power Ethernet0 -- -27.4"
-#
 @transceiver.command('tx_power')
 @click.pass_context
 @click.argument('interface_name', metavar='<interface_name>', required=True)
 @click.argument('tx-power', metavar='<tx-power>', required=True, type=float)
 def tx_power(ctx, interface_name, tx_power):
-    """Set transceiver (only for 400G-ZR) Tx laser power"""
+    """Set transciever (only for 400G-ZR) Tx laser power.
+
+    For negative values, you must insert ``--`` before the value so that
+    Click treats it as a positional argument instead of an option. For example:
+
+      config interface transceiver tx_power Ethernet0 -- -11
+    """
+
     # Get the config_db connector
     config_db = ctx.obj['config_db']
 
