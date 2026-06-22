@@ -75,6 +75,9 @@
 * [ECN](#ecn)
   * [ECN show commands](#ecn-show-commands)
   * [ECN config commands](#ecn-config-commands)
+* [EVPN-MH](#evpn-mh)
+  * [EVPN-MH config commands](#evpn-mh-config-commands)
+  * [EVPN-MH show commands](#evpn-mh-show-commands)
 * [Fabric](#fabric)
   * [Fabric config commands](#fabric-config-commands)
 * [Feature](#feature)
@@ -178,6 +181,9 @@
 * [Radius](#radius)
   * [Radius show commands](#show-radius-commands)
   * [Radius config commands](#Radius-config-commands)
+* [SAG MAC](#sag-mac)
+  * [SAG MAC config commands](#SAG-MAC-config-commands)
+  * [SAG MAC show commands](#SAG-MAC-show-commands)
 * [Switch](#switch)
   * [Switch Show commands](#switch-show-commands)
   * [Switch Clear commands](#switch-clear-commands)
@@ -5097,6 +5103,173 @@ The list of the WRED profile fields that are configurable is listed in the below
   ```
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#ecn)
+
+## EVPN-MH
+
+This section explains all the Ethernet VPN Multi-Homing (EVPN-MH) commands that are supported in SONiC.
+
+### EVPN-MH config commands
+
+**config evpn-mh startup-delay <startup_delay>**
+
+This command configures the EVPN-MH startup delay in seconds.
+
+- Usage:
+  ```
+  config evpn-mh startup-delay <startup_delay>
+  ```
+
+- Parameters:
+  - _startup_delay_: delay in seconds. Valid values are 0-3600.
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config evpn-mh startup-delay 300
+  ```
+
+**config evpn-mh mac-holdtime <mac_holdtime>**
+
+This command configures the EVPN-MH MAC hold time in seconds.
+
+- Usage:
+  ```
+  config evpn-mh mac-holdtime <mac_holdtime>
+  ```
+
+- Parameters:
+  - _mac_holdtime_: hold time in seconds. Valid values are 0-86400.
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config evpn-mh mac-holdtime 1080
+  ```
+
+**config evpn-mh neigh-holdtime <neigh_holdtime>**
+
+This command configures the EVPN-MH neighbor hold time in seconds.
+
+- Usage:
+  ```
+  config evpn-mh neigh-holdtime <neigh_holdtime>
+  ```
+
+- Parameters:
+  - _neigh_holdtime_: hold time in seconds. Valid values are 0-86400.
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config evpn-mh neigh-holdtime 1080
+  ```
+
+**config interface evpn-esi add <interface_name> <esi_type>**
+**config interface evpn-esi del <interface_name>**
+
+These commands configure or remove an EVPN Ethernet Segment on an interface.
+
+- Usage:
+  ```
+  config interface evpn-esi add <interface_name> <esi_type>
+  config interface evpn-esi del <interface_name>
+  ```
+
+- Parameters:
+  - _interface_name_: PortChannel interface name.
+  - _esi_type_: `auto-system-mac` or a type-0 operator-configured ESI in `XX:XX:XX:XX:XX:XX:XX:XX:XX:XX` format.
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config interface evpn-esi add PortChannel01 auto-system-mac
+  admin@sonic:~$ sudo config interface evpn-esi add PortChannel02 00:01:02:03:04:05:06:07:08:09
+  admin@sonic:~$ sudo config interface evpn-esi del PortChannel01
+  ```
+
+**config interface evpn-df-pref <interface_name> <df_pref>**
+
+This command configures the EVPN Ethernet Segment designated-forwarder preference for an interface.
+
+- Usage:
+  ```
+  config interface evpn-df-pref <interface_name> <df_pref>
+  ```
+
+- Parameters:
+  - _interface_name_: PortChannel interface name.
+  - _df_pref_: designated-forwarder preference. Valid values are 1-65535.
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config interface evpn-df-pref PortChannel01 32767
+  ```
+
+### EVPN-MH show commands
+
+**show evpn**
+
+This command displays EVPN information from BGP.
+
+- Usage:
+  ```
+  show evpn
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show evpn
+  ```
+
+**show evpn es [<esi>]**
+
+This command displays EVPN Ethernet Segment information. An optional ESI filters the output to one Ethernet Segment.
+
+- Usage:
+  ```
+  show evpn es [<esi>]
+  ```
+
+- Parameters:
+  - _esi_: optional ESI in `XX:XX:XX:XX:XX:XX:XX:XX:XX:XX` format.
+
+- Example:
+  ```
+  admin@sonic:~$ show evpn es
+  admin@sonic:~$ show evpn es 00:01:02:03:04:05:06:07:08:09
+  ```
+
+**show evpn es-evi [<vni>|detail]**
+
+This command displays Ethernet Segment per-EVI information.
+
+- Usage:
+  ```
+  show evpn es-evi [<vni>|detail]
+  ```
+
+- Parameters:
+  - _vni_: optional VXLAN Network Identifier. Valid values are 1-16777215.
+  - _detail_: display detailed Ethernet Segment per-EVI information.
+
+- Example:
+  ```
+  admin@sonic:~$ show evpn es-evi
+  admin@sonic:~$ show evpn es-evi 100
+  admin@sonic:~$ show evpn es-evi detail
+  ```
+
+**show evpn l2-nh**
+
+This command displays EVPN Layer 2 nexthops.
+
+- Usage:
+  ```
+  show evpn l2-nh
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show evpn l2-nh
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#evpn-mh)
 
 ## Fabric
 
@@ -11643,6 +11816,60 @@ This command is to config the radius server for various parameter listed.
 
   ```
 
+## SAG MAC
+
+### SAG MAC config commands
+
+This section explains all the commands that are supported in SONiC to configure static-anycast-gateway MAC address.
+
+**config static-anycast-gateway mac_address add <mac_address>**
+
+This command enables use to add a static-anycast-gateway MAC address
+- Usage:
+  ```
+  config static-anycast-gateway mac_address add <mac_address>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55
+  ```
+
+**config static-anycast-gateway mac_address del**
+
+This command enables user to delete the static-anycast-gateway MAC address.
+
+- Usage:
+  ```
+  config static-anycast-gateway mac_address del
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config static-anycast-gateway mac_address del
+  ```
+
+### SAG MAC Show commands
+**show static-anycast-gateway**
+This command displays all the interfaces which have enabled the SAG MAC address.
+- Usage:
+  ```
+  show static-anycast-gateway
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ show static-anycast-gateway
+  Static Anycast Gateway Information
+  MacAddress         Interfaces
+  -----------------  ------------
+  00:11:22:33:44:55  Vlan3
+                     Vlan4
+
+  ```
+
+Go Back To [Beginning of the document](#) or [Beginning of this section](#sag)
+
 # Switch
 
 This section explains the various show, configuration and clear commands available for users.
@@ -11718,6 +11945,7 @@ This command is used to clear switch counters.
   ```
 
 Go Back To [Beginning of the document](#) or [Beginning of this section](#switch)
+
 
 ## sFlow
 
@@ -13428,7 +13656,7 @@ Go Back To [Beginning of the document](#) or [Beginning of this section](#System
 
 **show vlan brief**
 
-This command displays brief information about all the vlans configured in the device. It displays the vlan ID, IP address (if configured for the vlan), list of vlan member ports, whether the port is tagged or in untagged mode, the DHCPv4 Helper Address, and the proxy ARP status. On multi-ASIC platforms, use -n to show a specific namespace or omit to show all namespaces.
+This command displays brief information about all the vlans configured in the device. It displays the vlan ID, IP address (if configured for the vlan), list of vlan member ports, whether the port is tagged or in untagged mode, the DHCPv4 Helper Address, the proxy ARP status, and the Static Anycast Gateway status. On multi-ASIC platforms, use -n to show a specific namespace or omit to show all namespaces.
 
 - Usage:
   ```
@@ -13438,15 +13666,15 @@ This command displays brief information about all the vlans configured in the de
 - Example:
   ```
   admin@sonic:~$ show vlan brief
-
-  +-----------+--------------+-----------+----------------+-----------------------+-------------+
-  |   VLAN ID | IP Address   | Ports     | Port Tagging   | DHCP Helper Address   | Proxy ARP   |
-  +===========+==============+===========+================+=======================+=============+
-  |       100 | 1.1.2.2/16   | Ethernet0 | tagged         | 192.0.0.1             | disabled    |
-  |           |              | Ethernet4 | tagged         | 192.0.0.2             |             |
-  |           |              |           |                | 192.0.0.3             |             |
-  +-----------+--------------+-----------+----------------+-----------------------+-------------+
+  +-----------+------------------+-----------+----------------+-------------+--------------------------+-----------------------+
+  |   VLAN ID | IP Address       | Ports     | Port Tagging   | Proxy ARP   | Static Anycast Gateway   | DHCP Helper Address   |
+  +===========+==================+===========+================+=============+==========================+=======================+
+  |         3 | 200.200.200.1/24 | Ethernet8 | untagged       | disabled    | enabled                  |                       |
+  +-----------+------------------+-----------+----------------+-------------+--------------------------+-----------------------+
+  |         4 | 100.200.200.1/24 | Ethernet4 | untagged       | disabled    | enabled                  |                       |
+  +-----------+------------------+-----------+----------------+-------------+--------------------------+-----------------------+
   ```
+
 
 **show vlan config**
 
@@ -13520,6 +13748,22 @@ This command is to add or delete a member port into the already created vlan.
 
   admin@sonic:~$ sudo config vlan member add 100 Ethernet4
   This command will add Ethernet4 as member of the vlan 100.
+  ```
+**config sag enable/disable**
+
+This command is used to enable or disable static-anycast-gateway for a VLAN interface
+
+- Usage:
+  ```
+  config vlan static-anycast-gateway enable/disable <vlan_id>
+  ```
+
+- Example:
+  ```
+  admin@sonic:~$ sudo config vlan static-anycast-gateway enable 3
+  static-anycast-gateway setting saved to ConfigDB
+  admin@sonic:~$ sudo config vlan static-anycast-gateway disable 3
+  static-anycast-gateway setting saved to ConfigDB
   ```
 
 **config vlan member add/del -m -e**
