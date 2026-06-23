@@ -41,6 +41,7 @@ except KeyError:
 
 from . import acl
 from . import bgp_common
+from .vtysh_helper import vtysh_command
 from . import chassis_modules
 from . import dropcounters
 from . import evpn
@@ -1453,8 +1454,9 @@ def loopback_action():
 # 'route' subcommand ("show ip route")
 #
 
-@ip.command()
-@click.argument('args', metavar='[IPADDRESS] [vrf <vrf_name>] [...]', nargs=-1, required=False)
+
+@ip.command(cls=vtysh_command("show ip route"))
+@click.argument('args', nargs=-1, required=False)
 @click.option('--display', '-d', 'display', default=None, show_default=False, type=str, help='all|frontend')
 @click.option('--namespace', '-n', 'namespace', default=None, type=str, show_default=False, help='Namespace name or all')
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
@@ -1550,8 +1552,8 @@ def interfaces(namespace, display):
 # 'route' subcommand ("show ipv6 route")
 #
 
-@ipv6.command()
-@click.argument('args', metavar='[IPADDRESS] [vrf <vrf_name>] [...]', nargs=-1, required=False)
+@ipv6.command(cls=vtysh_command("show ipv6 route"))
+@click.argument('args', nargs=-1, required=False)
 @click.option('--display', '-d', 'display', default=None, show_default=False, type=str, help='all|frontend')
 @click.option('--namespace', '-n', 'namespace', default=None, type=str, show_default=False, help='Namespace name or all')
 @click.option('--verbose', is_flag=True, help="Enable verbose output")
@@ -1559,7 +1561,6 @@ def route(args, namespace, display, verbose):
     """Show IPv6 routing table"""
     # Call common handler to handle the show ipv6 route cmd
     bgp_common.show_routes(args, namespace, display, verbose, "ipv6")
-
 
 # 'protocol' command
 @ipv6.command()
