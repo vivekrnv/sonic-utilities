@@ -14,6 +14,7 @@ from config.plugins.pbh import serialize_pbh_counters
 from . import plugins
 from . import stp
 from . import icmp as icmp_clear
+
 # This is from the aliases example:
 # https://github.com/pallets/click/blob/57c6f09611fc47ca80db0bd010f05998b3c0aa95/examples/aliases/aliases.py
 class Config(object):
@@ -150,6 +151,41 @@ def ipv6():
 #
 cli.add_command(stp.spanning_tree)
 cli.add_command(icmp_clear.icmp)
+
+
+# 'LLR'
+#
+@cli.group(cls=clicommon.AliasedGroup)
+def llr():
+    """Clear LLR (Link Layer Retry) counters"""
+    pass
+
+
+@llr.group(name='counters', invoke_without_command=True, cls=clicommon.AliasedGroup)
+@click.option('-n', '--namespace', help='Namespace name', required=False,
+              type=multi_asic_util.LazyChoice(multi_asic_util.multi_asic_ns_choices),
+              default=None)
+@click.pass_context
+def llr_counters(ctx, namespace):
+    """Clear LLR counter statistics (all ports)"""
+    if ctx.invoked_subcommand is None:
+        command = ["llrstat", "-c"]
+        if namespace:
+            command += ["-n", str(namespace)]
+        run_command(command)
+
+
+@llr_counters.command(name='interface')
+@click.argument('interface_name', metavar='<interface-name>')
+@click.option('-n', '--namespace', help='Namespace name', required=False,
+              type=multi_asic_util.LazyChoice(multi_asic_util.multi_asic_ns_choices),
+              default=None)
+def llr_counters_interface(interface_name, namespace):
+    """Clear LLR counter statistics for a specific interface"""
+    command = ["llrstat", "-c", "-i", str(interface_name)]
+    if namespace:
+        command += ["-n", str(namespace)]
+    run_command(command)
 
 #
 # Inserting BGP functionality into cli's clear parse-chain.
